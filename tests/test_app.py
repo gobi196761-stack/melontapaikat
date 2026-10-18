@@ -139,3 +139,63 @@ def test_prosessipoolin_puuttuminen_ei_kaada(monkeypatch):
     kuvat = sorted(FIXTURES.glob("*.png"))[:2]
     tulokset = melonta._lue_kaaviot([(k.name.replace("_", "/", 2), k.read_bytes()) for k in kuvat], True)
     assert len(tulokset) == 2 and all(virhe is None for _, _, virhe in tulokset)
+
+
+class Kanta:
+    def __init__(self):
+        self.kirjoitetut = []
+
+    def kirjoita(self, kokoelma, tunniste, data):
+        self.kirjoitetut.append((kokoelma, tunniste, data))
+
+
+def cron(monkeypatch, otsake=None):
+    vastaus = {}
+
+    def start_response(status, otsakkeet):
+        vastaus["status"] = status
+
+    environ = {"PATH_INFO": "/api/arkistoi", "QUERY_STRING": "", "REQUEST_METHOD": "GET",
+               "wsgi.input": io.BytesIO()}
+    if otsake:
+        environ["HTTP_AUTHORIZATION"] = otsake
+    runko = b"".join(app.app(environ, start_response))
+    return vastaus["status"], json.loads(runko)
+
+
+@pytest.fixture
+def arkisto(monkeypatch):
+    kanta = Kanta()
+    ajo = {"ennustepvm_www": "2026-10-18", "qhav": {"ensim_pvm": "2026-10-17", "lst": [100.0]},
+           "qinlask_ka": {"ensim_pvm": "2026-10-18", "lst": [101.0, 102.0]}}
+    monkeypatch.setattr(app.ennustearkisto, "hae_ajot",
+                        lambda: ({"61/q6101452y/ajo.json": ajo}, {"61/q6101750y": "HTTP 500"}))
+    monkeypatch.setattr(app.firestore.Firestore, "ymparistosta", classmethod(lambda cls: kanta))
+    monkeypatch.setattr(app, "suomen_aika", lambda: PAIVA)
+    return kanta
+
+
+def test_arkistointi_vaatii_salaisuuden(monkeypatch, arkisto):
+    monkeypatch.delenv("CRON_SECRET", raising=False)
+    assert cron(monkeypatch, "Bearer ")[0].startswith("503")
+    monkeypatch.setenv("CRON_SECRET", "s3cret")
+    assert cron(monkeypatch)[0].startswith("401")
+    assert cron(monkeypatch, "Bearer väärä")[0].startswith("401")
+    assert not arkisto.kirjoitetut
+
+
+def test_arkistointi_firestoreen(monkeypatch, arkisto):
+    monkeypatch.setenv("CRON_SECRET", "s3cret")
+    status, tulos = cron(monkeypatch, "Bearer s3cret")
+    assert status == "200 OK"
+    assert tulos["tallennettu"] == "ennusteet/2026-10-18" and tulos["asemia"] == 1
+    assert tulos["varoitukset"] == {"61/q6101750y": "HTTP 500"}
+    [(kokoelma, tunniste, data)] = arkisto.kirjoitetut
+    assert data["asemat"]["61/q6101452y"]["qhav"] == {"2026-10-17": 100.0}
+    assert "virhe" in data["asemat"]["61/q6101750y"]
+
+
+def test_arkistointi_ilman_firestorea(monkeypatch, arkisto):
+    monkeypatch.setenv("CRON_SECRET", "s3cret")
+    monkeypatch.setattr(app.firestore.Firestore, "ymparistosta", classmethod(lambda cls: None))
+    assert cron(monkeypatch, "Bearer s3cret")[0].startswith("503")

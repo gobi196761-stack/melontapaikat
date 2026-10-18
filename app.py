@@ -3,6 +3,8 @@
 Reitit:
     /       päivän järjestys taulukkona
     /api    sama JSON-muodossa (kuten `melonta.py --json`)
+    /api/arkistoi  päivän ennusteiden arkistointi Firestoreen (Vercel Cron,
+                   vaatii otsakkeen Authorization: Bearer $CRON_SECRET)
 Suodattimet kummallekin: ?tyyppi=peli|retki ja ?max_km=N
 
 Paikallisesti:
@@ -16,13 +18,17 @@ välimuistiin (Cache-Control: s-maxage). Näin vain harva pyyntö odottaa.
 from __future__ import annotations
 
 import datetime as dt
+import hmac
 import html
 import json
+import os
 import threading
 import time
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urlencode
 
+import ennustearkisto
+import firestore
 import melonta
 import osm_sivut as osm
 from paikat import PAIKAT, aseman_nimi
@@ -217,6 +223,35 @@ paikan päällä.</p>
 </html>"""
 
 
+def arkistoi(environ) -> tuple[str, dict]:
+    """Vercel Cron: kokoaa päivän ennustearkiston ja tallentaa sen Firestoreen."""
+    salaisuus = os.environ.get("CRON_SECRET", "")
+    if not salaisuus:
+        return "503 Service Unavailable", {"virhe": "CRON_SECRET puuttuu"}
+    if not hmac.compare_digest(environ.get("HTTP_AUTHORIZATION", "").encode("utf-8", "surrogateescape"),
+                               f"Bearer {salaisuus}".encode("utf-8")):
+        return "401 Unauthorized", {"virhe": "väärä tai puuttuva tunniste"}
+    try:
+        kanta = firestore.Firestore.ymparistosta()
+    except (ValueError, KeyError, OSError) as e:
+        return "503 Service Unavailable", {"virhe": f"FIREBASE_SERVICE_ACCOUNT ei kelpaa: {e!r}"}
+    if not kanta:
+        return "503 Service Unavailable", {"virhe": "FIREBASE_SERVICE_ACCOUNT puuttuu"}
+    nyt = suomen_aika()
+    ajot, virheet = ennustearkisto.hae_ajot()
+    arkisto = ennustearkisto.kokoa(ajot, nyt, virheet)
+    onnistuneet = ennustearkisto.onnistuneet(arkisto)
+    if not onnistuneet:
+        return "502 Bad Gateway", {"virhe": "yhtään asemaa ei saatu", "varoitukset": virheet}
+    tunniste = nyt.date().isoformat()
+    try:
+        kanta.kirjoita(ennustearkisto.KOKOELMA, tunniste, arkisto)
+    except (firestore.FirestoreVirhe, OSError) as e:
+        return "502 Bad Gateway", {"virhe": f"Firestore: {e}"}
+    return "200 OK", {"tallennettu": f"{ennustearkisto.KOKOELMA}/{tunniste}", "asemia": len(onnistuneet),
+                      "arvioita": len(arkisto["arviot"]), "varoitukset": virheet}
+
+
 # ---------------------------------------------------------------------------
 # WSGI
 # ---------------------------------------------------------------------------
@@ -235,6 +270,9 @@ def app(environ, start_response):
 
     if metodi not in ("GET", "HEAD"):
         return vastaa("405 Method Not Allowed", "text/plain; charset=utf-8", "Vain GET.\n")
+    if polku == "/api/arkistoi":
+        status, tulos = arkistoi(environ)
+        return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False))
     if polku not in ("/", "/api"):
         return vastaa("404 Not Found", "text/plain; charset=utf-8", "Ei löydy.\n")
 

@@ -113,6 +113,44 @@ Tukholmassa (`arn1`) lähellä osm.fi:tä ja SYKE:ä ja jättää testit pois pa
    tuo +2 (enintään +6). Sama lasketaan ennusteesta seuraaville kolmelle päivälle.
    Järjestys: pisteet (5 pisteen tarkkuudella), tasapisteissä lähempi paikka ensin.
 
+## Ennusteiden arkisto ja tarkkuus
+
+SYKE ei säilytä vanhoja ennusteitaan, joten niiden tarkkuutta voi verrata vain
+omasta arkistosta. Kerran päivässä Maalismaan, Pahkakosken, Siuruan, Kurenaluksen
+ja Livojoen ajo.jsonista tallennetaan ennuste (`qinlask_ka`, `qinlask_5`,
+`qinlask_95`) seuraavalle 7 päivälle, havainnot (`qhav`) viimeiseltä 7 päivältä
+ja sovelluksen oma Hawa'Ii-arvio ennusteineen (`ennustearkisto.py`).
+
+Verkossa **Vercel Cron** kutsuu joka ilta klo 18 UTC (`vercel.json`) reittiä
+`/api/arkistoi`, joka tallentaa päivän Firestoreen dokumentiksi
+`ennusteet/YYYY-MM-DD` (`firestore.py`, REST-rajapinta palvelutilin avaimella).
+Käyttöönotto:
+
+1. Luo Firebase-projekti ja siihen Firestore-tietokanta (tuotantotila: säännöt
+   estävät selainkäytön, palvelutili ohittaa ne).
+2. Luo Google Cloud Consolessa (IAM → Service Accounts) palvelutili roolilla
+   *Cloud Datastore User* ja sille JSON-avain. Firebase-konsolin
+   "Generate new private key" käy myös, mutta sen oikeudet ovat laajemmat.
+3. Lisää Vercel-projektin ympäristömuuttujiksi `FIREBASE_SERVICE_ACCOUNT`
+   (avaintiedoston koko sisältö) ja `CRON_SECRET` (pitkä satunnainen merkkijono;
+   Vercel lähettää sen cron-kutsun `Authorization`-otsakkeessa). Valinnaiset:
+   `FIREBASE_PROJECT_ID`, `FIRESTORE_DATABASE`, `FIRESTORE_KOKOELMA`.
+4. Julkaise uudelleen. Kokeile: `curl -H "Authorization: Bearer $CRON_SECRET" https://<osoite>/api/arkistoi`.
+
+Paikallisesti samat työkalut (`FIREBASE_SERVICE_ACCOUNT` voi olla myös polku avaintiedostoon):
+
+```bash
+uv run tyokalut/arkistoi_ennusteet.py               # -> aineisto/ennusteet/YYYY-MM-DD.json
+uv run tyokalut/arkistoi_ennusteet.py --firestore   # -> Firestore
+uv run tyokalut/vertaa_ennusteet.py --firestore     # RMSE ja harha +1/+2/+3 pv:lle (tai --kansio, --json)
+```
+
+Vertailu laskee virheen myöhemmin julkaistuun havaintoon SYKE:n ennusteelle
+sellaisenaan, SYKE:n ennusteen muutokselle tuoreimmasta havainnosta,
+sovelluksen omalle ennusteelle ja vertailukohdaksi pysyvyysennusteelle
+(tuorein havainto pysyy samana) sekä osuuden havainnoista SYKE:n 5–95 %:n
+välillä.
+
 ## Optimiolosuhteiden analyysi
 
 Rajat ovat sivujen kuvauksista (`paikat.py`). *Arvio* = kuvauksessa ei ole
