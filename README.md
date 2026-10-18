@@ -113,6 +113,26 @@ Tukholmassa (`arn1`) lähellä osm.fi:tä ja SYKE:ä ja jättää testit pois pa
    tuo +2 (enintään +6). Sama lasketaan ennusteesta seuraaville kolmelle päivälle.
    Järjestys: pisteet (5 pisteen tarkkuudella), tasapisteissä lähempi paikka ensin.
 
+## Ennusteiden arkisto ja tarkkuus
+
+SYKE ei säilytä vanhoja ennusteitaan, joten niiden tarkkuutta voi verrata vain
+omasta arkistosta. `tyokalut/arkistoi_ennusteet.py` tallentaa kerran päivässä
+Maalismaan, Pahkakosken, Siuruan, Kurenaluksen ja Livojoen ajo.jsonista
+ennusteen (`qinlask_ka`, `qinlask_5`, `qinlask_95`) seuraavalle 7 päivälle,
+havainnot (`qhav`) viimeiseltä 7 päivältä ja sovelluksen oman Hawa'Ii-arvion
+ennusteineen tiedostoon `aineisto/ennusteet/YYYY-MM-DD.json`.
+
+```bash
+uv run tyokalut/arkistoi_ennusteet.py   # kerran päivässä, esim. illalla SYKE:n päivityksen jälkeen
+uv run tyokalut/vertaa_ennusteet.py     # RMSE ja harha +1/+2/+3 pv:lle (--json koneluettavana)
+```
+
+Vertailu laskee virheen myöhemmin julkaistuun havaintoon SYKE:n ennusteelle
+sellaisenaan, SYKE:n ennusteen muutokselle tuoreimmasta havainnosta,
+sovelluksen omalle ennusteelle ja vertailukohdaksi pysyvyysennusteelle
+(tuorein havainto pysyy samana) sekä osuuden havainnoista SYKE:n 5–95 %:n
+välillä. `aineisto/` on `.gitignore`ssa, joten arkisto jää ajokoneelle.
+
 ## Optimiolosuhteiden analyysi
 
 Rajat ovat sivujen kuvauksista (`paikat.py`). *Arvio* = kuvauksessa ei ole
