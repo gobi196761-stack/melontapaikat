@@ -308,6 +308,7 @@ class Kaaviolukema:
     mediaani: float | None = None
     tunnusluvut: dict[str, float] = field(default_factory=dict)  # MHW, MNW, ...
     asteikko: tuple[float, float] = (0.0, 0.0)  # arvo = a + b * y
+    tietolahde: str = "kaavio"      # "kaavio" | "SYKE-data" | "arvio <malli>" (ks. syke_data.py)
 
     @property
     def arvo(self) -> float | None:
@@ -316,11 +317,15 @@ class Kaaviolukema:
 
     @property
     def lahde(self) -> str:
+        if self.tietolahde.startswith("arvio"):
+            return self.tietolahde
         if self.havaittu is None:
-            return "malli"
-        if self.havaittu_paivia_sitten:
-            return f"havainto {self.havaittu_paivia_sitten} pv sitten"
-        return "havainto"
+            lahde = "malli"
+        elif self.havaittu_paivia_sitten:
+            lahde = f"havainto {self.havaittu_paivia_sitten} pv sitten"
+        else:
+            lahde = "havainto"
+        return lahde if self.tietolahde == "kaavio" else f"{lahde}, {self.tietolahde}"
 
     def ennuste_korjattu(self, paivia: int) -> float | None:
         """Ennusteen muutos lisättynä havaintoon (malli voi olla harhainen)."""

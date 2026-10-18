@@ -29,6 +29,7 @@ from pathlib import Path
 
 import arviointi
 import osm_sivut as osm
+import syke_data
 from paikat import PAIKAT, Paikka, aseman_nimi
 from syke_kaavio import KaavioLukija, Kaaviolukema, KaavioVirhe
 
@@ -123,6 +124,32 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
             varoitukset.append(f"Kaavion tulkinta epäonnistui: {virhe}")
         else:
             lukemat[avain] = lukema
+
+    # 4. Havainto, malli ja ennuste numeroina asemien ajo.json-tiedostoista.
+    #    Jos tiedostoa ei saada, kuvasta luettu arvo jää voimaan.
+    #    Arviomallien syöteasemat haetaan samalla.
+    ajot = {a for a in map(syke_data.ajo_avain, lukemat) if a}
+    for asema, malli in syke_data.ARVIOMALLIT.items():
+        if f"{asema}/ajo.json" in ajot:
+            ajot.update(malli.ajo_avaimet())
+    ajot = sorted(ajot)
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        ladatut = dict(zip(ajot, pool.map(lambda a: osm.hae_turvallisesti(hakija, osm.kaavio_url(a))[0], ajot)))
+    luetut: dict[str, dict] = {}
+    for a, data in ladatut.items():
+        if not data:
+            continue
+        try:
+            luetut[a] = syke_data.lue_ajo(data)
+        except ValueError as e:
+            varoitukset.append(f"{a}: ajo.json ei ole luettavissa ({e})")
+    for avain, lukema in lukemat.items():
+        ajo = luetut.get(syke_data.ajo_avain(avain))
+        if not ajo:
+            continue
+        for virhe in (syke_data.taydenna(lukema, ajo), syke_data.arvioi_tanaan(lukema, luetut)):
+            if virhe:
+                varoitukset.append(virhe)
     return sivun_kaaviot, lukemat, varoitukset
 
 

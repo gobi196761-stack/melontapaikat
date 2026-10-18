@@ -96,7 +96,17 @@ Tukholmassa (`arn1`) lähellä osm.fi:tä ja SYKE:ä ja jättää testit pois pa
    - **tunnusluvut** MHW/MNW tai MHQ/MNQ selitteestä → *tulvaindeksi*
      (0 = keskimääräinen vuoden alivesi, 1 = keskimääräinen kevättulvan huippu)
    - x-akselin päivänumero tarkistetaan, jottei vanhaa kaaviota käytetä huomaamatta
-3. **Arviointi** (`arviointi.py`): jokaisen kohteen pisteet ovat 100 parhaalla
+3. **SYKE-data** (`syke_data.py`): kaavioiden luvut ovat myös numeroina aseman
+   `ajo.json`-tiedostossa (`wwwi2.ymparisto.fi/i2/<alue>/<asema>/ajo.json`, jota
+   vesi.fi käyttää). Sieltä otetaan havainto, malli ja ennuste, jos JSONin malli
+   täsmää kuvasta luettuun; tunnusluvut tulevat edelleen kuvasta.
+   - **Arviomalli Hawa'Iille:** Maalismaan virtaaman päiväarvo julkaistaan vasta
+     seuraavana päivänä. Silloin tämän päivän arvo lasketaan yläpuolisista asemista:
+     Maalismaa = 1.078 × Pahkakoski + 0.911 × Siurua − 5.4 m³/s (Pahkakosken arvona
+     tuorein havainto + SYKE:n ennusteen muutos). Sovitus SYKE:n päiväarvoihin
+     avovesikausina 2003–2026; testijakson 2020–2026 keskivirhe 10.5 m³/s, kun
+     Pudasjärven vedenkorkeus + Siurua antoi 18.8 m³/s.
+4. **Arviointi** (`arviointi.py`): jokaisen kohteen pisteet ovat 100 parhaalla
    alueella, 60–100 toimivalla alueella ja 45→0 toimivan alueen ulkopuolella
    (marginaalin matkalla). Pisteet kerrotaan kohteen laatukertoimella (esim.
    "paras pelipaikka" 1.0, retkimelonta 0.6), ja jokainen muu toimiva kohde
