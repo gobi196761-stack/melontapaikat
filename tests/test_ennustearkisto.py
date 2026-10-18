@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import ennustearkisto
 import syke_data
 
 JUURI = Path(__file__).resolve().parent.parent
@@ -32,8 +33,8 @@ def ajot():
 
 
 def test_kokoaa_asemat_fixtureista():
-    arkisto = arkistoi.kokoa(ajot(), ARKISTOITU)
-    assert set(arkisto["asemat"]) == set(arkistoi.ASEMAT)
+    arkisto = ennustearkisto.kokoa(ajot(), ARKISTOITU)
+    assert set(arkisto["asemat"]) == set(ennustearkisto.ASEMAT)
     m = arkisto["asemat"]["61/q6101750y"]
     assert m["nimi"] == "Maalismaa" and m["ennustepvm_www"] == "2026-10-18"
     ennustepaivat = [f"2026-10-{d}" for d in range(18, 26)]
@@ -48,13 +49,13 @@ def test_kokoaa_asemat_fixtureista():
 
 def test_oma_arvio_kuten_sovelluksessa():
     a = ajot()
-    arvio = arkistoi.kokoa(a, ARKISTOITU)["arviot"]["61/q6101750y"]
+    arvio = ennustearkisto.kokoa(a, ARKISTOITU)["arviot"]["61/q6101750y"]
     t = dt.date(2026, 10, 18)
     odotettu = -5.423 + 1.078 * syke_data.syotteen_arvo(a["61/q6101452y/ajo.json"], t) \
         + 0.911 * syke_data.syotteen_arvo(a["61/q6101600y/ajo.json"], t)
     assert arvio["lahde"] == "arvio Pahkakoski + Siurua" and arvio["varoitukset"] == []
     assert arvio["tanaan"] == pytest.approx(odotettu, abs=1e-3)
-    ka = arkistoi.kokoa(a, ARKISTOITU)["asemat"]["61/q6101750y"]["qinlask_ka"]
+    ka = ennustearkisto.kokoa(a, ARKISTOITU)["asemat"]["61/q6101750y"]["qinlask_ka"]
     assert len(arvio["ennuste"]) == 7
     assert arvio["ennuste"]["2026-10-19"] == pytest.approx(
         odotettu + ka["2026-10-19"] - ka["2026-10-18"], abs=1e-3)
@@ -63,7 +64,7 @@ def test_oma_arvio_kuten_sovelluksessa():
 def test_puuttuva_asema():
     a = ajot()
     del a["61/q6101600y/ajo.json"]
-    arkisto = arkistoi.kokoa(a, ARKISTOITU, {"61/q6101600y": "HTTP 404"})
+    arkisto = ennustearkisto.kokoa(a, ARKISTOITU, {"61/q6101600y": "HTTP 404"})
     assert arkisto["asemat"]["61/q6101600y"] == {"nimi": "Siurua", "virhe": "HTTP 404"}
     assert "virhe" not in arkisto["asemat"]["61/q6101452y"]
     arvio = arkisto["arviot"]["61/q6101750y"]   # sovellus käyttää silloin eilistä havaintoa
@@ -72,7 +73,7 @@ def test_puuttuva_asema():
 
 
 def test_main_tallentaa_eika_korvaa(tmp_path, monkeypatch):
-    monkeypatch.setattr(arkistoi, "hae_ajot", lambda: (ajot(), {}))
+    monkeypatch.setattr(ennustearkisto, "hae_ajot", lambda: (ajot(), {}))
     assert arkistoi.main(["--kansio", str(tmp_path)]) == 0
     [polku] = tmp_path.glob("*.json")
     assert json.loads(polku.read_text(encoding="utf-8"))["asemat"]["61/q6101210y"]["nimi"] == "Livojoki"
@@ -84,9 +85,46 @@ def test_main_tallentaa_eika_korvaa(tmp_path, monkeypatch):
 
 
 def test_main_ei_tallenna_tyhjaa(tmp_path, monkeypatch):
-    monkeypatch.setattr(arkistoi, "hae_ajot", lambda: ({}, {"61/q6101750y": "aikakatkaisu"}))
+    monkeypatch.setattr(ennustearkisto, "hae_ajot", lambda: ({}, {"61/q6101750y": "aikakatkaisu"}))
     assert arkistoi.main(["--kansio", str(tmp_path)]) == 1
     assert not list(tmp_path.glob("*.json"))
+
+
+class Kanta:
+    projekti = "testi"
+
+    def __init__(self):
+        self.dokumentit = {}
+
+    def lue(self, kokoelma, tunniste):
+        return self.dokumentit.get((kokoelma, tunniste))
+
+    def kirjoita(self, kokoelma, tunniste, data):
+        self.dokumentit[kokoelma, tunniste] = data
+
+    def listaa(self, kokoelma):
+        return {t: d for (k, t), d in self.dokumentit.items() if k == kokoelma}
+
+
+def test_main_firestoreen(tmp_path, monkeypatch):
+    kanta = Kanta()
+    monkeypatch.setattr(ennustearkisto, "hae_ajot", lambda: (ajot(), {}))
+    monkeypatch.setattr(arkistoi.firestore.Firestore, "ymparistosta", classmethod(lambda cls: kanta))
+    assert arkistoi.main(["--firestore", "--kansio", str(tmp_path)]) == 0
+    [(kokoelma, _)] = kanta.dokumentit
+    assert kokoelma == "ennusteet" and not list(tmp_path.glob("*.json"))
+    monkeypatch.setattr(ennustearkisto, "hae_ajot", lambda: pytest.fail("haettiin uudelleen"))
+    assert arkistoi.main(["--firestore"]) == 0   # päivä on jo arkistoitu
+
+    # vertailu lukee saman kokoelman
+    monkeypatch.setattr(vertaa.firestore.Firestore, "ymparistosta", classmethod(lambda cls: kanta))
+    assert vertaa.main(["--firestore", "--json"]) == 0
+
+
+def test_main_firestore_ilman_tunnusta(monkeypatch):
+    monkeypatch.delenv("FIREBASE_SERVICE_ACCOUNT", raising=False)
+    assert arkistoi.main(["--firestore"]) == 2
+    assert vertaa.main(["--firestore"]) == 2
 
 
 # ---------------------------------------------------------------------------

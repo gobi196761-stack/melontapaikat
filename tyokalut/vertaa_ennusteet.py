@@ -1,11 +1,12 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.10"
-# dependencies = []
+# dependencies = ["google-auth>=2.20"]
 # ///
 """Arkistoitujen virtaamaennusteiden tarkkuus myöhemmin julkaistuihin havaintoihin.
 
     uv run tyokalut/vertaa_ennusteet.py                  # aineisto/ennusteet/*.json
+    uv run tyokalut/vertaa_ennusteet.py --firestore      # Firestoresta (FIREBASE_SERVICE_ACCOUNT)
     uv run tyokalut/vertaa_ennusteet.py --kansio X --json
 
 Ennuste +n pv = ennusteen alkupäivän (ennustepvm_www) jälkeinen n:s päivä.
@@ -27,11 +28,18 @@ import argparse
 import datetime as dt
 import json
 import math
+import os
 import sys
 from collections import defaultdict
 from pathlib import Path
 
-KANSIO = Path(__file__).resolve().parent.parent / "aineisto" / "ennusteet"
+JUURI = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(JUURI))
+
+import firestore  # noqa: E402
+
+KANSIO = JUURI / "aineisto" / "ennusteet"
+KOKOELMA = os.environ.get("FIRESTORE_KOKOELMA", "ennusteet")   # kuten ennustearkisto.py
 HORISONTIT = (1, 2, 3)
 MENETELMAT = ("SYKE", "SYKE+muutos", "sovellus", "pysyvyys")
 
@@ -130,9 +138,22 @@ def tulosta(rivit: list[dict], arkistoja: int) -> None:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--kansio", type=Path, default=KANSIO, help=f"arkistokansio (oletus {KANSIO})")
+    ap.add_argument("--firestore", action="store_true", help=f"lue Firestoresta (kokoelma {KOKOELMA})")
     ap.add_argument("--json", action="store_true", help="tulos JSONina")
     args = ap.parse_args(argv)
-    arkistot = lue_arkistot(args.kansio)
+    if args.firestore:
+        try:   # paikallisesti Windowsin varmennevarasto, jos truststore on asennettu
+            import truststore
+            truststore.inject_into_ssl()
+        except ImportError:
+            pass
+        kanta = firestore.Firestore.ymparistosta()
+        if not kanta:
+            print("FIREBASE_SERVICE_ACCOUNT puuttuu", file=sys.stderr)
+            return 2
+        arkistot = list(kanta.listaa(KOKOELMA).values())
+    else:
+        arkistot = lue_arkistot(args.kansio)
     rivit = vertaa(arkistot)
     if args.json:
         print(json.dumps(rivit, ensure_ascii=False, indent=1))
