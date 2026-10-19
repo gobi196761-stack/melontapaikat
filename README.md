@@ -221,7 +221,9 @@ osm.fi-sivua: Trollforsarnan rajat ovat paikalliselta kokeneelta melojalta
 | | | Kalliosaaren paikat | 70–250 m³/s | | |
 | | | Aalto 5 km alavirtaan | > 150 m³/s | | |
 | **Niskakoski** | Saarenpää **virtaama** (lisäkaavio) | Stoppari / + aalto | > 50 / > 85 m³/s | | sivulla on vedenkorkeuskuva, rajat virtaamana → saman aseman virtaamakaavio |
-| **Neitikoski** | Lieksanjoki vedenkorkeus | Aalto/stoppari | aina | tulvaindeksi 0.2–0.9 (arvio) | tulvalla vaikea, matalalla stoppari |
+| **Neitikoski** | Lieksanjoki, Ruunaa **virtaama** (lisäkaavio; vedenkorkeus näytetään myös) | Aalto (aaltoliikkeet) | > 40 m³/s | > 120 m³/s | [koskimelonta.com](https://koskimelonta.com/kosket/lieksanjoki-neitikoski/): yli 120 (laituri n. 9,5) jyrkempi aalto, liikkeet helpompia; meloa voi vielä 40 (laituri n. −1) |
+| | | Murtuva aalto (voltit) | 100–125 m³/s | 105–120 m³/s | yli 110 (sillan mittari n. 8) murtuu pohjalle, oivallinen volttien harjoitteluun |
+| | | Metsänlaidan hontto ja laiturin puolen aalto | 40–100 m³/s | = | alle 100 metsänlaitaan hontto, keskelle kieli |
 | **Taivalkoski** | – | säännöstelty, vettä voi tilata | | | ei kaaviota |
 | **Vikaköngäs** (Rovaniemi, Raudanjoki) | Olkkajärven tulovirtaama (l657121001y) | Akanvirrat ja treeni | 15–450 m³/s | 20–50 m³/s | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=12): toimii koko kauden; akanvirrat parhaimmillaan alle 50, 15–20 melko kivinen |
 | | | Isot aallot (kevättulva) | 200–450 m³/s | 300–350 m³/s | Roimeloo: tulvalla suisteet veden alla, 300–350 parhaimmillaan isommille aalloille |

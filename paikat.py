@@ -265,13 +265,22 @@ PAIKAT: tuple[Paikka, ...] = (
     ),
     Paikka(
         "Neitikoski (Lieksanjoki)", "https://www.osm.fi/neitikoski/", "peli", 390,
-        "Lähes joen levyinen aalto/stoppari, lyhyet uinnit (päättyy järveen). "
-        "Toimii lähes kaikilla vesillä; tulvalla vaikeampi.",
-        {"paa": Mittari("04/q0400600y/wlyhyt.png")},
+        "Lähes joen levyinen aalto/stoppari, lyhyet uinnit (päättyy järveen). Toimii sulan "
+        "veden aikaan lähes aina. Rajat koskimelonta.com:sta (Ruunaan virtaama).",
+        # Pääreferenssi: koskimelonta.com/kosket/lieksanjoki-neitikoski/ (Olli Nyrhilä 2014),
+        # rajat virtaamana (SYKE Lieksanjoki, Ruunaa) ja sillan/laiturin mittarina.
+        {"paa": Mittari("04/q0400600y/qinlyhyt.png", lisakaavio=True, marginaali=15),
+         "korkeus": Mittari("04/q0400600y/wlyhyt.png")},
         (
-            Kohde("Aalto / stoppari", (AVOIN, AVOIN), (0.2, 0.9), 0.9, muuttuja=T,
-                  huom="tulvalla murtuu koko leveydeltä; matalalla vasen reuna stoppariksi",
-                  lahde="arvio"),
+            Kohde("Aalto (aaltoliikkeet)", (40, AVOIN), (120, AVOIN), 1.0,
+                  huom="yli 120 m³/s (laituri n. 9,5) jyrkempi aalto, aaltoliikkeet onnistuvat "
+                       "helpommin; meloa voi vielä 40 m³/s:llä (laituri n. −1)"),
+            Kohde("Murtuva aalto (voltit)", (100, 125), (105, 120), 0.85,
+                  huom="yli 110 m³/s (sillan mittari n. 8) aaltomainen mutta murtuu pohjalle; "
+                       "aaltoliikkeisiin räjähtävä melonta, oivallinen volttien harjoitteluun"),
+            Kohde("Metsänlaidan hontto ja laiturin puolen aalto", (40, 100), (40, 100), 0.8,
+                  huom="alle 100 m³/s metsänlaitaan hontto, keskelle kieli; matalalla keula "
+                       "tai mela kolahtaa pohjaan"),
         ),
     ),
     Paikka(
