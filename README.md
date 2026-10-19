@@ -6,8 +6,8 @@ melontapaikkojen sivujen lopussa olevista SYKE:n vesistöennustekaavioista
 kuvauksesta analysoituihin optimiolosuhteisiin ja järjestää paikat
 optimijärjestykseen. Mukana on myös kaksi Ruotsin paikkaa (Trollforsarna ja
 Pahakurkkio), joiden virtaama ja ennuste haetaan SMHI:ltä; ne näkyvät vain omalla
-Ruotsi-välilehdellään. Lisäksi mukana on Rovaniemen Vikaköngäs (Raudanjoki), jolla
-ei ole osm.fi-sivua.
+Ruotsi-välilehdellään. Lisäksi mukana ovat Rovaniemen koskikohteet Roimeloo ry:n
+foorumilta (Vikaköngäs, Korpikoski, Vaattunkiköngäs, Marraskoski ja Molkoköngäs).
 
 ```
 $ uv run melonta.py
@@ -205,7 +205,14 @@ osm.fi-sivua: Trollforsarnan rajat ovat paikalliselta kokeneelta melojalta
 | **Niskakoski** | Saarenpää **virtaama** (lisäkaavio) | Stoppari / + aalto | > 50 / > 85 m³/s | | sivulla on vedenkorkeuskuva, rajat virtaamana → saman aseman virtaamakaavio |
 | **Neitikoski** | Lieksanjoki vedenkorkeus | Aalto/stoppari | aina | tulvaindeksi 0.2–0.9 (arvio) | tulvalla vaikea, matalalla stoppari |
 | **Taivalkoski** | – | säännöstelty, vettä voi tilata | | | ei kaaviota |
-| **Vikaköngäs** (Rovaniemi, Raudanjoki) | Vikajärven luusua 6502400 virtaama (heti kosken yläpuolella) | Koski ja koskimelontarata (II+, pudotus 3–4 m / 200 m) | 20–150 m³/s (arvio) | 45–90 m³/s (arvio) | ei osm.fi-kuvausta. BoaterX 1.6.2025 virtaamalla n. 71 m³/s, kuvattu "korkeaksi kesävedeksi". Asemalla 2000–2026 MQ 39, MHQ 233, MNQ 8 m³/s; kesä–syyskuun mediaani 32 (10 %: 12, 90 %: 72) → alle n. 20 kivikkoinen, kevättulva (yli n. 150) iso |
+| **Vikaköngäs** (Rovaniemi, Raudanjoki) | Olkkajärven tulovirtaama (l657121001y) | Akanvirrat ja treeni | 15–450 m³/s | 20–50 m³/s | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=12): toimii koko kauden; akanvirrat parhaimmillaan alle 50, 15–20 melko kivinen |
+| | | Isot aallot (kevättulva) | 200–450 m³/s | 300–350 m³/s | Roimeloo: tulvalla suisteet veden alla, 300–350 parhaimmillaan isommille aalloille |
+| **Korpikoski** (Rovaniemi, Raudanjoki, tie 82) | Olkkajärven tulovirtaama | Virranrajat (kurssit, tekniikka) | aina | < 30 m³/s | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=15): alle 30 kivi nousee ja jakaa virran kahteen virranrajaan |
+| **Vaattunkiköngäs** (Rovaniemi, Raudanjoki) | Olkkajärven tulovirtaama | Akanvirrat, virranylitykset | < 250 m³/s | = | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=16) |
+| | | Isompi aallokko (tulva) | > 250 m³/s | = | Roimeloo: "vähäsen tuntumaa isomman aallokon melontaan" |
+| **Marraskoski** (Rovaniemi, Ounasjoki) | Marraskosken virtaama (q6503600y) | Stoppari ja akanvirta (kesäsurffi) | 60–300 m³/s (alaraja arvio) | 100–250 m³/s | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=13): yli 250 kova työ, alle 100 stoppari matala |
+| | | Soulwave (kevättulva) | > 800 m³/s | = | Roimeloo |
+| **Molkoköngäs** (Ounasjoki, tie 79) | Kaukosen virtaama (q6503300y) | Molkoaalto (surffiaaltojono) | < 300 m³/s | = | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=14): alarajaa ei kerrota |
 | **Trollforsarna** (Ruotsi, Piteälven) | SMHI Gransel 1387 virtaama, ennuste HydroNu 31914 (sama kohta) | Paltvalsen (iso aalto) | > 170 m³/s | 190–240 m³/s | paikallinen kokenut meloja |
 | | | Glashällen (pieni aalto) | > 220 m³/s | ~340 m³/s (320–360) | meloja: toimii n. 220–400+, ylärajaa ei tiedetä |
 | | | Yläpätkä (Delta / keskiränni) | 140–300 m³/s | = | meloja: yli 300 "karvainen" |

@@ -103,7 +103,9 @@ ASEMAT = {
     "q6400410y": "Simo",
     "q6701500y": "Pello",
     "q6702110y": "Matkakoski",
-    "q6502400y": "Vikajärvi, luusua (Raudanjoki)",
+    "l657121001y": "Olkkajärvi, tulovirtaama (Raudanjoki)",
+    "q6503600y": "Marraskoski (Ounasjoki)",
+    "q6503300y": "Kaukonen (Ounasjoki)",
     # SMHI:n havaintoasemat ("smhi/<asema>/<piste>")
     "1387": "Gransel (Piteälven)",
     "11": "Männikkö (Kalixälven)",
@@ -399,19 +401,75 @@ PAIKAT: tuple[Paikka, ...] = (
         ),
         maa="SE",
     ),
+    # ------------------------------------------------------------------
+    # Rovaniemen koskikohteet (Roimeloo ry:n foorumi, roimeloo.net, alue
+    # "Melontapaikkoja"). Rajat foorumin kuvauksista, mittarit kuten foorumilla.
+    # ------------------------------------------------------------------
     Paikka(
-        "Vikaköngäs (Raudanjoki)", "https://www.eraluvat.fi/en/areas/2565-vikakongas-902", "peli", 245,
-        "Rovaniemi, Napapiirin retkeilyalue (25 km pohjoiseen, E75): Raudanjoen II+-koski "
-        "Vikajärven alapuolella, pudotus 3–4 m n. 200 m matkalla; koskimelontarata ja "
-        "BoaterX-kisat. Ei osm.fi-sivua; rajat omia arvioita Vikajärven luusuan virtaamasta.",
-        {"paa": Mittari("65/q6502400y/qinlyhyt.png", marginaali=20)},
+        "Vikaköngäs (Raudanjoki)", "https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=12", "peli", 245,
+        "Rovaniemi, Napapiirin retkeilyalue (25 km pohjoiseen, E75): Raudanjoen koski, "
+        "jonka suisteet muodostavat akanvirtoja; toimii koko kauden 15–20 m³/s kesävesistä "
+        "300–450 m³/s kevättulviin. Mittarina Olkkajärven tulovirtaama (Roimeloo).",
+        {"paa": Mittari("65/l657121001y/qinlyhyt.png", marginaali=15)},
         (
-            # Vikajärven luusua 2000–2026: MQ 39, MHQ 233, MNQ 8 m³/s; kesä–syyskuun
-            # mediaani 32 m³/s (10 %: 12, 90 %: 72). BoaterX 1.6.2025: 71 m³/s, "korkea kesävesi".
-            Kohde("Vikaköngäs (koski ja koskimelontarata)", (20, 150), (45, 90), 1.0,
-                  huom="BoaterX 1.6.2025 n. 71 m³/s ('korkea kesävesi'); kesän mediaani 32 m³/s; "
-                       "alle n. 20 m³/s kivikkoinen, kevättulvalla (yli n. 150) iso ja vaarallinen",
-                  lahde="arvio"),
+            Kohde("Akanvirrat ja treeni (slalom, kuntomelonta)", (15, 450), (20, 50), 1.0,
+                  huom="akanvirrat toimivat parhaiten alle 50 m³/s; 15–20 m³/s melko kivinen, "
+                       "mutta aina jotain luovittavaa", lahde="meloja"),
+            Kohde("Isot aallot (kevättulva, läpilasku)", (200, 450), (300, 350), 0.9,
+                  huom="tulvalla suisteet veden alla; 300–350 m³/s parhaimmillaan isommille aalloille",
+                  lahde="meloja"),
+        ),
+    ),
+    Paikka(
+        "Korpikoski (Raudanjoki)", "https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=15", "peli", 245,
+        "Rovaniemi, tien 82 silta: pieni, kivinen ja lyhyt koski, joka päättyy suvantoon. "
+        "Koskikurssit, tekniikkatreenit ja uudet koskimelojat; pääsy Vikakönkään parkkipaikalta. "
+        "Mittarina Olkkajärven tulovirtaama (Roimeloo).",
+        {"paa": Mittari("65/l657121001y/qinlyhyt.png", marginaali=20)},
+        (
+            Kohde("Virranrajat (kurssit, tekniikka, vanhan koulun pelimelonta)", (AVOIN, AVOIN), (AVOIN, 30), 1.0,
+                  huom="alle 30 m³/s kosken alle nousee iso kivi, joka jakaa virtauksen kahteen "
+                       "napakkaan virranrajaan; uinnit turvallisia", lahde="meloja"),
+        ),
+    ),
+    Paikka(
+        "Vaattunkiköngäs (Raudanjoki)", "https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=16", "peli", 240,
+        "Rovaniemi, Vaattungin retkeilyreitti: suora, kapeneva koskenpätkä; sillan jälkeen "
+        "akanvirrat molemmin puolin. Mittarina Olkkajärven tulovirtaama (Roimeloo).",
+        {"paa": Mittari("65/l657121001y/qinlyhyt.png", marginaali=40)},
+        (
+            Kohde("Akanvirrat ja virranylitykset (treeni)", (AVOIN, 250), (AVOIN, 250), 1.0,
+                  huom="alle 250 m³/s hyvä harjoitella jämäkämmän virran ylitystä", lahde="meloja"),
+            Kohde("Isompi aallokko (tulva)", (250, AVOIN), (250, AVOIN), 0.6,
+                  huom="tulvavesillä vähän tuntumaa isomman aallokon melontaan", lahde="meloja"),
+        ),
+    ),
+    Paikka(
+        "Marraskoski (Ounasjoki)", "https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=13", "peli", 260,
+        "Rovaniemi, n. 30 km pohjoiseen: lyhyt pelipaikka, stoppari oikealla, virranrajat "
+        "vasemmalla ja pitkä akanvirta keskellä; kevättulvalla Soulwave-surffiaalto. "
+        "Mittarina Marraskosken virtaama (Roimeloo).",
+        {"paa": Mittari("65/q6503600y/qinlyhyt.png", marginaali=50)},
+        (
+            Kohde("Stoppari ja akanvirta (kesäsurffi)", (60, 300), (100, 250), 1.0,
+                  huom="100–250 m³/s stopparissa kokoa ja akanvirta käytössä; yli 250 kova työ "
+                       "päästä takaisin; alle 100 stoppari matala, virranrajoissa voi pelailla "
+                       "(alaraja 60 arvio)", lahde="meloja"),
+            Kohde("Soulwave (kevättulvan surffiaalto)", (800, AVOIN), (800, AVOIN), 0.9,
+                  huom="yli 800 m³/s isot surffiaallot keskivasemmalla; tiputtaudu vasemmalta "
+                       "rannalta", lahde="meloja"),
+        ),
+    ),
+    Paikka(
+        "Molkoköngäs (Ounasjoki)", "https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=14", "peli", 300,
+        "Tie 79, n. 78 km Rovaniemeltä: lyhyt ja kapea koskipätkä kanjonimaisten kallioiden "
+        "vieressä; surffiaaltojono vasemmalla laidalla, akanvirta aaltojen ja kallioiden "
+        "välissä. Parhaiten lyhyillä freestylekajakeilla. Mittarina Kaukosen virtaama (Roimeloo).",
+        {"paa": Mittari("65/q6503300y/qinlyhyt.png", marginaali=50)},
+        (
+            Kohde("Molkoaalto (surffiaaltojono)", (AVOIN, 300), (AVOIN, 300), 1.0,
+                  huom="alle 300 m³/s vasempaan laitaan muodostuu parin surffiaallon jono; "
+                       "surffi-kanto-surffi", lahde="meloja"),
         ),
     ),
     Paikka(
