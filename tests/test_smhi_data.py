@@ -95,10 +95,12 @@ def test_ruotsin_paikat_jarjestyksessa(ruotsi, capsys):
     trollforsarna = t["Trollforsarna (Piteälven)"]
     assert trollforsarna.pisteet == pytest.approx(82)
     assert trollforsarna.paras_kohde.kohde.nimi == "Benbrytarforsen"
-    # Männikkö 82.7 m³/s: koskisarja toimii, 2.3 m³/s alle parhaan (85)
+    # Männikkö 82.7 m³/s: koskisarja ja matalan veden hontto parhaimmillaan (0.8 × 100 + 2),
+    # Åretsvågen vaatii n. 180 m³/s
     pahakurkkio = t["Pahakurkkio (Kalixälven)"]
+    assert pahakurkkio.pisteet == pytest.approx(82)
     assert pahakurkkio.paras_kohde.kohde.nimi == "Koskisarja 1–7"
-    assert pahakurkkio.paras_kohde.tila == "toimii"
+    assert {k.kohde.nimi: k.tila for k in pahakurkkio.kohteet}["Åretsvågen (ykköskönkään surffiaalto)"] == "ei toimi"
     assert set(trollforsarna.ennuste) == set(pahakurkkio.ennuste) == {1, 2, 3}
     assert not any("ei ole tältä päivältä" in h for t in tulokset for h in t.huomiot)
 

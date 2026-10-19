@@ -254,21 +254,45 @@ PAIKAT: tuple[Paikka, ...] = (
     Paikka(
         "Trollforsarna (Piteälven)", "https://sv.wikipedia.org/wiki/Trollforsarna", "peli", 450,
         "Ruotsi: Piteälvenin koskiosuus Granselin mittarin kohdalla, isoja aaltoja ja "
-        "laskettavaa eri vesillä. Rajat paikalliselta kokeneelta melojalta (SMHI Gransel).",
+        "laskettavaa eri vesillä, paras kausi kesäkuu. Rajat paikalliselta kokeneelta "
+        "melojalta (SMHI Gransel), kuvaukset myös Forsguidenista.",
         {"paa": Mittari("smhi/1387/31914", marginaali=60)},
         (
             Kohde("Paltvalsen (iso aalto)", (170, AVOIN), (190, 240), 1.0,
                   huom="parhaimmillaan 190–240 m³/s, toimii n. 170:stä", lahde="meloja"),
             Kohde("Glashällen (pieni aalto)", (220, AVOIN), (320, 360), 0.8,
-                  huom="toimii n. 220–400+, parhaimmillaan n. 340; ylärajaa ei tiedetä", lahde="meloja"),
+                  huom="toimii n. 220–400+, parhaimmillaan n. 340; ylärajaa ei tiedetä; "
+                       "Benbrytarforsenin alapäässä, sileä aalto, sopii vasemman käden bluntteihin",
+                  lahde="meloja"),
             Kohde("Yläpätkä (Delta / keskiränni)", (140, 300), (140, 300), 0.9,
-                  huom="yli 300 m³/s karvainen", lahde="meloja"),
+                  huom="yli 300 m³/s karvainen; Forsguiden: Björnidedeltat toimii parhaiten pienemmällä "
+                       "vedellä", lahde="meloja"),
             Kohde("Satumaa (Sagoland)", (140, 300), (140, 300), 0.7,
                   huom="samat vedet kuin Yläpätkällä, mutta helpompi", lahde="meloja"),
             Kohde("Alapätkä (Nedre Trollforsarna)", (AVOIN, AVOIN), (300, AVOIN), 0.8,
                   huom="aina hyvä, parempi yli 300 m³/s", lahde="meloja"),
             Kohde("Benbrytarforsen", (AVOIN, 150), (AVOIN, 130), 0.8,
-                  huom="hyvä alle 130 m³/s, enintään n. 150", lahde="meloja"),
+                  huom="hyvä alle 130 m³/s, enintään n. 150; Forsguiden: IV–VI, hyvin pyörteiset "
+                       "akanvirrat, iso imevä valssi", lahde="meloja"),
+        ),
+    ),
+    Paikka(
+        "Pahakurkkio (Kalixälven)", "https://vattenwebb.smhi.se/hydronu/?subid=35732", "peli", 370,
+        "Ruotsi, Saittarova (Pajala): kanjonissa seitsemän kosken sarja 3–4 km ja "
+        "ykköskönkään Åretsvågen, yksi maailman parhaista surffiaalloista. Kosket 1–3 n. III, "
+        "4 hontto oikealla, 5 vaikein, 6–7 IV. Mittarina Männikkö (15 km alavirtaan). "
+        "Yli n. 220 m³/s kosket isoja ja vitonen V-luokkaa.",
+        {"paa": Mittari("smhi/11/35732", marginaali=30)},
+        (
+            Kohde("Åretsvågen (ykköskönkään surffiaalto)", (180, 260), (190, 235), 1.0,
+                  huom="Männikkö 191 m³/s optimi ja 212 vähän yli (6/2012), 226–235 parhaimmillaan "
+                       "(6/2013), 218 hyvä (7/2010); paras laskevalla vedellä", lahde="arvio"),
+            Kohde("Koskisarja 1–7", (70, 220), (80, 190), 0.8,
+                  huom="77–87 m³/s syysvesi helpompi (9/2010), 96 'lähes optimaalinen' (8/2010), "
+                       "191 hyvä eikä kaoottinen (6/2012); 218 vitonen V-luokkaa", lahde="arvio"),
+            Kohde("Ykköskönkään hontto ja aalto matalalla", (65, 110), (72, 90), 0.8,
+                  huom="77–87 m³/s lähes kaikki honttoliikkeet onnistuivat, aalto parhaimmillaan "
+                       "matalimmalla (9/2010)", lahde="arvio"),
         ),
     ),
     Paikka(
@@ -366,21 +390,6 @@ PAIKAT: tuple[Paikka, ...] = (
         (
             Kohde("Haurukylä – Vehkamaantie", (0.2, AVOIN), (0.5, AVOIN), 0.6,
                   mittari="tyrnava", muuttuja=T, huom="kevättulvan joki", lahde="arvio"),
-        ),
-    ),
-    Paikka(
-        "Pahakurkkio (Kalixälven)", "https://vattenwebb.smhi.se/hydronu/?subid=35732", "retki", 370,
-        "Ruotsi, Saittarova (Pajala): seitsemän kosken sarja 3–4 km; kosket 1–3 n. III, "
-        "4 hontto oikealla, 5 vaikein, 6–7 IV. Mittarina Männikkö (15 km alavirtaan). "
-        "Yli n. 220 m³/s kosket isoja ja vitonen V-luokkaa.",
-        {"paa": Mittari("smhi/11/35732", marginaali=30)},
-        (
-            Kohde("Koskisarja 1–7", (70, 200), (85, 150), 1.0,
-                  huom="95 m³/s 'lähes optimaalinen' (8/2010); yli n. 220 vitonen V-luokkaa",
-                  lahde="arvio"),
-            Kohde("Åretsvågen (ykköskosken leikkiaalto)", (200, AVOIN), (200, AVOIN), 0.9,
-                  huom="toimi n. 220 m³/s:llä (7/2010), vaatii korkean veden; hontot talon kokoisia",
-                  lahde="arvio"),
         ),
     ),
     Paikka(

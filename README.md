@@ -165,7 +165,12 @@ välillä.
 Rajat ovat sivujen kuvauksista (`paikat.py`). *Arvio* = kuvauksessa ei ole
 suoraa lukua, tulkinta perusteltu sarakkeessa. Ruotsin paikoilla ei ole
 osm.fi-sivua: Trollforsarnan rajat ovat paikalliselta kokeneelta melojalta
-(`lahde="meloja"`), Pahakurkkion rajat ovat arvioita kahdesta kalibrointipisteestä.
+(`lahde="meloja"`). Pahakurkkion rajat ovat arvioita blogien käyntipäivistä:
+Männikön virtaama on SMHI:n korjatusta päiväarkistosta (asema 11, parametri 1).
+Tuomas Vaaralan [melontapäiväkirjan](https://tuorala.wordpress.com/) kesäkuun
+2013 luvut (136, 125, 117, 115) täsmäävät SMHI:n Kaalasjärven (1456) päiväarvoihin
+6.–9.6.2013, joten postauksen otsikon "4–9.5." on oltava kesäkuu. Kuvaukset
+täydennetty ruotsalaisesta Forsguidenista (forsguiden.com, Wayback-arkisto 2004).
 
 ### Pelipaikat
 
@@ -206,7 +211,10 @@ osm.fi-sivua: Trollforsarnan rajat ovat paikalliselta kokeneelta melojalta
 | | | Yläpätkä (Delta / keskiränni) | 140–300 m³/s | = | meloja: yli 300 "karvainen" |
 | | | Satumaa (Sagoland) | 140–300 m³/s | = | meloja: samat vedet kuin Yläpätkä, helpompi |
 | | | Alapätkä (Nedre Trollforsarna) | aina | > 300 m³/s | meloja: aina hyvä, parempi yli 300 |
-| | | Benbrytarforsen | < 150 m³/s | < 130 m³/s | meloja: hyvä alle 130, enintään n. 150 |
+| | | Benbrytarforsen | < 150 m³/s | < 130 m³/s | meloja: hyvä alle 130, enintään n. 150; [Forsguiden](https://web.archive.org/web/20040722032025/http://www.forsguiden.com/river.asp?id=3&mode=print): IV–VI, pyörteiset akanvirrat |
+| **Pahakurkkio** (Ruotsi, Kalixälven, Saittarova) | SMHI Männikkö 11 virtaama (n. 15 km alavirtaan, valuma-alue 5 856 km²), ennuste HydroNu 35732 (malli/mitattu kesällä mediaani 0.98) | Åretsvågen (ykköskönkään surffiaalto) | 180–260 m³/s (arvio) | 190–235 m³/s (arvio) | Männikkö: [25.7.2010](https://tuorala.wordpress.com/2010/08/10/aaltomelontaa-matkakoskella-ja-pahakurkkiolla-23-ja-25-7-2010/) 218 aalto toimi hyvin; [2.6.2012](https://tuorala.wordpress.com/2012/06/04/grillausta-ja-veden-parsketta/) 212 "hieman optimia korkeammalla", 3.6. 191 optimi; [6.–9.6.2013](https://tuorala.wordpress.com/2013/06/11/viikko-aaltoja-4-9-5-2013/) 226–239 "parhaimmillaan" laskevalla vedellä |
+| | | Koskisarja 1–7 | 70–220 m³/s (arvio) | 80–190 m³/s (arvio) | [17.–19.9.2010](https://tuorala.wordpress.com/2010/09/20/pahakurkkio-17-19-9-2010/) 77–87 syysvesi helpottaa sarjaa; blogi Pohjoista melontaa 28.8.2010 96 "lähes optimaalinen"; 3.6.2012 191 koko koski hyvällä vedellä, "iso muttei kaoottinen"; heinäkuun 2010 huippu 218 "poikkeuksellisen paljon", vitonen V → yli n. 220 varoitus. Kosket 1–3 n. III, 4 hontto oikealla, 5 vaikein, 6–7 IV |
+| | | Ykköskönkään hontto ja aalto matalalla | 65–110 m³/s (arvio) | 72–90 m³/s (arvio) | 17.–19.9.2010 77–87: lähes kaikki honttoliikkeet, aalto parhaimmillaan matalimmalla; [Forsguiden](https://web.archive.org/web/20041116174352/http://forsguiden.com/river.asp?id=8&mode=print): ykköspudotuksessa hontto matalalla ja iso murtuva aalto korkealla vedellä (Lappesuandon asteikolla, ei m³/s) |
 
 ### Retki- ja laskupätkät
 
@@ -222,8 +230,6 @@ osm.fi-sivua: Trollforsarnan rajat ovat paikalliselta kokeneelta melojalta
 | **Muhosjoki** | Tyrnävänjoki virtaama (lisäkaavio) | > 3.3 m³/s | > 6 m³/s (arvio) | "syysvesillä (Tyrnävä noin 33 m/s) hiukan matalia" – tulkittu 3.3 m³/s:ksi, koska Tyrnävänjoen MHQ on vain 21.8 m³/s |
 | | Tyrnävänjoki vedenkorkeus | Suokylän koskijakso: indeksi > 0.7 | > 0.85 | "voisi sopia kevättulvalla pelimelontahenkisille" |
 | **Temmesjoki** | Temmesjoki virtaama + Tyrnävänjoki (lisä) | Tyrnävän indeksi > 0.2 | > 0.5 | "heti jäiden lähdettyä"; Temmesjoen kaaviossa ei tunnuslukuja |
-| **Pahakurkkio** (Ruotsi, Kalixälven, Saittarova) | SMHI Männikkö 11 virtaama (n. 15 km alavirtaan, valuma-alue 5 856 km²), ennuste HydroNu 35732 | koskisarja 1–7: 70–200 m³/s (arvio) | 85–150 m³/s (arvio) | blogi Pohjoista melontaa 8/2010 + Männikön mitattu virtaama: 28.8.2010 n. 95 m³/s "lähes optimaalinen"; heinäkuun 2010 lopun huippu n. 220 m³/s "poikkeuksellisen paljon", vitonen V-luokkaa → yli n. 220 varoitus. Kosket 1–3 n. III, 4 hontto oikealla, 5 vaikein, 6–7 IV |
-| | | Åretsvågen (ykköskosken leikkiaalto): > 200 m³/s (arvio) | = | samasta blogista: aalto toimi n. 220 m³/s:llä, hontot talon kokoisia. HydroNu-mallin ja Männikön mitatun suhde kesällä mediaani 0.98 |
 | **Kutujoki, Oulujoki, Oulun edustan saaret** | – | | | ei kaaviota (meri: tuuli ratkaisee) |
 
 ## Rajoitukset
