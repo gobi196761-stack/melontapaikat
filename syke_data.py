@@ -116,27 +116,54 @@ def lue_ajo(data: bytes) -> dict:
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
-class Arviomalli:
-    nimi: str
+class Kertoimet:
     vakio: float
-    syotteet: tuple[tuple[str, float], ...]   # (asema "<alue>/<asema>", kerroin), virtaamat
+    virtaama: float     # yläpuolisen sivujoen virtaama (m³/s)
+    kuutio: float       # ((H2 - h0) / 100)³, H2 = kahden päivän vedenkorkeuden keskiarvo (cm)
+    muutos: float       # ΔH = H - H' (cm/vrk): nousussa osa vedestä jää varastoon
+    alfa: float         # eilisen virheen paino
+
+
+@dataclass(frozen=True)
+class Arviomalli:
+    """Q = vakio + a·Q_sivu + b·((H2 − h0)/100)³ + c·ΔH + α·(eilinen havainto − mallin eilinen arvo).
+
+    Kertoimet valitaan aseman tuoreimman havainnon mukaan (alle/yli `raja`).
+    """
+    nimi: str
+    virtaama_asema: str      # "<alue>/<asema>", ajo.json: qhav / qinlask_ka
+    korkeus_asema: str       # "<alue>/<asema>", ajo.json: whav / wlask_ka (m) -> cm
+    h0: float                # cm
+    raja: float
+    pieni: Kertoimet
+    iso: Kertoimet
 
     def ajo_avaimet(self) -> list[str]:
-        return [f"{asema}/ajo.json" for asema, _ in self.syotteet]
+        return [f"{self.virtaama_asema}/ajo.json", f"{self.korkeus_asema}/ajo.json"]
+
+    def kaava(self, k: Kertoimet, q: float, h: float, h_eilen: float) -> float:
+        return (k.vakio + k.virtaama * q + k.kuutio * (((h + h_eilen) / 2 - self.h0) / 100) ** 3
+                + k.muutos * (h - h_eilen))
 
 
-# Maalismaa (Hawa'Ii) = Pahkakosken voimalaitos + Siuruanjoki. Sovitettu SYKE:n
-# päiväarvoihin, avovesikaudet 2003–2026: testijakson 2020–2026 keskivirhe
-# 10.5 m³/s, kun syötteet ovat havaintoja (Pudasjärvi + Siurua: 18.8 m³/s).
+# Maalismaa (Hawa'Ii): Siuruanjoki (Leuvankoski) + Pudasjärven vedenkorkeus (Tuulisalmi
+# 6100710, N43) ja eilisen virheen korjaus. Kaavan muoto toisesta analyysista
+# (210 + 1,05·Q1600 + 6,43·((H2−10590)/100)³ − 1,24·ΔH, Q ≥ 450); kertoimet sovitettu
+# uudelleen SYKE:n päiväarvoihin touko–15.11. 2003–2026 erikseen alle/yli 450 m³/s
+# (ryhmä eilisen havainnon mukaan). Vuosittain ristiinvalidoitu keskivirhe 15.8 m³/s
+# (600–800 m³/s: 11.6); ilman korjausta 22.3, Pahkakoski + Siurua (eilinen Pahkakoski) 18.9.
 ARVIOMALLIT = {
-    "61/q6101750y": Arviomalli("Pahkakoski + Siurua", -5.423,
-                               (("61/q6101452y", 1.078), ("61/q6101600y", 0.911))),
+    "61/q6101750y": Arviomalli(
+        "Pudasjärvi + Siurua, eilinen korjaus", "61/q6101600y", "61/l611331001y", 10590, 450,
+        pieni=Kertoimet(68.828, 1.4523, 12.5438, -0.9732, 0.655),
+        iso=Kertoimet(208.230, 1.0538, 6.4541, -1.1160, 0.858)),
 }
 
 
-def syotteen_arvo(ajo: dict, paiva: dt.date) -> float | None:
+def syotteen_arvo(ajo: dict, paiva: dt.date, hav_nimi: str = "qhav",
+                  lask_nimi: str = "qinlask_ka") -> float | None:
     """Havainto päivältä, tai tuoreimpaan havaintoon korjattu SYKE:n ennuste."""
-    hav, lask = ajo.get("qhav"), ajo.get("qinlask_ka")
+    hav, lask = ajo.get(hav_nimi), ajo.get(lask_nimi)
     if not hav:
         return None
     for n in range(HAVAINTO_MAX_IKA + 1):
@@ -151,6 +178,17 @@ def syotteen_arvo(ajo: dict, paiva: dt.date) -> float | None:
     return None
 
 
+def _mallin_arvo(malli: Arviomalli, k: Kertoimet, ajot: dict[str, dict], paiva: dt.date) -> float | None:
+    q_ajo = ajot.get(f"{malli.virtaama_asema}/ajo.json") or {}
+    h_ajo = ajot.get(f"{malli.korkeus_asema}/ajo.json") or {}
+    q = syotteen_arvo(q_ajo, paiva)
+    h = syotteen_arvo(h_ajo, paiva, "whav", "wlask_ka")
+    h1 = syotteen_arvo(h_ajo, paiva - dt.timedelta(days=1), "whav", "wlask_ka")
+    if None in (q, h, h1):
+        return None
+    return malli.kaava(k, q, h * 100, h1 * 100)
+
+
 def arvioi_tanaan(lukema: Kaaviolukema, ajot: dict[str, dict]) -> str | None:
     """Korvaa vanhentuneen havainnon arviomallin arvolla (vain virtaamat).
 
@@ -160,17 +198,27 @@ def arvioi_tanaan(lukema: Kaaviolukema, ajot: dict[str, dict]) -> str | None:
     malli = ARVIOMALLIT.get(asema)
     if not malli or lukema.suure != "virtaama" or lukema.havaittu_paivia_sitten == 0:
         return None
-    oma = ajot.get(f"{asema}/ajo.json")
+    oma = ajot.get(f"{asema}/ajo.json") or {}
     try:
         tanaan = dt.date.fromisoformat(oma["ennustepvm_www"])
     except (KeyError, TypeError, ValueError):
         return None
-    arvo = malli.vakio
-    for avain, (_, kerroin) in zip(malli.ajo_avaimet(), malli.syotteet):
-        v = syotteen_arvo(ajot.get(avain) or {}, tanaan)
-        if v is None:
-            return f"{asema}: arviomallin ({malli.nimi}) syöte {avain} puuttuu – käytetään havaintoa"
-        arvo += kerroin * v
+    # Aseman tuorein havainto (yleensä eilinen) valitsee kertoimet ja antaa korjauksen
+    viim = None
+    for n in range(1, HAVAINTO_MAX_IKA + 1):
+        v = _arvo(oma.get("qhav"), tanaan - dt.timedelta(days=n)) if oma.get("qhav") else None
+        if v is not None:
+            viim = (n, v)
+            break
+    k = malli.iso if viim and viim[1] >= malli.raja else malli.pieni
+    arvo = _mallin_arvo(malli, k, ajot, tanaan)
+    if arvo is None:
+        return f"{asema}: arviomallin ({malli.nimi}) syötteitä puuttuu – käytetään havaintoa"
+    if viim:
+        n, havaittu = viim
+        silloin = _mallin_arvo(malli, k, ajot, tanaan - dt.timedelta(days=n))
+        if silloin is not None:
+            arvo += k.alfa ** n * (havaittu - silloin)   # vanhempi virhe painaa vähemmän
     lukema.havaittu, lukema.havaittu_paivia_sitten = arvo, 0
     lukema.tietolahde = f"arvio {malli.nimi}"
     return None

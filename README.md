@@ -106,11 +106,27 @@ Tukholmassa (`arn1`) lähellä osm.fi:tä ja SYKE:ä ja jättää testit pois pa
    vesi.fi käyttää). Sieltä otetaan havainto, malli ja ennuste, jos JSONin malli
    täsmää kuvasta luettuun; tunnusluvut tulevat edelleen kuvasta.
    - **Arviomalli Hawa'Iille:** Maalismaan virtaaman päiväarvo julkaistaan vasta
-     seuraavana päivänä. Silloin tämän päivän arvo lasketaan yläpuolisista asemista:
-     Maalismaa = 1.078 × Pahkakoski + 0.911 × Siurua − 5.4 m³/s (Pahkakosken arvona
-     tuorein havainto + SYKE:n ennusteen muutos). Sovitus SYKE:n päiväarvoihin
-     avovesikausina 2003–2026; testijakson 2020–2026 keskivirhe 10.5 m³/s, kun
-     Pudasjärven vedenkorkeus + Siurua antoi 18.8 m³/s.
+     seuraavana päivänä. Silloin tämän päivän arvo lasketaan Siuruanjoen virtaamasta
+     (Q₁₆₀₀) ja Pudasjärven vedenkorkeudesta (Tuulisalmi 6100710, H cm, N43):
+
+     Q = a + b·Q₁₆₀₀ + c·((H₂ − 10590)/100)³ + d·ΔH + α·(M′ − Q′)
+
+     H₂ = (H + H′)/2 ja ΔH = H − H′ (tänään ja eilen); M′ on Maalismaan eilinen
+     havainto ja Q′ kaavan eilinen arvo (eilisen virheen korjaus; jos havainto on
+     n päivää vanha, paino on αⁿ). Kertoimet valitaan eilisen havainnon mukaan:
+
+     | M′ | a | b | c | d | α |
+     |---|---|---|---|---|---|
+     | < 450 m³/s | 68.83 | 1.452 | 12.54 | −0.973 | 0.655 |
+     | ≥ 450 m³/s | 208.23 | 1.054 | 6.454 | −1.116 | 0.858 |
+
+     Kaavan muoto on peräisin toisesta analyysista (210 + 1,05·Q₁₆₀₀ + 6,43·((H₂−10590)/100)³
+     − 1,24·ΔH, Q ≥ 450); kertoimet on sovitettu uudelleen SYKE:n päiväarvoihin
+     touko–15.11. 2003–2026. Vuosittain ristiinvalidoitu keskivirhe 15.8 m³/s
+     (600–800 m³/s: 11.6, yli 800: 19.6); ilman eilisen virheen korjausta 22.3 ja
+     aiempi Pahkakoski + Siurua -malli (Pahkakoski julkaistaan vasta seuraavana
+     päivänä) 18.9 m³/s. Virheenkorjauksen painon jakaminen 50 m³/s:n luokkiin ei
+     parantanut tulosta merkittävästi (15.6), ja yli 800 m³/s se huononi.
 4. **SMHI** (`smhi_data.py`): Ruotsin paikoilla ei ole osm.fi-sivua eikä
    SYKE-kaaviota, vaan mittari on muotoa `smhi/<asema>/<piste>`. Havainto on
    SMHI:n avoimen hydroobs-rajapinnan tuorein 15 minuutin virtaama (parametri 2,
