@@ -17,6 +17,11 @@ Muuttuja on joko kaavion arvo ("arvo") tai tulvaindeksi ("tulvaindeksi"):
 ylivesi eli tavallinen kevättulvan huippu (MHW/MHQ). Tulvaindeksiä
 käytetään paikoille, joiden kuvauksessa puhutaan vain "tulvasta" tai
 "kesävedestä" ilman lukuarvoja.
+
+Ruotsin paikoilla ei ole osm.fi-sivua eikä SYKE-kaaviota: niiden mittari on
+"smhi/<asema>/<piste>" (SMHI:n havaintoasema + HydroNu-ennustepiste, ks.
+smhi_data.py), ja rajat ovat paikallisen melojan (`lahde="meloja"`) tai
+omia arvioita.
 """
 
 from __future__ import annotations
@@ -35,14 +40,19 @@ class Kohde:
     mittari: str = "paa"          # avain Paikka.mittarit-sanakirjaan
     muuttuja: str = "arvo"        # "arvo" | "tulvaindeksi"
     huom: str = ""
-    lahde: str = "sivu"           # "sivu" = luku suoraan kuvauksesta, "arvio" = tulkinta
+    lahde: str = "sivu"           # "sivu" = luku suoraan kuvauksesta, "meloja" = paikallisen
+                                  # melojan kertoma, "arvio" = tulkinta
 
 
 @dataclass(frozen=True)
 class Mittari:
-    kaavio: str                   # "<alue>/<asema>/<tiedosto>"
+    kaavio: str                   # "<alue>/<asema>/<tiedosto>" tai "smhi/<asema>/<piste>"
     lisakaavio: bool = False      # ei sivulla; saman tai lähiaseman SYKE-kaavio
     marginaali: float | None = None  # kuinka kaukana toimivasta alueesta pisteet putoavat nollaan
+
+    @property
+    def smhi(self) -> bool:
+        return self.kaavio.startswith("smhi/")
 
 
 @dataclass(frozen=True)
@@ -54,6 +64,11 @@ class Paikka:
     kuvaus: str
     mittarit: dict[str, Mittari] = field(default_factory=dict)
     kohteet: tuple[Kohde, ...] = ()
+
+    @property
+    def osm_sivu(self) -> bool:
+        """Onko paikalla osm.fi-sivu (josta kaaviot tarkistetaan)?"""
+        return "://www.osm.fi/" in self.url
 
 
 T = "tulvaindeksi"
@@ -75,11 +90,14 @@ ASEMAT = {
     "q6400410y": "Simo",
     "q6701500y": "Pello",
     "q6702110y": "Matkakoski",
+    # SMHI:n havaintoasemat ("smhi/<asema>/<piste>")
+    "1387": "Gransel (Piteälven)",
+    "11": "Männikkö (Kalixälven)",
 }
 
 
 def aseman_nimi(kaavio: str) -> str:
-    """'67/q6702110y/wlyhyt.png' -> 'Matkakoski'"""
+    """'67/q6702110y/wlyhyt.png' -> 'Matkakoski', 'smhi/1387/31914' -> 'Gransel (Piteälven)'"""
     osat = kaavio.split("/")
     return ASEMAT.get(osat[1], osat[1]) if len(osat) >= 2 else kaavio
 
@@ -234,6 +252,26 @@ PAIKAT: tuple[Paikka, ...] = (
         ),
     ),
     Paikka(
+        "Trollforsarna (Piteälven)", "https://sv.wikipedia.org/wiki/Trollforsarna", "peli", 450,
+        "Ruotsi: Piteälvenin koskiosuus Granselin mittarin kohdalla, isoja aaltoja ja "
+        "laskettavaa eri vesillä. Rajat paikalliselta kokeneelta melojalta (SMHI Gransel).",
+        {"paa": Mittari("smhi/1387/31914", marginaali=60)},
+        (
+            Kohde("Paltvalsen (iso aalto)", (170, AVOIN), (190, 240), 1.0,
+                  huom="parhaimmillaan 190–240 m³/s, toimii n. 170:stä", lahde="meloja"),
+            Kohde("Glashällen (pieni aalto)", (220, AVOIN), (320, 360), 0.8,
+                  huom="toimii n. 220–400+, parhaimmillaan n. 340; ylärajaa ei tiedetä", lahde="meloja"),
+            Kohde("Yläpätkä (Delta / keskiränni)", (140, 300), (140, 300), 0.9,
+                  huom="yli 300 m³/s karvainen", lahde="meloja"),
+            Kohde("Satumaa (Sagoland)", (140, 300), (140, 300), 0.7,
+                  huom="samat vedet kuin Yläpätkällä, mutta helpompi", lahde="meloja"),
+            Kohde("Alapätkä (Nedre Trollforsarna)", (AVOIN, AVOIN), (300, AVOIN), 0.8,
+                  huom="aina hyvä, parempi yli 300 m³/s", lahde="meloja"),
+            Kohde("Benbrytarforsen", (AVOIN, 150), (AVOIN, 130), 0.8,
+                  huom="hyvä alle 130 m³/s, enintään n. 150", lahde="meloja"),
+        ),
+    ),
+    Paikka(
         "Taivalkoski", "https://www.osm.fi/taivalkoski/", "peli", 170,
         "Rakennettu rodeomonttu ja slalomrata; säännöstelypato, vettä voi tilata "
         "kunnalta. Sivulla ei vesikaaviota.",
@@ -328,6 +366,21 @@ PAIKAT: tuple[Paikka, ...] = (
         (
             Kohde("Haurukylä – Vehkamaantie", (0.2, AVOIN), (0.5, AVOIN), 0.6,
                   mittari="tyrnava", muuttuja=T, huom="kevättulvan joki", lahde="arvio"),
+        ),
+    ),
+    Paikka(
+        "Pahakurkkio (Kalixälven)", "https://vattenwebb.smhi.se/hydronu/?subid=35732", "retki", 370,
+        "Ruotsi, Saittarova (Pajala): seitsemän kosken sarja 3–4 km; kosket 1–3 n. III, "
+        "4 hontto oikealla, 5 vaikein, 6–7 IV. Mittarina Männikkö (15 km alavirtaan). "
+        "Yli n. 220 m³/s kosket isoja ja vitonen V-luokkaa.",
+        {"paa": Mittari("smhi/11/35732", marginaali=30)},
+        (
+            Kohde("Koskisarja 1–7", (70, 200), (85, 150), 1.0,
+                  huom="95 m³/s 'lähes optimaalinen' (8/2010); yli n. 220 vitonen V-luokkaa",
+                  lahde="arvio"),
+            Kohde("Åretsvågen (ykköskosken leikkiaalto)", (200, AVOIN), (200, AVOIN), 0.9,
+                  huom="toimi n. 220 m³/s:llä (7/2010), vaatii korkean veden; hontot talon kokoisia",
+                  lahde="arvio"),
         ),
     ),
     Paikka(

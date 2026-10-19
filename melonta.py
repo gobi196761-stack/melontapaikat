@@ -3,12 +3,13 @@
 # requires-python = ">=3.10"
 # dependencies = ["pillow>=10", "numpy>=1.24"]
 # ///
-"""Melontapaikkojen päivän tilanne ja optimijärjestys (osm.fi + SYKE).
+"""Melontapaikkojen päivän tilanne ja optimijärjestys (osm.fi + SYKE + SMHI).
 
 Hakee osm.fi:n melontapaikkojen sivut, lukee sivujen lopussa olevista
 SYKE:n vedenkorkeus- ja virtaamakaavioista tämän päivän tilanteen ja
 järjestää paikat sen mukaan, miten hyvin vesitilanne osuu kunkin paikan
-optimiolosuhteisiin (ks. paikat.py ja README.md).
+optimiolosuhteisiin (ks. paikat.py ja README.md). Ruotsin paikkojen
+virtaama ja ennuste haetaan SMHI:ltä (smhi_data.py).
 
 Käyttö (uv asentaa riippuvuudet automaattisesti, mistä hakemistosta tahansa):
     uv run melonta.py                 # päivän järjestys
@@ -29,6 +30,7 @@ from pathlib import Path
 
 import arviointi
 import osm_sivut as osm
+import smhi_data
 import syke_data
 from paikat import PAIKAT, Paikka, aseman_nimi
 from syke_kaavio import KaavioLukija, Kaaviolukema, KaavioVirhe
@@ -67,20 +69,22 @@ def _lue_kaaviot(tehtavat: list[tuple[str, bytes]], prosessit: bool):
 
 
 def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hakemisto: bool = True,
-                  prosessit: bool | None = None):
+                  prosessit: bool | None = None, nyt: dt.datetime | None = None):
     """Hakee sivut ja kaaviot ja lukee kaaviot.
 
     prosessit=None: rinnakkaiset prosessit paitsi Vercelissä (VERCEL-ympäristömuuttuja).
+    nyt: SMHI-havaintojen iän ja ennusteen alun laskentaan (oletus nyt).
     """
     if prosessit is None:
         prosessit = not os.environ.get("VERCEL")
     varoitukset: list[str] = []
 
     # 1. Paikkojen sivut ja niiden lopussa olevat kaaviot (verkko-odotusta, joten
-    #    säikeitä saa olla paljon)
+    #    säikeitä saa olla paljon). Ruotsin paikoilla ei ole osm.fi-sivua.
+    osm_paikat = [p for p in paikat if p.osm_sivu]
     with ThreadPoolExecutor(max_workers=24) as pool:
-        sivut = list(zip(paikat, pool.map(lambda p: osm.hae_turvallisesti(hakija, p.url), paikat)))
-    sivun_kaaviot: dict[str, list[str]] = {}   # paikan url -> sivun kaaviot
+        sivut = list(zip(osm_paikat, pool.map(lambda p: osm.hae_turvallisesti(hakija, p.url), osm_paikat)))
+    sivun_kaaviot: dict[str, list[str]] = {p.url: [] for p in paikat}   # paikan url -> sivun kaaviot
     for p, (data, virhe) in sivut:
         if virhe:
             varoitukset.append(f"Sivun haku epäonnistui: {virhe}")
@@ -88,7 +92,7 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
             continue
         sivun_kaaviot[p.url] = osm.sivun_kaaviot(data.decode("utf-8", errors="replace"))
         for avain, mittari in p.mittarit.items():
-            if not mittari.lisakaavio and mittari.kaavio not in sivun_kaaviot[p.url]:
+            if not mittari.lisakaavio and not mittari.smhi and mittari.kaavio not in sivun_kaaviot[p.url]:
                 varoitukset.append(
                     f"{p.nimi}: sivulta ei enää löydy kaaviota {mittari.kaavio} "
                     f"(sivulla: {', '.join(sivun_kaaviot[p.url]) or 'ei kaavioita'}) – käytetään silti")
@@ -105,7 +109,7 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
     # 3. Kaikki tarvittavat kaaviot: pisteytykseen käytetyt + sivujen muut kaaviot
     tarvittavat: list[str] = []
     for p in paikat:
-        for k in [m.kaavio for m in p.mittarit.values()] + sivun_kaaviot[p.url]:
+        for k in [m.kaavio for m in p.mittarit.values() if not m.smhi] + sivun_kaaviot[p.url]:
             if k not in tarvittavat:
                 tarvittavat.append(k)
     with ThreadPoolExecutor(max_workers=16) as pool:
@@ -150,6 +154,16 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
         for virhe in (syke_data.taydenna(lukema, ajo), syke_data.arvioi_tanaan(lukema, luetut)):
             if virhe:
                 varoitukset.append(virhe)
+
+    # 5. Ruotsin paikat: havainto ja ennuste suoraan SMHI:ltä
+    smhi = sorted({m.kaavio for p in paikat for m in p.mittarit.values() if m.smhi})
+    nyt = nyt or dt.datetime.now(dt.timezone.utc)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        haetut = list(pool.map(lambda k: smhi_data.hae(hakija, k, nyt), smhi))
+    for avain, (lukema, virheet) in zip(smhi, haetut):
+        varoitukset.extend(virheet)
+        if lukema:
+            lukemat[avain] = lukema
     return sivun_kaaviot, lukemat, varoitukset
 
 
@@ -186,8 +200,12 @@ def _luku(v: float | None, yksikko: str) -> str:
     return f"{v:.1f} m³/s" if v < 20 else f"{v:.0f} m³/s"
 
 
+def lukeman_asema(l: Kaaviolukema) -> str:
+    return aseman_nimi(osm.kaavio_avain(l.url) or smhi_data.kaavio_avain(l.url) or "")
+
+
 def kuvaa_lukema(l: Kaaviolukema, ennustepaiva: int = 3) -> str:
-    teksti = f"{aseman_nimi(osm.kaavio_avain(l.url) or '')} {SUURE.get(l.suure, l.suure)} " \
+    teksti = f"{lukeman_asema(l)} {SUURE.get(l.suure, l.suure)} " \
              f"{_luku(l.arvo, l.yksikko)} ({l.lahde})"
     tuleva = l.ennuste_korjattu(ennustepaiva)
     if tuleva is not None and l.arvo is not None:
@@ -206,7 +224,7 @@ def _tila_merkki(tila: str) -> str:
 
 
 def tulosta(tulokset, varoitukset, paiva: dt.date, laaja: bool) -> None:
-    print(f"Melontapaikkojen tilanne {paiva:%d.%m.%Y} – osm.fi + SYKE:n vesistöennusteet")
+    print(f"Melontapaikkojen tilanne {paiva:%d.%m.%Y} – osm.fi + SYKE:n ja SMHI:n vesistöennusteet")
     lampotilat = [l for t in tulokset for l in t.sivun_kaaviot if l.suure == "lampotila"]
     if lampotilat:
         l = lampotilat[0]
@@ -263,7 +281,7 @@ def tulosta(tulokset, varoitukset, paiva: dt.date, laaja: bool) -> None:
 def json_tulos(tulokset, varoitukset, paiva: dt.date) -> dict:
     def lukema_dict(l: Kaaviolukema) -> dict:
         return {
-            "kaavio": l.url, "asema": aseman_nimi(osm.kaavio_avain(l.url) or ""), "suure": l.suure,
+            "kaavio": l.url, "asema": lukeman_asema(l), "suure": l.suure,
             "yksikko": l.yksikko, "arvo": l.arvo, "lahde": l.lahde, "malli": l.malli,
             "ennuste": {f"+{n}": l.ennuste_korjattu(n) for n in arviointi.ENNUSTEPAIVAT},
             "historia_min": l.hist_min, "historia_max": l.hist_max, "mediaani": l.mediaani,

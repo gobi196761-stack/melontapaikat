@@ -4,7 +4,8 @@ Ohjelma lukee [Oulun Seudun Melojien](https://www.osm.fi/melontapaikat/)
 melontapaikkojen sivujen lopussa olevista SYKE:n vesistöennustekaavioista
 (vedenkorkeus/virtaama) tämän päivän tilanteen, vertaa sitä kunkin paikan
 kuvauksesta analysoituihin optimiolosuhteisiin ja järjestää paikat
-optimijärjestykseen.
+optimijärjestykseen. Mukana on myös kaksi Ruotsin paikkaa (Trollforsarna ja
+Pahakurkkio), joiden virtaama ja ennuste haetaan SMHI:ltä.
 
 ```
 $ uv run melonta.py
@@ -106,7 +107,15 @@ Tukholmassa (`arn1`) lähellä osm.fi:tä ja SYKE:ä ja jättää testit pois pa
      tuorein havainto + SYKE:n ennusteen muutos). Sovitus SYKE:n päiväarvoihin
      avovesikausina 2003–2026; testijakson 2020–2026 keskivirhe 10.5 m³/s, kun
      Pudasjärven vedenkorkeus + Siurua antoi 18.8 m³/s.
-4. **Arviointi** (`arviointi.py`): jokaisen kohteen pisteet ovat 100 parhaalla
+4. **SMHI** (`smhi_data.py`): Ruotsin paikoilla ei ole osm.fi-sivua eikä
+   SYKE-kaaviota, vaan mittari on muotoa `smhi/<asema>/<piste>`. Havainto on
+   SMHI:n avoimen hydroobs-rajapinnan tuorein 15 minuutin virtaama (parametri 2,
+   `opendata-download-hydroobs.smhi.se/.../station/<asema>/period/latest-day/data.json`)
+   ja ennuste HydroNu-mallin päiväarvot (`vattenwebb.smhi.se/hydronu/data/point?subid=<piste>`,
+   jonka `chartData` on sama kuin `data/chart?subid=&productionTime=`). Ennuste
+   lasketaan kuten SYKE-datalla: havainto + (malli[t+n] − malli[t]). Tunnusluvut
+   MQ/MHQ/MLQ ovat mallin; MLQ toimii tulvaindeksin alarajana (MNQ).
+5. **Arviointi** (`arviointi.py`): jokaisen kohteen pisteet ovat 100 parhaalla
    alueella, 60–100 toimivalla alueella ja 45→0 toimivan alueen ulkopuolella
    (marginaalin matkalla). Pisteet kerrotaan kohteen laatukertoimella (esim.
    "paras pelipaikka" 1.0, retkimelonta 0.6), ja jokainen muu toimiva kohde
@@ -154,7 +163,9 @@ välillä.
 ## Optimiolosuhteiden analyysi
 
 Rajat ovat sivujen kuvauksista (`paikat.py`). *Arvio* = kuvauksessa ei ole
-suoraa lukua, tulkinta perusteltu sarakkeessa.
+suoraa lukua, tulkinta perusteltu sarakkeessa. Ruotsin paikoilla ei ole
+osm.fi-sivua: Trollforsarnan rajat ovat paikalliselta kokeneelta melojalta
+(`lahde="meloja"`), Pahakurkkion rajat ovat arvioita kahdesta kalibrointipisteestä.
 
 ### Pelipaikat
 
@@ -190,6 +201,12 @@ suoraa lukua, tulkinta perusteltu sarakkeessa.
 | **Niskakoski** | Saarenpää **virtaama** (lisäkaavio) | Stoppari / + aalto | > 50 / > 85 m³/s | | sivulla on vedenkorkeuskuva, rajat virtaamana → saman aseman virtaamakaavio |
 | **Neitikoski** | Lieksanjoki vedenkorkeus | Aalto/stoppari | aina | tulvaindeksi 0.2–0.9 (arvio) | tulvalla vaikea, matalalla stoppari |
 | **Taivalkoski** | – | säännöstelty, vettä voi tilata | | | ei kaaviota |
+| **Trollforsarna** (Ruotsi, Piteälven) | SMHI Gransel 1387 virtaama, ennuste HydroNu 31914 (sama kohta) | Paltvalsen (iso aalto) | > 170 m³/s | 190–240 m³/s | paikallinen kokenut meloja |
+| | | Glashällen (pieni aalto) | > 220 m³/s | ~340 m³/s (320–360) | meloja: toimii n. 220–400+, ylärajaa ei tiedetä |
+| | | Yläpätkä (Delta / keskiränni) | 140–300 m³/s | = | meloja: yli 300 "karvainen" |
+| | | Satumaa (Sagoland) | 140–300 m³/s | = | meloja: samat vedet kuin Yläpätkä, helpompi |
+| | | Alapätkä (Nedre Trollforsarna) | aina | > 300 m³/s | meloja: aina hyvä, parempi yli 300 |
+| | | Benbrytarforsen | < 150 m³/s | < 130 m³/s | meloja: hyvä alle 130, enintään n. 150 |
 
 ### Retki- ja laskupätkät
 
@@ -205,6 +222,8 @@ suoraa lukua, tulkinta perusteltu sarakkeessa.
 | **Muhosjoki** | Tyrnävänjoki virtaama (lisäkaavio) | > 3.3 m³/s | > 6 m³/s (arvio) | "syysvesillä (Tyrnävä noin 33 m/s) hiukan matalia" – tulkittu 3.3 m³/s:ksi, koska Tyrnävänjoen MHQ on vain 21.8 m³/s |
 | | Tyrnävänjoki vedenkorkeus | Suokylän koskijakso: indeksi > 0.7 | > 0.85 | "voisi sopia kevättulvalla pelimelontahenkisille" |
 | **Temmesjoki** | Temmesjoki virtaama + Tyrnävänjoki (lisä) | Tyrnävän indeksi > 0.2 | > 0.5 | "heti jäiden lähdettyä"; Temmesjoen kaaviossa ei tunnuslukuja |
+| **Pahakurkkio** (Ruotsi, Kalixälven, Saittarova) | SMHI Männikkö 11 virtaama (n. 15 km alavirtaan, valuma-alue 5 856 km²), ennuste HydroNu 35732 | koskisarja 1–7: 70–200 m³/s (arvio) | 85–150 m³/s (arvio) | blogi Pohjoista melontaa 8/2010 + Männikön mitattu virtaama: 28.8.2010 n. 95 m³/s "lähes optimaalinen"; heinäkuun 2010 lopun huippu n. 220 m³/s "poikkeuksellisen paljon", vitonen V-luokkaa → yli n. 220 varoitus. Kosket 1–3 n. III, 4 hontto oikealla, 5 vaikein, 6–7 IV |
+| | | Åretsvågen (ykköskosken leikkiaalto): > 200 m³/s (arvio) | = | samasta blogista: aalto toimi n. 220 m³/s:llä, hontot talon kokoisia. HydroNu-mallin ja Männikön mitatun suhde kesällä mediaani 0.98 |
 | **Kutujoki, Oulujoki, Oulun edustan saaret** | – | | | ei kaaviota (meri: tuuli ratkaisee) |
 
 ## Rajoitukset

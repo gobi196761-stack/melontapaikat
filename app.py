@@ -206,7 +206,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 </head>
 <body><main>
 <h1>Melontapaikkojen tilanne {tilanne.paivitetty:%d.%m.%Y}</h1>
-<div class="meta">osm.fi:n paikkakuvaukset + SYKE:n vesistöennusteet ·
+<div class="meta">osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet ·
 päivitetty klo {tilanne.paivitetty:%H.%M} · <a href="{api}">JSON</a></div>
 <nav>{suodattimet}</nav>
 {lampo}
