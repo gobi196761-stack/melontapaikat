@@ -5,7 +5,9 @@ melontapaikkojen sivujen lopussa olevista SYKE:n vesistöennustekaavioista
 (vedenkorkeus/virtaama) tämän päivän tilanteen, vertaa sitä kunkin paikan
 kuvauksesta analysoituihin optimiolosuhteisiin ja järjestää paikat
 optimijärjestykseen. Mukana on myös kaksi Ruotsin paikkaa (Trollforsarna ja
-Pahakurkkio), joiden virtaama ja ennuste haetaan SMHI:ltä.
+Pahakurkkio), joiden virtaama ja ennuste haetaan SMHI:ltä; ne näkyvät vain omalla
+Ruotsi-välilehdellään. Lisäksi mukana ovat Rovaniemen koskikohteet Roimeloo ry:n
+foorumilta (Vikaköngäs, Korpikoski, Vaattunkiköngäs, Marraskoski ja Molkoköngäs).
 
 ```
 $ uv run melonta.py
@@ -55,7 +57,9 @@ uv run tyokalut/rakenna_glyfit.py       # glyfimallien uudelleenrakennus
 
 `app.py` on riippuvuudeton WSGI-sovellus: `/` näyttää järjestyksen taulukkona ja
 `/api` antaa saman JSON-muodossa. Molemmat hyväksyvät suodattimet
-`?tyyppi=peli|retki` ja `?max_km=N`.
+`?tyyppi=peli|retki|ruotsi` ja `?max_km=N`. Ilman tyyppiä ("Kaikki") ja
+pelipaikoissa/retkissä näytetään vain Suomen paikat; Ruotsin paikat ovat vain
+`?tyyppi=ruotsi`-välilehdellä (komentorivillä `--tyyppi ruotsi`).
 
 ```bash
 uv run app.py                           # paikallisesti: http://localhost:8000
@@ -102,11 +106,27 @@ Tukholmassa (`arn1`) lähellä osm.fi:tä ja SYKE:ä ja jättää testit pois pa
    vesi.fi käyttää). Sieltä otetaan havainto, malli ja ennuste, jos JSONin malli
    täsmää kuvasta luettuun; tunnusluvut tulevat edelleen kuvasta.
    - **Arviomalli Hawa'Iille:** Maalismaan virtaaman päiväarvo julkaistaan vasta
-     seuraavana päivänä. Silloin tämän päivän arvo lasketaan yläpuolisista asemista:
-     Maalismaa = 1.078 × Pahkakoski + 0.911 × Siurua − 5.4 m³/s (Pahkakosken arvona
-     tuorein havainto + SYKE:n ennusteen muutos). Sovitus SYKE:n päiväarvoihin
-     avovesikausina 2003–2026; testijakson 2020–2026 keskivirhe 10.5 m³/s, kun
-     Pudasjärven vedenkorkeus + Siurua antoi 18.8 m³/s.
+     seuraavana päivänä. Silloin tämän päivän arvo lasketaan Siuruanjoen virtaamasta
+     (Q₁₆₀₀) ja Pudasjärven vedenkorkeudesta (Tuulisalmi 6100710, H cm, N43):
+
+     Q = a + b·Q₁₆₀₀ + c·((H₂ − 10590)/100)³ + d·ΔH + α·(M′ − Q′)
+
+     H₂ = (H + H′)/2 ja ΔH = H − H′ (tänään ja eilen); M′ on Maalismaan eilinen
+     havainto ja Q′ kaavan eilinen arvo (eilisen virheen korjaus; jos havainto on
+     n päivää vanha, paino on αⁿ). Kertoimet valitaan eilisen havainnon mukaan:
+
+     | M′ | a | b | c | d | α |
+     |---|---|---|---|---|---|
+     | < 450 m³/s | 68.83 | 1.452 | 12.54 | −0.973 | 0.655 |
+     | ≥ 450 m³/s | 208.23 | 1.054 | 6.454 | −1.116 | 0.858 |
+
+     Kaavan muoto on peräisin toisesta analyysista (210 + 1,05·Q₁₆₀₀ + 6,43·((H₂−10590)/100)³
+     − 1,24·ΔH, Q ≥ 450); kertoimet on sovitettu uudelleen SYKE:n päiväarvoihin
+     touko–15.11. 2003–2026. Vuosittain ristiinvalidoitu keskivirhe 15.8 m³/s
+     (600–800 m³/s: 11.6, yli 800: 19.6); ilman eilisen virheen korjausta 22.3 ja
+     aiempi Pahkakoski + Siurua -malli (Pahkakoski julkaistaan vasta seuraavana
+     päivänä) 18.9 m³/s. Virheenkorjauksen painon jakaminen 50 m³/s:n luokkiin ei
+     parantanut tulosta merkittävästi (15.6), ja yli 800 m³/s se huononi.
 4. **SMHI** (`smhi_data.py`): Ruotsin paikoilla ei ole osm.fi-sivua eikä
    SYKE-kaaviota, vaan mittari on muotoa `smhi/<asema>/<piste>`. Havainto on
    SMHI:n avoimen hydroobs-rajapinnan tuorein 15 minuutin virtaama (parametri 2,
@@ -180,7 +200,9 @@ täydennetty ruotsalaisesta Forsguidenista (forsguiden.com, Wayback-arkisto 2004
 | | | Oikean silta-aukon surffiaalto | 108.1–108.9 m | = | "Korkealla vedellä 108.1–108.9" |
 | | | Ala-aallot | 106.8–107.8 m | < 107.3 m | "parhaimmillaan kun mittari laskee alle 107.3" |
 | | | *tulva* | | | "Tulva-aikaan Kipinä on tasainen" |
-| **Kattilakoski** | Pello vedenkorkeus | Hevosenkenkä | 78.05–78.50 m | 78.15–78.25 m | sivun taulukko |
+| **Kattilakoski** | Pello vedenkorkeus | Hevosenkenkä | 78.05–78.50 m | 78.15–78.25 m | sivun taulukko = [Tuoralan vedenkorkeusreferenssi](https://tuorala.wordpress.com/2011/05/25/kattilakosken-definitiivinen-vedenkorkeusreferenssi/) |
+| | | Kakkosaalto | 78.35–78.50 m | 78.35–78.40 m | Tuorala: 78.35 parhaimmillaan, 78.50 kaatuu pohjalle |
+| | | Suomenpuolen väliportaan hontto | 78.20–78.30 m | ~78.25 m | Tuorala: "äärimmäisen aliarvostettu" |
 | | | Mega-aalto | 78.85–79.15 m | ~79.00 m | |
 | | | Ala-aalto | 78.25 ja 78.85–79.00 m | 78.85 m | |
 | | | Grillikodan hontto / Parkkihontto | ~79 m / > 79.5 m | | "mitä enemmän sen parempi" |
@@ -189,7 +211,7 @@ täydennetty ruotsalaisesta Forsguidenista (forsguiden.com, Wayback-arkisto 2004
 | **Matkakoski** | Matkakoski vedenkorkeus | Peliajan paikat | < 28.0 m | 27.5–27.8 m | alle 28 m takaisin melomalla |
 | | | Isolla vedellä | 28–31 m | | pudotettava ylhäältä, kantaen |
 | | | Tulva "Zambezi" | > 31 m | | kallio peittyy (autom. 500 cm) |
-| **Vuentokoski** | Matkakoski | Vuento–Matkakoski | > 28.2 m | > 28.7 m | "28.2 ei juuri kannata" |
+| **Vuentokoski** | Matkakoski | Vuento–Matkakoski | > 28.2 m | > 28.7 m | "28.2 ei juuri kannata"; [Tuorala](https://tuorala.wordpress.com/2010/06/04/vuennonkoski-ja-matkakoski-25-5-2010/): yli 2000 m³/s (n. 31 m) klassikko |
 | **Kukkolankoski** | Matkakoski | Hontto + surffiaalto | 28.0–29.0 m | 28.0–28.7 m | 29.2 m liikaa |
 | **Koiteli** | Haukipudas vedenkorkeus | Helmihontto | 10.3–11.0 m | ~10.7 m | |
 | | | Etuaalto | 10.3–11.0 m | ≥ 10.4 m | kärryttely 10.4 m:stä |
@@ -204,17 +226,18 @@ täydennetty ruotsalaisesta Forsguidenista (forsguiden.com, Wayback-arkisto 2004
 | | | Kalliosaaren paikat | 70–250 m³/s | | |
 | | | Aalto 5 km alavirtaan | > 150 m³/s | | |
 | **Niskakoski** | Saarenpää **virtaama** (lisäkaavio) | Stoppari / + aalto | > 50 / > 85 m³/s | | sivulla on vedenkorkeuskuva, rajat virtaamana → saman aseman virtaamakaavio |
-| **Neitikoski** | Lieksanjoki vedenkorkeus | Aalto/stoppari | aina | tulvaindeksi 0.2–0.9 (arvio) | tulvalla vaikea, matalalla stoppari |
+| **Neitikoski** | Lieksanjoki, Ruunaa **virtaama** (lisäkaavio; vedenkorkeus näytetään myös) | Aalto (aaltoliikkeet) | > 40 m³/s | > 120 m³/s | [koskimelonta.com](https://koskimelonta.com/kosket/lieksanjoki-neitikoski/): yli 120 (laituri n. 9,5) jyrkempi aalto, liikkeet helpompia; meloa voi vielä 40 (laituri n. −1) |
+| | | Murtuva aalto (voltit) | 100–125 m³/s | 105–120 m³/s | yli 110 (sillan mittari n. 8) murtuu pohjalle, oivallinen volttien harjoitteluun |
+| | | Metsänlaidan hontto ja laiturin puolen aalto | 40–100 m³/s | = | alle 100 metsänlaitaan hontto, keskelle kieli |
 | **Taivalkoski** | – | säännöstelty, vettä voi tilata | | | ei kaaviota |
-| **Trollforsarna** (Ruotsi, Piteälven) | SMHI Gransel 1387 virtaama, ennuste HydroNu 31914 (sama kohta) | Paltvalsen (iso aalto) | > 170 m³/s | 190–240 m³/s | paikallinen kokenut meloja |
-| | | Glashällen (pieni aalto) | > 220 m³/s | ~340 m³/s (320–360) | meloja: toimii n. 220–400+, ylärajaa ei tiedetä |
-| | | Yläpätkä (Delta / keskiränni) | 140–300 m³/s | = | meloja: yli 300 "karvainen" |
-| | | Satumaa (Sagoland) | 140–300 m³/s | = | meloja: samat vedet kuin Yläpätkä, helpompi |
-| | | Alapätkä (Nedre Trollforsarna) | aina | > 300 m³/s | meloja: aina hyvä, parempi yli 300 |
-| | | Benbrytarforsen | < 150 m³/s | < 130 m³/s | meloja: hyvä alle 130, enintään n. 150; [Forsguiden](https://web.archive.org/web/20040722032025/http://www.forsguiden.com/river.asp?id=3&mode=print): IV–VI, pyörteiset akanvirrat |
-| **Pahakurkkio** (Ruotsi, Kalixälven, Saittarova) | SMHI Männikkö 11 virtaama (n. 15 km alavirtaan, valuma-alue 5 856 km²), ennuste HydroNu 35732 (malli/mitattu kesällä mediaani 0.98) | Åretsvågen (ykköskönkään surffiaalto) | 180–260 m³/s (arvio) | 190–235 m³/s (arvio) | Männikkö: [25.7.2010](https://tuorala.wordpress.com/2010/08/10/aaltomelontaa-matkakoskella-ja-pahakurkkiolla-23-ja-25-7-2010/) 218 aalto toimi hyvin; [2.6.2012](https://tuorala.wordpress.com/2012/06/04/grillausta-ja-veden-parsketta/) 212 "hieman optimia korkeammalla", 3.6. 191 optimi; [6.–9.6.2013](https://tuorala.wordpress.com/2013/06/11/viikko-aaltoja-4-9-5-2013/) 226–239 "parhaimmillaan" laskevalla vedellä |
-| | | Koskisarja 1–7 | 70–220 m³/s (arvio) | 80–190 m³/s (arvio) | [17.–19.9.2010](https://tuorala.wordpress.com/2010/09/20/pahakurkkio-17-19-9-2010/) 77–87 syysvesi helpottaa sarjaa; blogi Pohjoista melontaa 28.8.2010 96 "lähes optimaalinen"; 3.6.2012 191 koko koski hyvällä vedellä, "iso muttei kaoottinen"; heinäkuun 2010 huippu 218 "poikkeuksellisen paljon", vitonen V → yli n. 220 varoitus. Kosket 1–3 n. III, 4 hontto oikealla, 5 vaikein, 6–7 IV |
-| | | Ykköskönkään hontto ja aalto matalalla | 65–110 m³/s (arvio) | 72–90 m³/s (arvio) | 17.–19.9.2010 77–87: lähes kaikki honttoliikkeet, aalto parhaimmillaan matalimmalla; [Forsguiden](https://web.archive.org/web/20041116174352/http://forsguiden.com/river.asp?id=8&mode=print): ykköspudotuksessa hontto matalalla ja iso murtuva aalto korkealla vedellä (Lappesuandon asteikolla, ei m³/s) |
+| **Vikaköngäs** (Rovaniemi, Raudanjoki) | Olkkajärven tulovirtaama (l657121001y) | Akanvirrat ja treeni | 15–450 m³/s | 20–50 m³/s | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=12): toimii koko kauden; akanvirrat parhaimmillaan alle 50, 15–20 melko kivinen |
+| | | Isot aallot (kevättulva) | 200–450 m³/s | 300–350 m³/s | Roimeloo: tulvalla suisteet veden alla, 300–350 parhaimmillaan isommille aalloille |
+| **Korpikoski** (Rovaniemi, Raudanjoki, tie 82) | Olkkajärven tulovirtaama | Virranrajat (kurssit, tekniikka) | aina | < 30 m³/s | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=15): alle 30 kivi nousee ja jakaa virran kahteen virranrajaan |
+| **Vaattunkiköngäs** (Rovaniemi, Raudanjoki) | Olkkajärven tulovirtaama | Akanvirrat, virranylitykset | 200–250 m³/s | = | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=16): alle 250; alaraja (50 m³/s rajan alla ei enää hyvä) käyttäjän tarkennus |
+| | | Isompi aallokko (tulva) | > 250 m³/s | = | Roimeloo: "vähäsen tuntumaa isomman aallokon melontaan" |
+| **Marraskoski** (Rovaniemi, Ounasjoki) | Marraskosken virtaama (q6503600y) | Stoppari ja akanvirta (kesäsurffi) | 100–250 m³/s | 160–250 m³/s (laatukerroin 0.8 → enintään 80 p.) | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=13): yli 250 kova työ, alle 100 stoppari matala; [Tuorala 2011](https://tuorala.wordpress.com/2011/05/20/kevaan-marraskoski-sessiot/): aalto toimii n. 160–250 |
+| | | Soulwave (kevättulva) | > 800 m³/s | > 1000 m³/s (100 p.) | Roimeloo: yli 800; [Tuorala 2012](https://tuorala.wordpress.com/2012/05/28/marraskoski-soul-wave/): leveä aalto yli 1000 |
+| **Molkoköngäs** (Ounasjoki, tie 79) | Kaukosen virtaama (q6503300y) | Molkoaalto (surffiaaltojono) | 220–280 m³/s | 260–270 m³/s | [Tuorala 5.6.2012](https://tuorala.wordpress.com/2012/06/07/molkokongas-5-6-2012/): "toiminee virtaamilla 220-280m3 Kaukosessa", paras n. 260–270; Roimeloo: alle 300 |
 
 ### Retki- ja laskupätkät
 
@@ -231,6 +254,20 @@ täydennetty ruotsalaisesta Forsguidenista (forsguiden.com, Wayback-arkisto 2004
 | | Tyrnävänjoki vedenkorkeus | Suokylän koskijakso: indeksi > 0.7 | > 0.85 | "voisi sopia kevättulvalla pelimelontahenkisille" |
 | **Temmesjoki** | Temmesjoki virtaama + Tyrnävänjoki (lisä) | Tyrnävän indeksi > 0.2 | > 0.5 | "heti jäiden lähdettyä"; Temmesjoen kaaviossa ei tunnuslukuja |
 | **Kutujoki, Oulujoki, Oulun edustan saaret** | – | | | ei kaaviota (meri: tuuli ratkaisee) |
+
+### Ruotsi (oma välilehti `?tyyppi=ruotsi`)
+
+| Paikka | Mittari | Kohde | Toimii | Parhaimmillaan | Peruste |
+|---|---|---|---|---|---|
+| **Trollforsarna** (Piteälven; tyyppi peli) | SMHI Gransel 1387 virtaama, ennuste HydroNu 31914 (sama kohta) | Paltvalsen (iso aalto) | > 170 m³/s | 190–240 m³/s | paikallinen kokenut meloja |
+| | | Glashällen (pieni aalto) | > 220 m³/s | ~340 m³/s (320–360) | meloja: toimii n. 220–400+, ylärajaa ei tiedetä |
+| | | Yläpätkä (Delta / keskiränni) | 140–300 m³/s | = | meloja: yli 300 "karvainen" |
+| | | Satumaa (Sagoland) | 140–300 m³/s | = | meloja: samat vedet kuin Yläpätkä, helpompi |
+| | | Alapätkä (Nedre Trollforsarna) | aina | > 300 m³/s | meloja: aina hyvä, parempi yli 300 |
+| | | Benbrytarforsen | < 150 m³/s | < 130 m³/s | meloja: hyvä alle 130, enintään n. 150; [Forsguiden](https://web.archive.org/web/20040722032025/http://www.forsguiden.com/river.asp?id=3&mode=print): IV–VI, pyörteiset akanvirrat |
+| **Pahakurkkio** (Kalixälven, Saittarova; tyyppi retki) | SMHI Männikkö 11 virtaama (n. 15 km alavirtaan, valuma-alue 5 856 km²), ennuste HydroNu 35732 (malli/mitattu kesällä mediaani 0.98) | Åretsvågen (ykköskönkään surffiaalto) | 180–260 m³/s (arvio) | 190–235 m³/s (arvio) | Männikkö: [25.7.2010](https://tuorala.wordpress.com/2010/08/10/aaltomelontaa-matkakoskella-ja-pahakurkkiolla-23-ja-25-7-2010/) 218 aalto toimi hyvin; [2.6.2012](https://tuorala.wordpress.com/2012/06/04/grillausta-ja-veden-parsketta/) 212 "hieman optimia korkeammalla", 3.6. 191 optimi; [6.–9.6.2013](https://tuorala.wordpress.com/2013/06/11/viikko-aaltoja-4-9-5-2013/) 226–239 "parhaimmillaan" laskevalla vedellä |
+| | | Koskisarja 1–7 | 70–220 m³/s (arvio) | 80–190 m³/s (arvio) | [17.–19.9.2010](https://tuorala.wordpress.com/2010/09/20/pahakurkkio-17-19-9-2010/) 77–87 syysvesi helpottaa sarjaa; blogi Pohjoista melontaa 28.8.2010 96 "lähes optimaalinen"; 3.6.2012 191 koko koski hyvällä vedellä, "iso muttei kaoottinen"; heinäkuun 2010 huippu 218 "poikkeuksellisen paljon", vitonen V → yli n. 220 varoitus. Kosket 1–3 n. III, 4 hontto oikealla, 5 vaikein, 6–7 IV |
+| | | Ykköskönkään hontto ja aalto matalalla | 65–110 m³/s (arvio) | 72–90 m³/s (arvio) | 17.–19.9.2010 77–87: lähes kaikki honttoliikkeet, aalto parhaimmillaan matalimmalla; [Forsguiden](https://web.archive.org/web/20041116174352/http://forsguiden.com/river.asp?id=8&mode=print): ykköspudotuksessa hontto matalalla ja iso murtuva aalto korkealla vedellä (Lappesuandon asteikolla, ei m³/s) |
 
 ## Rajoitukset
 

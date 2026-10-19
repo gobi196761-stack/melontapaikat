@@ -64,11 +64,24 @@ class Paikka:
     kuvaus: str
     mittarit: dict[str, Mittari] = field(default_factory=dict)
     kohteet: tuple[Kohde, ...] = ()
+    maa: str = "FI"               # "FI" | "SE"; Ruotsin paikat näkyvät vain omalla välilehdellään
 
     @property
     def osm_sivu(self) -> bool:
         """Onko paikalla osm.fi-sivu (josta kaaviot tarkistetaan)?"""
         return "://www.osm.fi/" in self.url
+
+
+VALILEHDET = ("peli", "retki", "ruotsi")
+
+
+def nakyy(paikka: Paikka, valilehti: str | None) -> bool:
+    """Näkyykö paikka välilehdellä: None/"" = Kaikki (Suomi), "peli", "retki" tai "ruotsi"."""
+    if valilehti == "ruotsi":
+        return paikka.maa == "SE"
+    if paikka.maa != "FI":
+        return False
+    return valilehti not in ("peli", "retki") or paikka.tyyppi == valilehti
 
 
 T = "tulvaindeksi"
@@ -90,6 +103,9 @@ ASEMAT = {
     "q6400410y": "Simo",
     "q6701500y": "Pello",
     "q6702110y": "Matkakoski",
+    "l657121001y": "Olkkajärvi, tulovirtaama (Raudanjoki)",
+    "q6503600y": "Marraskoski (Ounasjoki)",
+    "q6503300y": "Kaukonen (Ounasjoki)",
     # SMHI:n havaintoasemat ("smhi/<asema>/<piste>")
     "1387": "Gransel (Piteälven)",
     "11": "Männikkö (Kalixälven)",
@@ -159,8 +175,14 @@ PAIKAT: tuple[Paikka, ...] = (
         "Finnvågen, parkkihontto. Mittarina Pellon vedenkorkeus.",
         {"paa": Mittari("67/q6701500y/wlyhyt.png", marginaali=0.4)},
         (
+            # Rajat vastaavat tuorala.wordpress.com:n "Kattilakosken definitiivistä
+            # vedenkorkeusreferenssiä" (25.5.2011), josta myös kakkosaalto ja väliportaan hontto.
             Kohde("Hevosenkenkä", (78.05, 78.50), (78.15, 78.25), 1.0,
                   huom="kakkosaalto 78.35–78.50 m"),
+            Kohde("Kakkosaalto", (78.35, 78.50), (78.35, 78.40), 0.8,
+                  huom="parhaimmillaan 78.35 m; 78.50 m kaatuu jo pohjalle (Tuorala)", lahde="meloja"),
+            Kohde("Suomenpuolen väliportaan hontto", (78.20, 78.30), (78.23, 78.27), 0.6,
+                  huom="parhaimmillaan n. 78.25 m, 'äärimmäisen aliarvostettu' (Tuorala)", lahde="meloja"),
             Kohde("Mega-aalto", (78.85, 79.15), (78.95, 79.05), 1.0,
                   huom="parhaimmillaan 79.00 m"),
             Kohde("Ala-aalto", (78.85, 79.00), (78.85, 78.90), 0.9, huom="parhaimmillaan 78.85 m"),
@@ -190,7 +212,8 @@ PAIKAT: tuple[Paikka, ...] = (
         {"paa": Mittari("67/q6702110y/wlyhyt.png", marginaali=0.4)},
         (
             Kohde("Vuennonkoski – Matkakoski", (28.2, AVOIN), (28.7, AVOIN), 1.0,
-                  huom="28.7 m mukavia pelipaikkoja; 28.2 m ei juuri kannata"),
+                  huom="28.7 m mukavia pelipaikkoja; 28.2 m ei juuri kannata; yli 2000 m³/s "
+                       "(n. 31 m) 'yksi parhaista ison veden pätkistä' (Tuorala 2010)"),
         ),
     ),
     Paikka(
@@ -242,13 +265,22 @@ PAIKAT: tuple[Paikka, ...] = (
     ),
     Paikka(
         "Neitikoski (Lieksanjoki)", "https://www.osm.fi/neitikoski/", "peli", 390,
-        "Lähes joen levyinen aalto/stoppari, lyhyet uinnit (päättyy järveen). "
-        "Toimii lähes kaikilla vesillä; tulvalla vaikeampi.",
-        {"paa": Mittari("04/q0400600y/wlyhyt.png")},
+        "Lähes joen levyinen aalto/stoppari, lyhyet uinnit (päättyy järveen). Toimii sulan "
+        "veden aikaan lähes aina. Rajat koskimelonta.com:sta (Ruunaan virtaama).",
+        # Pääreferenssi: koskimelonta.com/kosket/lieksanjoki-neitikoski/ (Olli Nyrhilä 2014),
+        # rajat virtaamana (SYKE Lieksanjoki, Ruunaa) ja sillan/laiturin mittarina.
+        {"paa": Mittari("04/q0400600y/qinlyhyt.png", lisakaavio=True, marginaali=15),
+         "korkeus": Mittari("04/q0400600y/wlyhyt.png")},
         (
-            Kohde("Aalto / stoppari", (AVOIN, AVOIN), (0.2, 0.9), 0.9, muuttuja=T,
-                  huom="tulvalla murtuu koko leveydeltä; matalalla vasen reuna stoppariksi",
-                  lahde="arvio"),
+            Kohde("Aalto (aaltoliikkeet)", (40, AVOIN), (120, AVOIN), 1.0,
+                  huom="yli 120 m³/s (laituri n. 9,5) jyrkempi aalto, aaltoliikkeet onnistuvat "
+                       "helpommin; meloa voi vielä 40 m³/s:llä (laituri n. −1)"),
+            Kohde("Murtuva aalto (voltit)", (100, 125), (105, 120), 0.85,
+                  huom="yli 110 m³/s (sillan mittari n. 8) aaltomainen mutta murtuu pohjalle; "
+                       "aaltoliikkeisiin räjähtävä melonta, oivallinen volttien harjoitteluun"),
+            Kohde("Metsänlaidan hontto ja laiturin puolen aalto", (40, 100), (40, 100), 0.8,
+                  huom="alle 100 m³/s metsänlaitaan hontto, keskelle kieli; matalalla keula "
+                       "tai mela kolahtaa pohjaan"),
         ),
     ),
     Paikka(
@@ -275,25 +307,7 @@ PAIKAT: tuple[Paikka, ...] = (
                   huom="hyvä alle 130 m³/s, enintään n. 150; Forsguiden: IV–VI, hyvin pyörteiset "
                        "akanvirrat, iso imevä valssi", lahde="meloja"),
         ),
-    ),
-    Paikka(
-        "Pahakurkkio (Kalixälven)", "https://vattenwebb.smhi.se/hydronu/?subid=35732", "peli", 370,
-        "Ruotsi, Saittarova (Pajala): kanjonissa seitsemän kosken sarja 3–4 km ja "
-        "ykköskönkään Åretsvågen, yksi maailman parhaista surffiaalloista. Kosket 1–3 n. III, "
-        "4 hontto oikealla, 5 vaikein, 6–7 IV. Mittarina Männikkö (15 km alavirtaan). "
-        "Yli n. 220 m³/s kosket isoja ja vitonen V-luokkaa.",
-        {"paa": Mittari("smhi/11/35732", marginaali=30)},
-        (
-            Kohde("Åretsvågen (ykköskönkään surffiaalto)", (180, 260), (190, 235), 1.0,
-                  huom="Männikkö 191 m³/s optimi ja 212 vähän yli (6/2012), 226–235 parhaimmillaan "
-                       "(6/2013), 218 hyvä (7/2010); paras laskevalla vedellä", lahde="arvio"),
-            Kohde("Koskisarja 1–7", (70, 220), (80, 190), 0.8,
-                  huom="77–87 m³/s syysvesi helpompi (9/2010), 96 'lähes optimaalinen' (8/2010), "
-                       "191 hyvä eikä kaoottinen (6/2012); 218 vitonen V-luokkaa", lahde="arvio"),
-            Kohde("Ykköskönkään hontto ja aalto matalalla", (65, 110), (72, 90), 0.8,
-                  huom="77–87 m³/s lähes kaikki honttoliikkeet onnistuivat, aalto parhaimmillaan "
-                       "matalimmalla (9/2010)", lahde="arvio"),
-        ),
+        maa="SE",
     ),
     Paikka(
         "Taivalkoski", "https://www.osm.fi/taivalkoski/", "peli", 170,
@@ -390,6 +404,105 @@ PAIKAT: tuple[Paikka, ...] = (
         (
             Kohde("Haurukylä – Vehkamaantie", (0.2, AVOIN), (0.5, AVOIN), 0.6,
                   mittari="tyrnava", muuttuja=T, huom="kevättulvan joki", lahde="arvio"),
+        ),
+    ),
+    Paikka(
+        "Pahakurkkio (Kalixälven)", "https://vattenwebb.smhi.se/hydronu/?subid=35732", "retki", 370,
+        "Ruotsi, Saittarova (Pajala): kanjonissa seitsemän kosken sarja 3–4 km ja "
+        "ykköskönkään Åretsvågen, yksi maailman parhaista surffiaalloista. Kosket 1–3 n. III, "
+        "4 hontto oikealla, 5 vaikein, 6–7 IV. Mittarina Männikkö (15 km alavirtaan). "
+        "Yli n. 220 m³/s kosket isoja ja vitonen V-luokkaa.",
+        {"paa": Mittari("smhi/11/35732", marginaali=30)},
+        (
+            Kohde("Åretsvågen (ykköskönkään surffiaalto)", (180, 260), (190, 235), 1.0,
+                  huom="Männikkö 191 m³/s optimi ja 212 vähän yli (6/2012), 226–235 parhaimmillaan "
+                       "(6/2013), 218 hyvä (7/2010); paras laskevalla vedellä", lahde="arvio"),
+            Kohde("Koskisarja 1–7", (70, 220), (80, 190), 0.8,
+                  huom="77–87 m³/s syysvesi helpompi (9/2010), 96 'lähes optimaalinen' (8/2010), "
+                       "191 hyvä eikä kaoottinen (6/2012); 218 vitonen V-luokkaa", lahde="arvio"),
+            Kohde("Ykköskönkään hontto ja aalto matalalla", (65, 110), (72, 90), 0.8,
+                  huom="77–87 m³/s lähes kaikki honttoliikkeet onnistuivat, aalto parhaimmillaan "
+                       "matalimmalla (9/2010)", lahde="arvio"),
+        ),
+        maa="SE",
+    ),
+    # ------------------------------------------------------------------
+    # Rovaniemen koskikohteet (Roimeloo ry:n foorumi, roimeloo.net, alue
+    # "Melontapaikkoja"). Rajat foorumin kuvauksista, mittarit kuten foorumilla.
+    # ------------------------------------------------------------------
+    Paikka(
+        "Vikaköngäs (Raudanjoki)", "https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=12", "peli", 245,
+        "Rovaniemi, Napapiirin retkeilyalue (25 km pohjoiseen, E75): Raudanjoen koski, "
+        "jonka suisteet muodostavat akanvirtoja; toimii koko kauden 15–20 m³/s kesävesistä "
+        "300–450 m³/s kevättulviin. Mittarina Olkkajärven tulovirtaama (Roimeloo).",
+        {"paa": Mittari("65/l657121001y/qinlyhyt.png", marginaali=15)},
+        (
+            Kohde("Akanvirrat ja treeni (slalom, kuntomelonta)", (15, 450), (20, 50), 1.0,
+                  huom="akanvirrat toimivat parhaiten alle 50 m³/s; 15–20 m³/s melko kivinen, "
+                       "mutta aina jotain luovittavaa", lahde="meloja"),
+            Kohde("Isot aallot (kevättulva, läpilasku)", (200, 450), (300, 350), 0.9,
+                  huom="tulvalla suisteet veden alla; 300–350 m³/s parhaimmillaan isommille aalloille; "
+                       "Tuorala 2010: 290 m³/s isoja aaltoja mutta ei surffattavaa, 180 'ei oikein mitään'",
+                  lahde="meloja"),
+        ),
+    ),
+    Paikka(
+        "Korpikoski (Raudanjoki)", "https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=15", "peli", 245,
+        "Rovaniemi, tien 82 silta: pieni, kivinen ja lyhyt koski, joka päättyy suvantoon. "
+        "Koskikurssit, tekniikkatreenit ja uudet koskimelojat; pääsy Vikakönkään parkkipaikalta. "
+        "Mittarina Olkkajärven tulovirtaama (Roimeloo).",
+        {"paa": Mittari("65/l657121001y/qinlyhyt.png", marginaali=20)},
+        (
+            Kohde("Virranrajat (kurssit, tekniikka, vanhan koulun pelimelonta)", (AVOIN, AVOIN), (AVOIN, 30), 1.0,
+                  huom="alle 30 m³/s kosken alle nousee iso kivi, joka jakaa virtauksen kahteen "
+                       "napakkaan virranrajaan; uinnit turvallisia", lahde="meloja"),
+        ),
+    ),
+    Paikka(
+        "Vaattunkiköngäs (Raudanjoki)", "https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=16", "peli", 240,
+        "Rovaniemi, Vaattungin retkeilyreitti: suora, kapeneva koskenpätkä; sillan jälkeen "
+        "akanvirrat molemmin puolin. Mittarina Olkkajärven tulovirtaama (Roimeloo).",
+        {"paa": Mittari("65/l657121001y/qinlyhyt.png", marginaali=40)},
+        (
+            Kohde("Akanvirrat ja virranylitykset (treeni)", (200, 250), (200, 250), 1.0,
+                  huom="alle 250 m³/s hyvä harjoitella jämäkämmän virran ylitystä; yli 50 m³/s "
+                       "rajan alla ei enää hyvä", lahde="meloja"),
+            Kohde("Isompi aallokko (tulva)", (250, AVOIN), (250, AVOIN), 0.6,
+                  huom="tulvavesillä vähän tuntumaa isomman aallokon melontaan; Tuorala 2010: "
+                       "290 m³/s mukavan näköinen aaltojono, ei surffattava", lahde="meloja"),
+        ),
+    ),
+    Paikka(
+        "Marraskoski (Ounasjoki)", "https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=13", "peli", 260,
+        "Rovaniemi, n. 30 km pohjoiseen: lyhyt pelipaikka, stoppari oikealla, virranrajat "
+        "vasemmalla ja pitkä akanvirta keskellä; kevättulvalla Soulwave-surffiaalto. "
+        "Mittarina Marraskosken virtaama (Roimeloo).",
+        {"paa": Mittari("65/q6503600y/qinlyhyt.png", marginaali=50)},
+        (
+            # Kesävesi on "mukava" (enintään 80 p.), Soulwave-tulva antaa täydet 100 p.
+            # Tuorala: aalto toimii n. 160–250 m³/s (2011); 250 m³/s hyvät virranrajat
+            # treeneihin (9.6.2010); Soul Wave yli 1000 m³/s (2012), 1040 m³/s hieno (21.5.2010).
+            Kohde("Stoppari ja akanvirta (kesäsurffi)", (100, 250), (160, 250), 0.8,
+                  huom="100–250 m³/s stopparissa kokoa ja akanvirta käytössä, aalto parhaiten "
+                       "160–250 (Tuorala); yli 250 kova työ päästä takaisin; alle 100 stoppari matala",
+                  lahde="meloja"),
+            Kohde("Soulwave (kevättulvan surffiaalto)", (800, AVOIN), (1000, AVOIN), 1.0,
+                  huom="Roimeloo: yli 800 m³/s isot surffiaallot keskivasemmalla; Tuorala: leveä "
+                       "aalto yli 1000 m³/s; tiputtaudu vasemmalta rannalta", lahde="meloja"),
+        ),
+    ),
+    Paikka(
+        "Molkoköngäs (Ounasjoki)", "https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=14", "peli", 300,
+        "Tie 79, n. 78 km Rovaniemeltä: lyhyt ja kapea koskipätkä kanjonimaisten kallioiden "
+        "vieressä; surffiaaltojono vasemmalla laidalla, akanvirta aaltojen ja kallioiden "
+        "välissä. Parhaiten lyhyillä freestylekajakeilla. Mittarina Kaukosen virtaama (Roimeloo).",
+        {"paa": Mittari("65/q6503300y/qinlyhyt.png", marginaali=50)},
+        (
+            # tuorala.wordpress.com 5.6.2012: "toiminee virtaamilla 220-280m3 Kaukosessa",
+            # parhaimmillaan n. 260–270 (Roimeloo: alle 300)
+            Kohde("Molkoaalto (surffiaaltojono)", (220, 280), (260, 270), 1.0,
+                  huom="toimii n. 220–280 m³/s, parhaimmillaan 260–270 (Tuorala 2012); "
+                       "surffi-kanto-surffi", lahde="meloja"),
         ),
     ),
     Paikka(

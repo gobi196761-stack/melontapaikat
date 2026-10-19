@@ -81,6 +81,23 @@ def test_api_ja_suodatus(palvelin):
     assert json.loads(pyynto("/api", "max_km=abc")[2])["paikat"]  # virheellinen suodatin ohitetaan
 
 
+def test_ruotsi_omalla_valilehdella(palvelin):
+    class T:
+        def __init__(self, p):
+            self.paikka = p
+    kaikki = [T(p) for p in PAIKAT]
+    nimet = lambda tyyppi: {t.paikka.nimi for t in app.suodata(kaikki, {"tyyppi": [tyyppi]} if tyyppi else {})}
+    ruotsi = {"Trollforsarna (Piteälven)", "Pahakurkkio (Kalixälven)"}
+    assert nimet("ruotsi") == ruotsi
+    for tyyppi in (None, "peli", "retki", "tuntematon"):
+        assert not nimet(tyyppi) & ruotsi
+    assert "Vikaköngäs (Raudanjoki)" in nimet(None) and "Vikaköngäs (Raudanjoki)" in nimet("peli")
+    runko = pyynto("/", "tyyppi=ruotsi")[2]
+    assert '<a href="/?tyyppi=ruotsi" class=valittu>Ruotsi</a>' in runko
+    assert runko.index(">Retket<") < runko.index(">Ruotsi<")
+    assert "Veden lämpötila" not in runko   # Suomen aseman lämpötila ei kuulu Ruotsi-välilehdelle
+
+
 def test_tuntemattomat_pyynnot(palvelin):
     assert pyynto("/favicon.ico")[0].startswith("404")
     assert pyynto("/", metodi="POST")[0].startswith("405")

@@ -5,7 +5,8 @@ Reitit:
     /api    sama JSON-muodossa (kuten `melonta.py --json`)
     /api/arkistoi  päivän ennusteiden arkistointi Firestoreen (Vercel Cron,
                    vaatii otsakkeen Authorization: Bearer $CRON_SECRET)
-Suodattimet kummallekin: ?tyyppi=peli|retki ja ?max_km=N
+Suodattimet kummallekin: ?tyyppi=peli|retki|ruotsi ja ?max_km=N
+(ilman tyyppiä vain Suomen paikat; Ruotsin paikat näkyvät vain tyyppi=ruotsi)
 
 Paikallisesti:
     uv run app.py            # http://localhost:8000
@@ -31,7 +32,7 @@ import ennustearkisto
 import firestore
 import melonta
 import osm_sivut as osm
-from paikat import PAIKAT, aseman_nimi
+from paikat import PAIKAT, aseman_nimi, nakyy
 
 VALIMUISTI_S = 15 * 60
 CACHE_CONTROL = "public, max-age=300, s-maxage=1800, stale-while-revalidate=3600, stale-if-error=86400"
@@ -81,7 +82,7 @@ def suodata(tulokset: list, kysely: dict[str, list[str]]) -> list:
     except ValueError:
         max_km = None
     return [t for t in tulokset
-            if (tyyppi not in ("peli", "retki") or t.paikka.tyyppi == tyyppi)
+            if nakyy(t.paikka, tyyppi)
             and (max_km is None or (t.paikka.km_oulusta or 0) <= max_km)]
 
 
@@ -174,9 +175,10 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     suodattimet = "".join(
         f'<a href="{href}"{" class=valittu" if valittu == arvo else ""}>{nimi}</a>'
         for arvo, href, nimi in [("", "/", "Kaikki"), ("peli", "/?tyyppi=peli", "Pelipaikat"),
-                                 ("retki", "/?tyyppi=retki", "Retket")])
+                                 ("retki", "/?tyyppi=retki", "Retket"), ("ruotsi", "/?tyyppi=ruotsi", "Ruotsi")])
+    # Veden lämpötila on Suomen asemalta (Kipinä), joten Ruotsi-välilehdellä sitä ei näytetä
     lampotilat = [l for t in tilanne.tulokset for l in t.sivun_kaaviot
-                  if l.suure == "lampotila" and l.arvo is not None]
+                  if l.suure == "lampotila" and l.arvo is not None and valittu != "ruotsi"]
     lampo = ""
     if lampotilat:
         l = lampotilat[0]

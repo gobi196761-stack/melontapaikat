@@ -32,7 +32,7 @@ import arviointi
 import osm_sivut as osm
 import smhi_data
 import syke_data
-from paikat import PAIKAT, Paikka, aseman_nimi
+from paikat import PAIKAT, VALILEHDET, Paikka, aseman_nimi, nakyy
 from syke_kaavio import KaavioLukija, Kaaviolukema, KaavioVirhe
 
 HAKEMISTO = "https://www.osm.fi/melontapaikat/"
@@ -308,7 +308,8 @@ def json_tulos(tulokset, varoitukset, paiva: dt.date) -> dict:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Melontapaikkojen päivän tilanne ja optimijärjestys (osm.fi).")
     ap.add_argument("-v", "--kaikki", action="store_true", help="näytä kaikki kohteet ja sivujen kaaviot")
-    ap.add_argument("--tyyppi", choices=["peli", "retki"], help="vain pelipaikat tai retkipätkät")
+    ap.add_argument("--tyyppi", choices=list(VALILEHDET),
+                    help="vain pelipaikat, retkipätkät tai Ruotsin paikat (oletus: Suomen paikat)")
     ap.add_argument("--max-km", type=int, help="vain paikat enintään näin kaukana Oulusta")
     ap.add_argument("--json", action="store_true", help="tulosta JSON-muodossa")
     ap.add_argument("--tallenna", type=Path, metavar="KANSIO", help="tallenna haetut sivut ja kuvat kansioon")
@@ -318,7 +319,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     paikat = tuple(p for p in PAIKAT
-                   if (not args.tyyppi or p.tyyppi == args.tyyppi)
+                   if nakyy(p, args.tyyppi)
                    and (args.max_km is None or (p.km_oulusta or 0) <= args.max_km))
     paiva = args.paiva or dt.date.today()
     hakija = osm.Hakija(offline=args.offline, tallenna=args.tallenna)

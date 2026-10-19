@@ -50,10 +50,12 @@ def test_kokoaa_asemat_fixtureista():
 def test_oma_arvio_kuten_sovelluksessa():
     a = ajot()
     arvio = ennustearkisto.kokoa(a, ARKISTOITU)["arviot"]["61/q6101750y"]
-    t = dt.date(2026, 10, 18)
-    odotettu = -5.423 + 1.078 * syke_data.syotteen_arvo(a["61/q6101452y/ajo.json"], t) \
-        + 0.911 * syke_data.syotteen_arvo(a["61/q6101600y/ajo.json"], t)
-    assert arvio["lahde"] == "arvio Pahkakoski + Siurua" and arvio["varoitukset"] == []
+    # Siurua 18.10. 66.8 / 17.10. 67.3, Pudasjärvi 108.59 / 108.56 / 108.56 m, Maalismaa 17.10. 398.97
+    k = syke_data.ARVIOMALLIT["61/q6101750y"].pieni
+    kaava = lambda q, h, h1: (k.vakio + k.virtaama * q + k.kuutio * (((h + h1) / 2 - 10590) / 100) ** 3
+                              + k.muutos * (h - h1))
+    odotettu = kaava(66.8, 10859, 10856) + k.alfa * (398.97 - kaava(67.3, 10856, 10856))
+    assert arvio["lahde"] == "arvio Pudasjärvi + Siurua, eilinen korjaus" and arvio["varoitukset"] == []
     assert arvio["tanaan"] == pytest.approx(odotettu, abs=1e-3)
     ka = ennustearkisto.kokoa(a, ARKISTOITU)["asemat"]["61/q6101750y"]["qinlask_ka"]
     assert len(arvio["ennuste"]) == 7
@@ -66,7 +68,7 @@ def test_puuttuva_asema():
     del a["61/q6101600y/ajo.json"]
     arkisto = ennustearkisto.kokoa(a, ARKISTOITU, {"61/q6101600y": "HTTP 404"})
     assert arkisto["asemat"]["61/q6101600y"] == {"nimi": "Siurua", "virhe": "HTTP 404"}
-    assert "virhe" not in arkisto["asemat"]["61/q6101452y"]
+    assert "virhe" not in arkisto["asemat"]["61/q6101452y"]   # Pahkakoski arkistoidaan yhä
     arvio = arkisto["arviot"]["61/q6101750y"]   # sovellus käyttää silloin eilistä havaintoa
     assert arvio["tanaan"] == 398.97 and arvio["lahde"] == "havainto 1 pv sitten, SYKE-data"
     assert arvio["varoitukset"] and "puuttuu" in arvio["varoitukset"][0]
