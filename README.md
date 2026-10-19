@@ -208,11 +208,11 @@ osm.fi-sivua: Trollforsarnan rajat ovat paikalliselta kokeneelta melojalta
 | **Vikaköngäs** (Rovaniemi, Raudanjoki) | Olkkajärven tulovirtaama (l657121001y) | Akanvirrat ja treeni | 15–450 m³/s | 20–50 m³/s | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=12): toimii koko kauden; akanvirrat parhaimmillaan alle 50, 15–20 melko kivinen |
 | | | Isot aallot (kevättulva) | 200–450 m³/s | 300–350 m³/s | Roimeloo: tulvalla suisteet veden alla, 300–350 parhaimmillaan isommille aalloille |
 | **Korpikoski** (Rovaniemi, Raudanjoki, tie 82) | Olkkajärven tulovirtaama | Virranrajat (kurssit, tekniikka) | aina | < 30 m³/s | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=15): alle 30 kivi nousee ja jakaa virran kahteen virranrajaan |
-| **Vaattunkiköngäs** (Rovaniemi, Raudanjoki) | Olkkajärven tulovirtaama | Akanvirrat, virranylitykset | < 250 m³/s | = | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=16) |
+| **Vaattunkiköngäs** (Rovaniemi, Raudanjoki) | Olkkajärven tulovirtaama | Akanvirrat, virranylitykset | 200–250 m³/s | = | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=16): alle 250; alaraja (50 m³/s rajan alla ei enää hyvä) käyttäjän tarkennus |
 | | | Isompi aallokko (tulva) | > 250 m³/s | = | Roimeloo: "vähäsen tuntumaa isomman aallokon melontaan" |
-| **Marraskoski** (Rovaniemi, Ounasjoki) | Marraskosken virtaama (q6503600y) | Stoppari ja akanvirta (kesäsurffi) | 60–300 m³/s (alaraja arvio) | 100–250 m³/s | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=13): yli 250 kova työ, alle 100 stoppari matala |
-| | | Soulwave (kevättulva) | > 800 m³/s | = | Roimeloo |
-| **Molkoköngäs** (Ounasjoki, tie 79) | Kaukosen virtaama (q6503300y) | Molkoaalto (surffiaaltojono) | < 300 m³/s | = | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=14): alarajaa ei kerrota |
+| **Marraskoski** (Rovaniemi, Ounasjoki) | Marraskosken virtaama (q6503600y) | Stoppari ja akanvirta (kesäsurffi) | 100–250 m³/s | = (laatukerroin 0.8 → enintään 80 p.) | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=13): yli 250 kova työ, alle 100 stoppari matala |
+| | | Soulwave (kevättulva) | > 800 m³/s | = (100 p.) | Roimeloo |
+| **Molkoköngäs** (Ounasjoki, tie 79) | Kaukosen virtaama (q6503300y) | Molkoaalto (surffiaaltojono) | 250–300 m³/s | = | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=14): alle 300; alaraja (50 m³/s rajan alla ei enää hyvä) käyttäjän tarkennus |
 | **Trollforsarna** (Ruotsi, Piteälven) | SMHI Gransel 1387 virtaama, ennuste HydroNu 31914 (sama kohta) | Paltvalsen (iso aalto) | > 170 m³/s | 190–240 m³/s | paikallinen kokenut meloja |
 | | | Glashällen (pieni aalto) | > 220 m³/s | ~340 m³/s (320–360) | meloja: toimii n. 220–400+, ylärajaa ei tiedetä |
 | | | Yläpätkä (Delta / keskiränni) | 140–300 m³/s | = | meloja: yli 300 "karvainen" |

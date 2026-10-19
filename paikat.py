@@ -438,8 +438,9 @@ PAIKAT: tuple[Paikka, ...] = (
         "akanvirrat molemmin puolin. Mittarina Olkkajärven tulovirtaama (Roimeloo).",
         {"paa": Mittari("65/l657121001y/qinlyhyt.png", marginaali=40)},
         (
-            Kohde("Akanvirrat ja virranylitykset (treeni)", (AVOIN, 250), (AVOIN, 250), 1.0,
-                  huom="alle 250 m³/s hyvä harjoitella jämäkämmän virran ylitystä", lahde="meloja"),
+            Kohde("Akanvirrat ja virranylitykset (treeni)", (200, 250), (200, 250), 1.0,
+                  huom="alle 250 m³/s hyvä harjoitella jämäkämmän virran ylitystä; yli 50 m³/s "
+                       "rajan alla ei enää hyvä", lahde="meloja"),
             Kohde("Isompi aallokko (tulva)", (250, AVOIN), (250, AVOIN), 0.6,
                   huom="tulvavesillä vähän tuntumaa isomman aallokon melontaan", lahde="meloja"),
         ),
@@ -451,11 +452,11 @@ PAIKAT: tuple[Paikka, ...] = (
         "Mittarina Marraskosken virtaama (Roimeloo).",
         {"paa": Mittari("65/q6503600y/qinlyhyt.png", marginaali=50)},
         (
-            Kohde("Stoppari ja akanvirta (kesäsurffi)", (60, 300), (100, 250), 1.0,
+            # Kesävesi on "mukava" (enintään 80 p.), Soulwave-tulva antaa täydet 100 p.
+            Kohde("Stoppari ja akanvirta (kesäsurffi)", (100, 250), (100, 250), 0.8,
                   huom="100–250 m³/s stopparissa kokoa ja akanvirta käytössä; yli 250 kova työ "
-                       "päästä takaisin; alle 100 stoppari matala, virranrajoissa voi pelailla "
-                       "(alaraja 60 arvio)", lahde="meloja"),
-            Kohde("Soulwave (kevättulvan surffiaalto)", (800, AVOIN), (800, AVOIN), 0.9,
+                       "päästä takaisin; alle 100 stoppari matala", lahde="meloja"),
+            Kohde("Soulwave (kevättulvan surffiaalto)", (800, AVOIN), (800, AVOIN), 1.0,
                   huom="yli 800 m³/s isot surffiaallot keskivasemmalla; tiputtaudu vasemmalta "
                        "rannalta", lahde="meloja"),
         ),
@@ -467,9 +468,9 @@ PAIKAT: tuple[Paikka, ...] = (
         "välissä. Parhaiten lyhyillä freestylekajakeilla. Mittarina Kaukosen virtaama (Roimeloo).",
         {"paa": Mittari("65/q6503300y/qinlyhyt.png", marginaali=50)},
         (
-            Kohde("Molkoaalto (surffiaaltojono)", (AVOIN, 300), (AVOIN, 300), 1.0,
+            Kohde("Molkoaalto (surffiaaltojono)", (250, 300), (250, 300), 1.0,
                   huom="alle 300 m³/s vasempaan laitaan muodostuu parin surffiaallon jono; "
-                       "surffi-kanto-surffi", lahde="meloja"),
+                       "surffi-kanto-surffi; yli 50 m³/s rajan alla ei enää hyvä", lahde="meloja"),
         ),
     ),
     Paikka(
