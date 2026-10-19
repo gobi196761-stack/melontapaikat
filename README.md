@@ -179,7 +179,9 @@ osm.fi-sivua: Trollforsarnan rajat ovat paikalliselta kokeneelta melojalta
 | | | Oikean silta-aukon surffiaalto | 108.1–108.9 m | = | "Korkealla vedellä 108.1–108.9" |
 | | | Ala-aallot | 106.8–107.8 m | < 107.3 m | "parhaimmillaan kun mittari laskee alle 107.3" |
 | | | *tulva* | | | "Tulva-aikaan Kipinä on tasainen" |
-| **Kattilakoski** | Pello vedenkorkeus | Hevosenkenkä | 78.05–78.50 m | 78.15–78.25 m | sivun taulukko |
+| **Kattilakoski** | Pello vedenkorkeus | Hevosenkenkä | 78.05–78.50 m | 78.15–78.25 m | sivun taulukko = [Tuoralan vedenkorkeusreferenssi](https://tuorala.wordpress.com/2011/05/25/kattilakosken-definitiivinen-vedenkorkeusreferenssi/) |
+| | | Kakkosaalto | 78.35–78.50 m | 78.35–78.40 m | Tuorala: 78.35 parhaimmillaan, 78.50 kaatuu pohjalle |
+| | | Suomenpuolen väliportaan hontto | 78.20–78.30 m | ~78.25 m | Tuorala: "äärimmäisen aliarvostettu" |
 | | | Mega-aalto | 78.85–79.15 m | ~79.00 m | |
 | | | Ala-aalto | 78.25 ja 78.85–79.00 m | 78.85 m | |
 | | | Grillikodan hontto / Parkkihontto | ~79 m / > 79.5 m | | "mitä enemmän sen parempi" |
@@ -188,7 +190,7 @@ osm.fi-sivua: Trollforsarnan rajat ovat paikalliselta kokeneelta melojalta
 | **Matkakoski** | Matkakoski vedenkorkeus | Peliajan paikat | < 28.0 m | 27.5–27.8 m | alle 28 m takaisin melomalla |
 | | | Isolla vedellä | 28–31 m | | pudotettava ylhäältä, kantaen |
 | | | Tulva "Zambezi" | > 31 m | | kallio peittyy (autom. 500 cm) |
-| **Vuentokoski** | Matkakoski | Vuento–Matkakoski | > 28.2 m | > 28.7 m | "28.2 ei juuri kannata" |
+| **Vuentokoski** | Matkakoski | Vuento–Matkakoski | > 28.2 m | > 28.7 m | "28.2 ei juuri kannata"; [Tuorala](https://tuorala.wordpress.com/2010/06/04/vuennonkoski-ja-matkakoski-25-5-2010/): yli 2000 m³/s (n. 31 m) klassikko |
 | **Kukkolankoski** | Matkakoski | Hontto + surffiaalto | 28.0–29.0 m | 28.0–28.7 m | 29.2 m liikaa |
 | **Koiteli** | Haukipudas vedenkorkeus | Helmihontto | 10.3–11.0 m | ~10.7 m | |
 | | | Etuaalto | 10.3–11.0 m | ≥ 10.4 m | kärryttely 10.4 m:stä |
@@ -210,9 +212,9 @@ osm.fi-sivua: Trollforsarnan rajat ovat paikalliselta kokeneelta melojalta
 | **Korpikoski** (Rovaniemi, Raudanjoki, tie 82) | Olkkajärven tulovirtaama | Virranrajat (kurssit, tekniikka) | aina | < 30 m³/s | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=15): alle 30 kivi nousee ja jakaa virran kahteen virranrajaan |
 | **Vaattunkiköngäs** (Rovaniemi, Raudanjoki) | Olkkajärven tulovirtaama | Akanvirrat, virranylitykset | 200–250 m³/s | = | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=16): alle 250; alaraja (50 m³/s rajan alla ei enää hyvä) käyttäjän tarkennus |
 | | | Isompi aallokko (tulva) | > 250 m³/s | = | Roimeloo: "vähäsen tuntumaa isomman aallokon melontaan" |
-| **Marraskoski** (Rovaniemi, Ounasjoki) | Marraskosken virtaama (q6503600y) | Stoppari ja akanvirta (kesäsurffi) | 100–250 m³/s | = (laatukerroin 0.8 → enintään 80 p.) | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=13): yli 250 kova työ, alle 100 stoppari matala |
-| | | Soulwave (kevättulva) | > 800 m³/s | = (100 p.) | Roimeloo |
-| **Molkoköngäs** (Ounasjoki, tie 79) | Kaukosen virtaama (q6503300y) | Molkoaalto (surffiaaltojono) | 250–300 m³/s | = | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=14): alle 300; alaraja (50 m³/s rajan alla ei enää hyvä) käyttäjän tarkennus |
+| **Marraskoski** (Rovaniemi, Ounasjoki) | Marraskosken virtaama (q6503600y) | Stoppari ja akanvirta (kesäsurffi) | 100–250 m³/s | 160–250 m³/s (laatukerroin 0.8 → enintään 80 p.) | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=13): yli 250 kova työ, alle 100 stoppari matala; [Tuorala 2011](https://tuorala.wordpress.com/2011/05/20/kevaan-marraskoski-sessiot/): aalto toimii n. 160–250 |
+| | | Soulwave (kevättulva) | > 800 m³/s | > 1000 m³/s (100 p.) | Roimeloo: yli 800; [Tuorala 2012](https://tuorala.wordpress.com/2012/05/28/marraskoski-soul-wave/): leveä aalto yli 1000 |
+| **Molkoköngäs** (Ounasjoki, tie 79) | Kaukosen virtaama (q6503300y) | Molkoaalto (surffiaaltojono) | 220–280 m³/s | 260–270 m³/s | [Tuorala 5.6.2012](https://tuorala.wordpress.com/2012/06/07/molkokongas-5-6-2012/): "toiminee virtaamilla 220-280m3 Kaukosessa", paras n. 260–270; Roimeloo: alle 300 |
 | **Trollforsarna** (Ruotsi, Piteälven) | SMHI Gransel 1387 virtaama, ennuste HydroNu 31914 (sama kohta) | Paltvalsen (iso aalto) | > 170 m³/s | 190–240 m³/s | paikallinen kokenut meloja |
 | | | Glashällen (pieni aalto) | > 220 m³/s | ~340 m³/s (320–360) | meloja: toimii n. 220–400+, ylärajaa ei tiedetä |
 | | | Yläpätkä (Delta / keskiränni) | 140–300 m³/s | = | meloja: yli 300 "karvainen" |

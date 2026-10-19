@@ -175,8 +175,14 @@ PAIKAT: tuple[Paikka, ...] = (
         "Finnvågen, parkkihontto. Mittarina Pellon vedenkorkeus.",
         {"paa": Mittari("67/q6701500y/wlyhyt.png", marginaali=0.4)},
         (
+            # Rajat vastaavat tuorala.wordpress.com:n "Kattilakosken definitiivistä
+            # vedenkorkeusreferenssiä" (25.5.2011), josta myös kakkosaalto ja väliportaan hontto.
             Kohde("Hevosenkenkä", (78.05, 78.50), (78.15, 78.25), 1.0,
                   huom="kakkosaalto 78.35–78.50 m"),
+            Kohde("Kakkosaalto", (78.35, 78.50), (78.35, 78.40), 0.8,
+                  huom="parhaimmillaan 78.35 m; 78.50 m kaatuu jo pohjalle (Tuorala)", lahde="meloja"),
+            Kohde("Suomenpuolen väliportaan hontto", (78.20, 78.30), (78.23, 78.27), 0.6,
+                  huom="parhaimmillaan n. 78.25 m, 'äärimmäisen aliarvostettu' (Tuorala)", lahde="meloja"),
             Kohde("Mega-aalto", (78.85, 79.15), (78.95, 79.05), 1.0,
                   huom="parhaimmillaan 79.00 m"),
             Kohde("Ala-aalto", (78.85, 79.00), (78.85, 78.90), 0.9, huom="parhaimmillaan 78.85 m"),
@@ -206,7 +212,8 @@ PAIKAT: tuple[Paikka, ...] = (
         {"paa": Mittari("67/q6702110y/wlyhyt.png", marginaali=0.4)},
         (
             Kohde("Vuennonkoski – Matkakoski", (28.2, AVOIN), (28.7, AVOIN), 1.0,
-                  huom="28.7 m mukavia pelipaikkoja; 28.2 m ei juuri kannata"),
+                  huom="28.7 m mukavia pelipaikkoja; 28.2 m ei juuri kannata; yli 2000 m³/s "
+                       "(n. 31 m) 'yksi parhaista ison veden pätkistä' (Tuorala 2010)"),
         ),
     ),
     Paikka(
@@ -416,7 +423,8 @@ PAIKAT: tuple[Paikka, ...] = (
                   huom="akanvirrat toimivat parhaiten alle 50 m³/s; 15–20 m³/s melko kivinen, "
                        "mutta aina jotain luovittavaa", lahde="meloja"),
             Kohde("Isot aallot (kevättulva, läpilasku)", (200, 450), (300, 350), 0.9,
-                  huom="tulvalla suisteet veden alla; 300–350 m³/s parhaimmillaan isommille aalloille",
+                  huom="tulvalla suisteet veden alla; 300–350 m³/s parhaimmillaan isommille aalloille; "
+                       "Tuorala 2010: 290 m³/s isoja aaltoja mutta ei surffattavaa, 180 'ei oikein mitään'",
                   lahde="meloja"),
         ),
     ),
@@ -442,7 +450,8 @@ PAIKAT: tuple[Paikka, ...] = (
                   huom="alle 250 m³/s hyvä harjoitella jämäkämmän virran ylitystä; yli 50 m³/s "
                        "rajan alla ei enää hyvä", lahde="meloja"),
             Kohde("Isompi aallokko (tulva)", (250, AVOIN), (250, AVOIN), 0.6,
-                  huom="tulvavesillä vähän tuntumaa isomman aallokon melontaan", lahde="meloja"),
+                  huom="tulvavesillä vähän tuntumaa isomman aallokon melontaan; Tuorala 2010: "
+                       "290 m³/s mukavan näköinen aaltojono, ei surffattava", lahde="meloja"),
         ),
     ),
     Paikka(
@@ -453,12 +462,15 @@ PAIKAT: tuple[Paikka, ...] = (
         {"paa": Mittari("65/q6503600y/qinlyhyt.png", marginaali=50)},
         (
             # Kesävesi on "mukava" (enintään 80 p.), Soulwave-tulva antaa täydet 100 p.
-            Kohde("Stoppari ja akanvirta (kesäsurffi)", (100, 250), (100, 250), 0.8,
-                  huom="100–250 m³/s stopparissa kokoa ja akanvirta käytössä; yli 250 kova työ "
-                       "päästä takaisin; alle 100 stoppari matala", lahde="meloja"),
-            Kohde("Soulwave (kevättulvan surffiaalto)", (800, AVOIN), (800, AVOIN), 1.0,
-                  huom="yli 800 m³/s isot surffiaallot keskivasemmalla; tiputtaudu vasemmalta "
-                       "rannalta", lahde="meloja"),
+            # Tuorala: aalto toimii n. 160–250 m³/s (2011); 250 m³/s hyvät virranrajat
+            # treeneihin (9.6.2010); Soul Wave yli 1000 m³/s (2012), 1040 m³/s hieno (21.5.2010).
+            Kohde("Stoppari ja akanvirta (kesäsurffi)", (100, 250), (160, 250), 0.8,
+                  huom="100–250 m³/s stopparissa kokoa ja akanvirta käytössä, aalto parhaiten "
+                       "160–250 (Tuorala); yli 250 kova työ päästä takaisin; alle 100 stoppari matala",
+                  lahde="meloja"),
+            Kohde("Soulwave (kevättulvan surffiaalto)", (800, AVOIN), (1000, AVOIN), 1.0,
+                  huom="Roimeloo: yli 800 m³/s isot surffiaallot keskivasemmalla; Tuorala: leveä "
+                       "aalto yli 1000 m³/s; tiputtaudu vasemmalta rannalta", lahde="meloja"),
         ),
     ),
     Paikka(
@@ -468,9 +480,11 @@ PAIKAT: tuple[Paikka, ...] = (
         "välissä. Parhaiten lyhyillä freestylekajakeilla. Mittarina Kaukosen virtaama (Roimeloo).",
         {"paa": Mittari("65/q6503300y/qinlyhyt.png", marginaali=50)},
         (
-            Kohde("Molkoaalto (surffiaaltojono)", (250, 300), (250, 300), 1.0,
-                  huom="alle 300 m³/s vasempaan laitaan muodostuu parin surffiaallon jono; "
-                       "surffi-kanto-surffi; yli 50 m³/s rajan alla ei enää hyvä", lahde="meloja"),
+            # tuorala.wordpress.com 5.6.2012: "toiminee virtaamilla 220-280m3 Kaukosessa",
+            # parhaimmillaan n. 260–270 (Roimeloo: alle 300)
+            Kohde("Molkoaalto (surffiaaltojono)", (220, 280), (260, 270), 1.0,
+                  huom="toimii n. 220–280 m³/s, parhaimmillaan 260–270 (Tuorala 2012); "
+                       "surffi-kanto-surffi", lahde="meloja"),
         ),
     ),
     Paikka(
