@@ -64,11 +64,24 @@ class Paikka:
     kuvaus: str
     mittarit: dict[str, Mittari] = field(default_factory=dict)
     kohteet: tuple[Kohde, ...] = ()
+    maa: str = "FI"               # "FI" | "SE"; Ruotsin paikat näkyvät vain omalla välilehdellään
 
     @property
     def osm_sivu(self) -> bool:
         """Onko paikalla osm.fi-sivu (josta kaaviot tarkistetaan)?"""
         return "://www.osm.fi/" in self.url
+
+
+VALILEHDET = ("peli", "retki", "ruotsi")
+
+
+def nakyy(paikka: Paikka, valilehti: str | None) -> bool:
+    """Näkyykö paikka välilehdellä: None/"" = Kaikki (Suomi), "peli", "retki" tai "ruotsi"."""
+    if valilehti == "ruotsi":
+        return paikka.maa == "SE"
+    if paikka.maa != "FI":
+        return False
+    return valilehti not in ("peli", "retki") or paikka.tyyppi == valilehti
 
 
 T = "tulvaindeksi"
@@ -90,6 +103,7 @@ ASEMAT = {
     "q6400410y": "Simo",
     "q6701500y": "Pello",
     "q6702110y": "Matkakoski",
+    "q6502400y": "Vikajärvi, luusua (Raudanjoki)",
     # SMHI:n havaintoasemat ("smhi/<asema>/<piste>")
     "1387": "Gransel (Piteälven)",
     "11": "Männikkö (Kalixälven)",
@@ -270,6 +284,7 @@ PAIKAT: tuple[Paikka, ...] = (
             Kohde("Benbrytarforsen", (AVOIN, 150), (AVOIN, 130), 0.8,
                   huom="hyvä alle 130 m³/s, enintään n. 150", lahde="meloja"),
         ),
+        maa="SE",
     ),
     Paikka(
         "Taivalkoski", "https://www.osm.fi/taivalkoski/", "peli", 170,
@@ -380,6 +395,22 @@ PAIKAT: tuple[Paikka, ...] = (
                   lahde="arvio"),
             Kohde("Åretsvågen (ykköskosken leikkiaalto)", (200, AVOIN), (200, AVOIN), 0.9,
                   huom="toimi n. 220 m³/s:llä (7/2010), vaatii korkean veden; hontot talon kokoisia",
+                  lahde="arvio"),
+        ),
+        maa="SE",
+    ),
+    Paikka(
+        "Vikaköngäs (Raudanjoki)", "https://www.eraluvat.fi/en/areas/2565-vikakongas-902", "peli", 245,
+        "Rovaniemi, Napapiirin retkeilyalue (25 km pohjoiseen, E75): Raudanjoen II+-koski "
+        "Vikajärven alapuolella, pudotus 3–4 m n. 200 m matkalla; koskimelontarata ja "
+        "BoaterX-kisat. Ei osm.fi-sivua; rajat omia arvioita Vikajärven luusuan virtaamasta.",
+        {"paa": Mittari("65/q6502400y/qinlyhyt.png", marginaali=20)},
+        (
+            # Vikajärven luusua 2000–2026: MQ 39, MHQ 233, MNQ 8 m³/s; kesä–syyskuun
+            # mediaani 32 m³/s (10 %: 12, 90 %: 72). BoaterX 1.6.2025: 71 m³/s, "korkea kesävesi".
+            Kohde("Vikaköngäs (koski ja koskimelontarata)", (20, 150), (45, 90), 1.0,
+                  huom="BoaterX 1.6.2025 n. 71 m³/s ('korkea kesävesi'); kesän mediaani 32 m³/s; "
+                       "alle n. 20 m³/s kivikkoinen, kevättulvalla (yli n. 150) iso ja vaarallinen",
                   lahde="arvio"),
         ),
     ),

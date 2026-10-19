@@ -5,7 +5,9 @@ melontapaikkojen sivujen lopussa olevista SYKE:n vesistöennustekaavioista
 (vedenkorkeus/virtaama) tämän päivän tilanteen, vertaa sitä kunkin paikan
 kuvauksesta analysoituihin optimiolosuhteisiin ja järjestää paikat
 optimijärjestykseen. Mukana on myös kaksi Ruotsin paikkaa (Trollforsarna ja
-Pahakurkkio), joiden virtaama ja ennuste haetaan SMHI:ltä.
+Pahakurkkio), joiden virtaama ja ennuste haetaan SMHI:ltä; ne näkyvät vain omalla
+Ruotsi-välilehdellään. Lisäksi mukana on Rovaniemen Vikaköngäs (Raudanjoki), jolla
+ei ole osm.fi-sivua.
 
 ```
 $ uv run melonta.py
@@ -55,7 +57,9 @@ uv run tyokalut/rakenna_glyfit.py       # glyfimallien uudelleenrakennus
 
 `app.py` on riippuvuudeton WSGI-sovellus: `/` näyttää järjestyksen taulukkona ja
 `/api` antaa saman JSON-muodossa. Molemmat hyväksyvät suodattimet
-`?tyyppi=peli|retki` ja `?max_km=N`.
+`?tyyppi=peli|retki|ruotsi` ja `?max_km=N`. Ilman tyyppiä ("Kaikki") ja
+pelipaikoissa/retkissä näytetään vain Suomen paikat; Ruotsin paikat ovat vain
+`?tyyppi=ruotsi`-välilehdellä (komentorivillä `--tyyppi ruotsi`).
 
 ```bash
 uv run app.py                           # paikallisesti: http://localhost:8000
@@ -201,6 +205,7 @@ osm.fi-sivua: Trollforsarnan rajat ovat paikalliselta kokeneelta melojalta
 | **Niskakoski** | Saarenpää **virtaama** (lisäkaavio) | Stoppari / + aalto | > 50 / > 85 m³/s | | sivulla on vedenkorkeuskuva, rajat virtaamana → saman aseman virtaamakaavio |
 | **Neitikoski** | Lieksanjoki vedenkorkeus | Aalto/stoppari | aina | tulvaindeksi 0.2–0.9 (arvio) | tulvalla vaikea, matalalla stoppari |
 | **Taivalkoski** | – | säännöstelty, vettä voi tilata | | | ei kaaviota |
+| **Vikaköngäs** (Rovaniemi, Raudanjoki) | Vikajärven luusua 6502400 virtaama (heti kosken yläpuolella) | Koski ja koskimelontarata (II+, pudotus 3–4 m / 200 m) | 20–150 m³/s (arvio) | 45–90 m³/s (arvio) | ei osm.fi-kuvausta. BoaterX 1.6.2025 virtaamalla n. 71 m³/s, kuvattu "korkeaksi kesävedeksi". Asemalla 2000–2026 MQ 39, MHQ 233, MNQ 8 m³/s; kesä–syyskuun mediaani 32 (10 %: 12, 90 %: 72) → alle n. 20 kivikkoinen, kevättulva (yli n. 150) iso |
 | **Trollforsarna** (Ruotsi, Piteälven) | SMHI Gransel 1387 virtaama, ennuste HydroNu 31914 (sama kohta) | Paltvalsen (iso aalto) | > 170 m³/s | 190–240 m³/s | paikallinen kokenut meloja |
 | | | Glashällen (pieni aalto) | > 220 m³/s | ~340 m³/s (320–360) | meloja: toimii n. 220–400+, ylärajaa ei tiedetä |
 | | | Yläpätkä (Delta / keskiränni) | 140–300 m³/s | = | meloja: yli 300 "karvainen" |
