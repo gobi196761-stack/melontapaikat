@@ -51,6 +51,7 @@ def _maskit(a: np.ndarray) -> dict[str, np.ndarray]:
         "punainen": (r == 255) & (g == 0) & (b == 0),
         "vihrea": (r == 0) & (g == 255) & (b == 0),
         "harmaa": (r == g) & (g == b) & (r > 190) & (r < 235),
+        "keltainen": (r == 255) & (g == 255) & (b == 0),
         "valkoinen": (r == 255) & (g == 255) & (b == 255),
     }
 
@@ -354,6 +355,15 @@ def suure_urlista(url: str) -> tuple[str, str]:
     raise KaavioVirhe(f"Tuntematon kaaviotyyppi: {nimi}")
 
 
+@dataclass
+class Kaaviosarjat:
+    """Kaaviokuvasta luetut päiväsarjat; avain = päiviä ennusteen alusta (0 = tänään)."""
+    tanaan_paiva: int | None
+    havainnot: dict[int, float] = field(default_factory=dict)
+    malli: dict[int, float] = field(default_factory=dict)     # simuloitu historia ja ennuste
+    vali: dict[int, tuple[float, float]] = field(default_factory=dict)  # ennusteen vaihteluväli
+
+
 class KaavioLukija:
     def __init__(self, tunnistin: Glyfitunnistin | None = None):
         self.tunnistin = tunnistin or Glyfitunnistin.lataa()
@@ -414,6 +424,42 @@ class KaavioLukija:
             tulos.hist_max, tulos.hist_min = arvo(y_yla), arvo(y_ala)
             tulos.hist_max_rajattu, tulos.hist_min_rajattu = yla_rajattu, ala_rajattu
         return tulos
+
+    def lue_sarjat(self, kuva: bytes | Path | str, historia: int = 10) -> "Kaaviosarjat":
+        """Kaavion päiväsarjat omaa kaaviota varten (kun ajo.jsonissa ei ole kaavion suuretta).
+
+        Päivät ovat siirtymiä ennusteen alusta (0 = tänään): havaitut vinoneliöt ja mallin
+        sininen käyrä enintään `historia` päivää taaksepäin, ennuste ja keltainen
+        vaihteluväli eteenpäin.
+        """
+        if isinstance(kuva, (str, Path)):
+            kuva = Path(kuva).read_bytes()
+        a = np.array(Image.open(io.BytesIO(kuva)).convert("RGB")).astype(np.int16)
+        m = _maskit(a)
+        k = etsi_kehys(m)
+        a_, b_ = self._asteikko(m["musta"], k)
+        arvo = lambda y: a_ + b_ * y  # noqa: E731
+        _, vali = etsi_paivaviivat(m["musta"], k)
+        x_tanaan = self._tanaan_x(m["syaani"], k)
+        sarjat = Kaaviosarjat(tanaan_paiva=self._paivanumero(m["musta"], k, x_tanaan, vali))
+        for n in range(-historia, 15):
+            x = x_tanaan + n * vali
+            if x < k.vasen + 2:
+                continue
+            if x > k.oikea - 2:
+                break
+            if n <= 0:
+                y = self._vinonelio(m["musta"], k, int(round(x)))
+                if y is not None:
+                    sarjat.havainnot[n] = arvo(y)
+            y = self._sininen(m["sininen"], k, x, vali)
+            if y is not None:
+                sarjat.malli[n] = arvo(y)
+            if n > 0:
+                rivit = np.nonzero(m["keltainen"][k.yla: k.ala - 1, int(round(x))])[0]
+                if len(rivit) > 2:
+                    sarjat.vali[n] = (arvo(rivit.max() + k.yla), arvo(rivit.min() + k.yla))
+        return sarjat
 
     # -- asteikko -----------------------------------------------------------
 

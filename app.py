@@ -35,10 +35,11 @@ import ennustearkisto
 import firestore
 import melonta
 import osm_sivut as osm
-import smhi_data
 import kaavio_svg
 import kielet
+import smhi_data
 import syke_data
+import syke_kaavio
 from paikat import PAIKAT, aseman_nimi, nakyy
 
 VALIMUISTI_S = 15 * 60
@@ -407,16 +408,22 @@ def kaavion_asema(kaavio: str) -> list[str]:
 
 def kaavion_osoite(paikka, avain: str, lukema=None, kieli: str = "fi") -> str | None:
     """Itse piirretyn kaavion osoite (None = linkitetään SYKE:n kuva). SMHI:ltä saadaan vain
-    JSON-dataa; SYKE:n mittareille piirretään oma kuva, kun ajo.jsonin luvut täsmäsivät SYKE:n
-    kuvaan (tietolahde ei ole "kaavio") – silloin kohteiden rajat ovat samassa korkeusjärjestelmässä."""
+    JSON-dataa. SYKE:n mittareille piirretään oma kuva ajo.jsonista, kun sen luvut täsmäsivät
+    SYKE:n kuvaan (tietolahde ei ole "kaavio") – silloin kohteiden rajat ovat samassa
+    korkeusjärjestelmässä; muuten (esim. järven tulovirtaama, jota ajo.jsonissa ei ole) sarjat
+    luetaan SYKE:n kaaviokuvasta (lahde=kuva)."""
     kaavio = paikka.mittarit[avain].kaavio
-    kysely = "?" + urlencode({"paikka": paikka.nimi, **({"kieli": kieli} if kieli != "fi" else {})})
+    parametrit = {"paikka": paikka.nimi, **({"kieli": kieli} if kieli != "fi" else {})}
     if kaavio.startswith("smhi/"):
-        return f"/kaavio/{kaavio}{kysely}"
-    if _arvioasema(kaavio) or (lukema is not None and lukema.tietolahde != "kaavio"
-                               and syke_data._sarjat(kaavio)):
-        return f"/kaavio/syke/{kaavio.removesuffix('.png')}{kysely}"
-    return None
+        return f"/kaavio/{kaavio}?{urlencode(parametrit)}"
+    if lukema is not None and lukema.suure not in ("virtaama", "vedenkorkeus"):
+        return None
+    if not _arvioasema(kaavio):
+        if lukema is None:
+            return None
+        if lukema.tietolahde == "kaavio" or not syke_data._sarjat(kaavio):
+            parametrit["lahde"] = "kuva"
+    return f"/kaavio/syke/{kaavio.removesuffix('.png')}?{urlencode(parametrit)}"
 
 
 def _alueet(paikka, avain: str) -> list:
@@ -456,7 +463,7 @@ def smhi_kaavio_svg(kaavio: str, hakija: osm.Hakija | None = None, nyt: dt.datet
 
 
 def syke_kaavio_svg(polku: str, hakija: osm.Hakija | None = None, paikan_nimi: str | None = None,
-                    kieli: str = "fi") -> str | None:
+                    kieli: str = "fi", kuvasta: bool = False, nyt: dt.datetime | None = None) -> str | None:
     """SYKE:n mittarin kaavio SVG:nä polusta '<alue>/<asema>/<kaavio>' (tai arviomallin asemalle
     '<alue>/<asema>'); None, jos mittaria ei ole paikoissa tai dataa ei saatu."""
     osat = polku.split("/")
@@ -473,8 +480,31 @@ def syke_kaavio_svg(polku: str, hakija: osm.Hakija | None = None, paikan_nimi: s
     asema = _arvioasema(mittari.kaavio)
     if asema:
         return _arvio_kaavio(paikka, avain, mittari, asema, hakija, otsikko, kieli)
-    ajo = _hae_json(hakija, osm.kaavio_url(syke_data.ajo_avain(mittari.kaavio)))
-    return kaavio_svg.syke_svg(ajo, mittari.kaavio, otsikko, _alueet(paikka, avain), kieli) if ajo else None
+    if not kuvasta:
+        ajo = _hae_json(hakija, osm.kaavio_url(syke_data.ajo_avain(mittari.kaavio)))
+        kuva = kaavio_svg.syke_svg(ajo, mittari.kaavio, otsikko, _alueet(paikka, avain), kieli) if ajo else None
+        if kuva:
+            return kuva
+    # ajo.jsonissa ei ole kaavion suuretta (tai luvut eivät täsmää kuvaan): sarjat SYKE:n kuvasta
+    data, _ = osm.hae_turvallisesti(hakija, osm.kaavio_url(mittari.kaavio))
+    if not data:
+        return None
+    try:
+        sarjat = syke_kaavio.KaavioLukija().lue_sarjat(data, historia=kaavio_svg.HISTORIA_PAIVIA)
+    except syke_kaavio.KaavioVirhe:
+        return None
+    _, yksikko = syke_kaavio.suure_urlista(mittari.kaavio)
+    return kaavio_svg.kuva_svg(sarjat, _kuvan_paiva(sarjat.tanaan_paiva, nyt), otsikko, yksikko,
+                               _alueet(paikka, avain), kieli)
+
+
+def _kuvan_paiva(paiva: int | None, nyt: dt.datetime | None = None) -> dt.date:
+    """Kaaviokuvan ennusteen alkupäivä päivänumerosta: tämä päivä tai enintään 3 päivää sitten."""
+    tanaan = (nyt or suomen_aika()).date()
+    for n in range(4):
+        if paiva is None or (tanaan - dt.timedelta(days=n)).day == paiva:
+            return tanaan - dt.timedelta(days=n)
+    return tanaan
 
 
 def _arvio_kaavio(paikka, avain, mittari, asema: str, hakija: osm.Hakija, otsikko: str,
@@ -527,8 +557,10 @@ def app(environ, start_response):
         kaavio = polku.removeprefix("/kaavio/")
         paikan_nimi = parse_qs(environ.get("QUERY_STRING", "")).get("paikka", [None])[0]
         kieli = kielet.kieli(kysely)
+        kuvasta = parse_qs(environ.get("QUERY_STRING", "")).get("lahde", [""])[0] == "kuva"
         kuva = (smhi_kaavio_svg(kaavio, paikan_nimi=paikan_nimi, kieli=kieli) if kaavio.startswith("smhi/")
-                else syke_kaavio_svg(kaavio.removeprefix("syke/"), paikan_nimi=paikan_nimi, kieli=kieli)
+                else syke_kaavio_svg(kaavio.removeprefix("syke/"), paikan_nimi=paikan_nimi, kieli=kieli,
+                                     kuvasta=kuvasta)
                 if kaavio.startswith("syke/") else None)
         if kuva is None:
             return vastaa("404 Not Found", "text/plain; charset=utf-8", "Kaaviota ei löydy.\n")

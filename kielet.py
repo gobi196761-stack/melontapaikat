@@ -59,6 +59,7 @@ SANAT = {
     "ennuste tehty": "forecast made",
     "klo": "at",
     "SYKE:n vesistömalli": "SYKE hydrological model",
+    "luettu SYKE:n kaaviokuvasta": "read from the SYKE chart image",
     "havainnot ja ennuste SYKE, tämän päivän arvo": "observations and forecast SYKE, today's value",
 }
 

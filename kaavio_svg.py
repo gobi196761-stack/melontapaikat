@@ -31,7 +31,7 @@ import syke_data
 LEVEYS, KORKEUS = 900, 440
 VASEN, OIKEA, YLA, ALA = 64, 20, 58, 84
 PAIVA_MS = smhi_data.PAIVA_MS
-HISTORIA_PAIVIA = 30   # mitattuja ja simuloituja päiviä taaksepäin (kuten SMHI:n jälkilaskenta)
+HISTORIA_PAIVIA = 10   # kaavio alkaa näin monta päivää ennen tätä päivää
 
 e = html.escape
 
@@ -92,6 +92,11 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     alku, loppu = min(paivat[0], tanaan), max(paivat[-1], tanaan + dt.timedelta(days=1))
     if havainnot:
         alku = min(alku, smhi_data._paiva(min(havainnot)))
+    # historiaa enintään HISTORIA_PAIVIA päivää (SMHI:n jälkilaskenta ulottuu 30 päivään)
+    alku = max(alku, tanaan - dt.timedelta(days=HISTORIA_PAIVIA))
+    malli = {p: v for p, v in malli.items() if p >= alku}
+    havainnot = {ms: v for ms, v in havainnot.items() if ms >= _ms(alku)}
+    aiemmat_arviot = {p: v for p, v in aiemmat_arviot.items() if p >= alku}
     tausta = {p: t for p, t in tausta.items() if alku <= p <= loppu}
 
     arvot = list(malli.values()) + list(ennuste.values()) + list(havainnot.values()) \
@@ -370,6 +375,30 @@ def syke_svg(ajo: dict, kaavio: str, otsikko: str, alueet: list[Alue] | None = N
                   ennuste={p: v for p, v in malli.items() if p > tanaan},
                   ennuste_vali={p: (ala[p], yla[p]) for p in ala if p in yla and p >= tanaan},
                   havainnot=havainnot, havainto_viiva=True, alueet=alueet)
+
+
+def kuva_svg(sarjat, tanaan: dt.date, otsikko: str, yksikko: str, alueet: list[Alue] | None = None,
+             kieli: str = "fi") -> str:
+    """Kaavio SYKE:n kaaviokuvasta luetuista sarjoista (syke_kaavio.Kaaviosarjat), kun ajo.jsonissa
+    ei ole kaavion suuretta (esim. järven tulovirtaama): havainnot, simuloitu historia, ennuste
+    ja ennusteen vaihteluväli kuvan keltaisesta alueesta."""
+    _t = lambda s: kielet.kaanna(s, kieli)   # noqa: E731
+    paiva = lambda n: tanaan + dt.timedelta(days=n)   # noqa: E731
+    metreja = yksikko == "m"
+    havainnot = {_ms(paiva(n)) + PAIVA_MS // 2: float(v) for n, v in sarjat.havainnot.items()}
+    if 0 in sarjat.havainnot:
+        paivan_arvo = (float(sarjat.havainnot[0]), "havainto")
+    elif 0 in sarjat.malli:
+        paivan_arvo = (float(sarjat.malli[0]), "malli")
+    else:
+        paivan_arvo = None
+    alaotsikko = (f"{_t('Vedenkorkeus m') if metreja else _t('Virtaama m³/s')} · "
+                  f"{_t('luettu SYKE:n kaaviokuvasta')}, {_t('ennuste tehty')} {tanaan.day}.{tanaan.month}.")
+    return piirra(otsikko, alaotsikko, tanaan, yksikko=yksikko, kieli=kieli,
+                  malli={paiva(n): float(v) for n, v in sarjat.malli.items() if n <= 0},
+                  ennuste={paiva(n): float(v) for n, v in sarjat.malli.items() if n > 0},
+                  ennuste_vali={paiva(n): (float(a), float(b)) for n, (a, b) in sarjat.vali.items()},
+                  havainnot=havainnot, havainto_viiva=True, paivan_arvo=paivan_arvo, alueet=alueet)
 
 
 def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: list[Alue] | None = None,

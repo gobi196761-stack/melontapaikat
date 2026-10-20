@@ -12,6 +12,7 @@ import kaavio_svg
 import melonta
 import osm_sivut as osm
 import syke_data
+import syke_kaavio
 from paikat import PAIKAT
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -281,7 +282,8 @@ def test_kaavion_linkit():
     kipina = paikka["Kipinä (Iijoki)"]
     lukema = syke_data.Kaaviolukema(url="", suure="vedenkorkeus", yksikko="m", tanaan_paiva=None, havaittu=None,
                                     havaittu_paivia_sitten=None, malli=None)
-    assert app.kaavion_osoite(kipina, "paa", lukema) is None
+    # ilman täsmäävää ajo.jsonia sarjat luetaan SYKE:n kuvasta
+    assert app.kaavion_osoite(kipina, "paa", lukema).endswith("&lahde=kuva")
     lukema.tietolahde = "SYKE-data"
     assert app.kaavion_osoite(kipina, "paa", lukema).startswith("/kaavio/syke/61/l611331001y/w3lyhyt?paikka=Kipin")
 
@@ -360,3 +362,24 @@ def test_syke_kaavio_paivan_lukema_ja_englanti(ajot):
     ET.fromstring(en)
     assert "Kipinä (Iijoki) – gauge" in en and "Water level m" in en and "today: " in en
     assert "feature at its best" in en and "malli (ennuste" not in en
+
+
+def test_kuvasta_luettu_kaavio():
+    """Kun ajo.jsonissa ei ole kaavion suuretta, sarjat luetaan SYKE:n kuvasta (Raudanjoki)."""
+    kuva = FIXTURES / "61_q6101400y_qinlyhyt.png"
+    sarjat = syke_kaavio.KaavioLukija().lue_sarjat(kuva.read_bytes())
+    assert sarjat.tanaan_paiva == 18
+    assert 0 in sarjat.malli and max(sarjat.malli) > 5 and all(n >= -10 for n in sarjat.havainnot)
+    lukema = syke_kaavio.KaavioLukija().lue(kuva.read_bytes(), osm.kaavio_url("61/q6101400y/qinlyhyt.png"))
+    assert sarjat.malli[0] == pytest.approx(lukema.malli)
+    svg = kaavio_svg.kuva_svg(sarjat, dt.date(2026, 10, 18), "Testi", "m3/s",
+                              [("Kohde", (10, None), (20, 40))], kieli="en")
+    ET.fromstring(svg)
+    assert "read from the SYKE chart image" in svg and "today: " in svg and "Kohde 20–40" in svg
+    assert '>8.10.</text>' in svg and '>7.10.</text>' not in svg   # 10 päivää taaksepäin
+    assert app._kuvan_paiva(18, dt.datetime(2026, 10, 19, 8)) == dt.date(2026, 10, 18)
+
+
+def test_kaavio_alkaa_kymmenen_paivaa_aiemmin(ajot):
+    kuva = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
+    assert '>8.10.</text>' in kuva and '>7.10.</text>' not in kuva and '>18.10.</text>' in kuva
