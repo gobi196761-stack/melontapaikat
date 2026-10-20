@@ -53,6 +53,8 @@ SANAT = {
     "tänään": "today",
     "kohde toimii": "feature works",
     "kohde parhaimmillaan": "feature at its best",
+    "paras": "best",
+    "kaikilla vesillä": "at all levels",
     "yli kuvan": "above chart",
     "Virtaama m³/s": "Discharge m³/s",
     "Vedenkorkeus m": "Water level m",

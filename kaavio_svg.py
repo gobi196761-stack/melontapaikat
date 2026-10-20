@@ -164,11 +164,10 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
                 osat.append(f'<rect x="{VASEN}" y="{k[0]:.1f}" width="{piirto_l}" height="{k[1] - k[0]:.1f}" '
                             f'fill="{vari}" fill-opacity="{peitto}"/>')
         if k2 or k1:
-            nimioit.append([(k2 or k1)[0] + 13, nimi, paras if k2 else toimii])
+            nimioit.append([(k2 or k1)[0] + 13, nimi, toimii, paras])
         else:   # alue kokonaan asteikon ulkopuolella: nuoli kaavion reunaan
-            raja = paras if any(r is not None for r in paras) else toimii
             yli = toimii[0] is not None and toimii[0] >= ylin
-            (reuna_yla if yli else reuna_ala).append((nimi, raja))
+            (reuna_yla if yli else reuna_ala).append((nimi, toimii, paras))
     # ruudukko ja y-akseli
     for t in tikit:
         if alin <= t <= ylin:
@@ -240,23 +239,33 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     osat += ryhma
     # alueiden selitykset: kohteen nimi ja rajat alueen yläreunassa, päällekkäiset siirretään alemmas
     edellinen = YLA
-    for ny, nimi, raja in sorted(nimioit):
+    def rajat_teksti(toimii, paras) -> str:
+        """Yleissääntö kaikille alueille: toiminta-alueen rajat, paras alue suluissa, jos se on eri."""
+        def rajat(raja) -> str:
+            if raja[0] is None and raja[1] is None:
+                return _t("kaikilla vesillä")
+            return "–".join("" if r is None else luku(r) for r in raja)
+        teksti = rajat(toimii)
+        if paras != toimii and any(r is not None for r in paras):
+            teksti += f" ({_t('paras')} {rajat(paras)})"
+        return teksti
+
+    for ny, nimi, toimii, paras in sorted(nimioit):
         ny = max(ny, edellinen + 14)
         if ny > YLA + piirto_k - 4:
             break
         edellinen = ny
-        rajat_teksti = "–".join("" if r is None else luku(r) for r in raja)
         osat.append(f'<text x="{VASEN + 6}" y="{ny:.1f}" fill="#1b5e20" font-size="11.5" font-weight="600" '
-                    f'stroke="#fff" stroke-width="3" paint-order="stroke">{e(nimi)} {rajat_teksti}</text>')
+                    f'stroke="#fff" stroke-width="3" paint-order="stroke">{e(nimi)} {rajat_teksti(toimii, paras)}</text>')
     # asteikon ulkopuoliset alueet oikeaan reunaan: ↑ yläpuolella, ↓ alapuolella
-    reunat = [(YLA + 14 + 14 * i, "↑", n, r) for i, (n, r) in enumerate(sorted(reuna_yla, key=lambda a: -(a[1][0] or 0)))]
-    reunat += [(YLA + piirto_k - 7 - 14 * i, "↓", n, r)
-               for i, (n, r) in enumerate(sorted(reuna_ala, key=lambda a: a[1][1] if a[1][1] is not None else 0))]
-    for ny, nuoli, nimi, raja in reunat:
-        rajat_teksti = "–".join("" if r is None else luku(r) for r in raja)
+    # (teksti: toiminta-alueen rajat, paras alue suluissa, jos se on eri)
+    reunat = [(YLA + 14 + 14 * i, "↑", *a) for i, a in enumerate(sorted(reuna_yla, key=lambda a: -(a[1][0] or 0)))]
+    reunat += [(YLA + piirto_k - 7 - 14 * i, "↓", *a)
+               for i, a in enumerate(sorted(reuna_ala, key=lambda a: a[1][1] if a[1][1] is not None else 0))]
+    for ny, nuoli, nimi, toimii, paras in reunat:
         osat.append(f'<text x="{VASEN + piirto_l - 6}" y="{ny:.1f}" text-anchor="end" fill="#1b5e20" '
                     f'font-size="11.5" font-weight="600" stroke="#fff" stroke-width="3" paint-order="stroke">'
-                    f'{nuoli} {e(nimi)} {rajat_teksti}</text>')
+                    f'{nuoli} {e(nimi)} {rajat_teksti(toimii, paras)}</text>')
     osat.append(f'<rect x="{VASEN}" y="{YLA}" width="{piirto_l}" height="{piirto_k}" fill="none" stroke="#9aa4ae"/>')
 
     # selite (rivittyy)

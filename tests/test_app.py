@@ -294,7 +294,7 @@ def test_syke_kaavio(ajot):
     assert "Kipinä (Iijoki) – mittari" in kuva and "Vedenkorkeus m" in kuva
     assert "malli (ennuste katkoviivana)" in kuva and "havainto" in kuva
     # kohteiden alueet nimettyinä
-    assert "Oikean silta-aukon surffiaalto 108.15–108.6" in kuva
+    assert "Oikean silta-aukon surffiaalto 108.15–108.8 (paras 108.15–108.6)" in kuva
     assert "kohde parhaimmillaan" in kuva
     # ei SYKE:n kuvan muita merkintöjä
     assert "mediaani" not in kuva and "MHQ" not in kuva
@@ -375,7 +375,7 @@ def test_kuvasta_luettu_kaavio():
     svg = kaavio_svg.kuva_svg(sarjat, dt.date(2026, 10, 18), "Testi", "m3/s",
                               [("Kohde", (10, None), (20, 40))], kieli="en")
     ET.fromstring(svg)
-    assert "read from the SYKE chart image" in svg and "today: " in svg and "Kohde 20–40" in svg
+    assert "read from the SYKE chart image" in svg and "today: " in svg and "Kohde 10– (best 20–40)" in svg
     assert '>8.10.</text>' in svg and '>7.10.</text>' not in svg   # 10 päivää taaksepäin
     assert app._kuvan_paiva(18, dt.datetime(2026, 10, 19, 8)) == dt.date(2026, 10, 18)
 
@@ -391,7 +391,12 @@ def test_kaukaiset_ja_tulvaindeksirajat():
                             ennuste={dt.date(2026, 10, 21): 55.0},
                             alueet=[("Treeni", (15, 450), (20, 50)), ("Isot aallot", (200, 450), (300, 350)),
                                     ("Matala", (None, 5), (None, 3))])
-    assert "↑ Isot aallot 300–350" in svg and "Treeni 20–50" in svg and "↓ Matala –3" in svg
+    # nuoli kertoo toiminta-alueen rajat (paras alue suluissa)
+    assert "↑ Isot aallot 200–450 (paras 300–350)" in svg and "Treeni 15–450 (paras 20–50)" in svg
+    assert "↓ Matala –5 (paras –3)" in svg
+    aina = kaavio_svg.piirra("T", "a", dt.date(2026, 10, 20), malli={dt.date(2026, 10, 19): 60.0},
+                             alueet=[("Virranrajat", (None, None), (None, 30))])
+    assert "Virranrajat kaikilla vesillä (paras –30)" in aina
     # tulvaindeksi 0 = MNQ, 1 = MHQ
     simo = next(p for p in PAIKAT if p.nimi == "Simojoki")
     alueet = dict((n, (t, pa)) for n, t, pa in app._alueet(simo, "paa", {"MNW": 10.0, "MHW": 12.0}))
