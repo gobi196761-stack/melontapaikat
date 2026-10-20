@@ -24,6 +24,7 @@ import datetime as dt
 import html
 import math
 
+import kielet
 import smhi_data
 import syke_data
 
@@ -67,13 +68,17 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
            havainto_viiva: bool = False,
            arvio: float | None = None,
            aiemmat_arviot: dict[dt.date, float] | None = None,
+           paivan_arvo: tuple[float, str] | None = None,
            tunnus: list[tuple[str, float, str]] | None = None,
-           alueet: list[Alue] | None = None) -> str:
+           alueet: list[Alue] | None = None,
+           kieli: str = "fi") -> str:
     """Yleinen kaavio. Päiväarvot piirretään päivän keskelle, havainnot (ms -> arvo) aikaleiman kohdalle.
 
     malli = mallin menneet päivät (yhtenäinen viiva), ennuste = tulevat päivät (katkoviiva,
-    jatkuu mallin viimeisestä päivästä tai tämän päivän arviosta), tausta = (min, mediaani, max).
+    jatkuu mallin viimeisestä päivästä tai tämän päivän arviosta), tausta = (min, mediaani, max),
+    paivan_arvo = (tämän päivän arvo, lähde) merkitään lukemana ennustetta muuttamatta.
     """
+    _t = lambda s: kielet.kaanna(s, kieli)   # noqa: E731
     malli, ennuste, ennuste_vali = malli or {}, ennuste or {}, ennuste_vali or {}
     tausta, havainnot, tunnus = tausta or {}, havainnot or {}, tunnus or []
     aiemmat_arviot, alueet = aiemmat_arviot or {}, alueet or []
@@ -91,7 +96,8 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
 
     arvot = list(malli.values()) + list(ennuste.values()) + list(havainnot.values()) \
         + [v for t in tausta.values() for v in t] + [v for t in ennuste_vali.values() for v in t] \
-        + list(aiemmat_arviot.values()) + ([arvio] if arvio is not None else [])
+        + list(aiemmat_arviot.values()) + ([arvio] if arvio is not None else []) \
+        + ([paivan_arvo[0]] if paivan_arvo else [])
     if not arvot:
         arvot = [0.0, 1.0]
     datan_ala, datan_yla = min(arvot), max(arvot)
@@ -216,10 +222,11 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     tx = x(tanaan)
     ryhma.append(f'<line x1="{tx:.1f}" x2="{tx:.1f}" y1="{YLA}" y2="{YLA + piirto_k}" stroke="#00bcd4" '
                  f'stroke-width="2" stroke-dasharray="6 4"/>')
-    if arvio is not None:
-        ryhma.append(vinonelio(tx, y(arvio), 7, "#ef6c00"))
-        ryhma.append(f'<text x="{tx + 10:.1f}" y="{y(arvio) - 8:.1f}" fill="#ef6c00" font-weight="600">'
-                     f'{luku(arvio)}</text>')
+    lukema = arvio if arvio is not None else paivan_arvo[0] if paivan_arvo else None
+    if lukema is not None:   # tämän päivän lukema numerona, kuten Hawa'Iin arvio
+        ryhma.append(vinonelio(tx, y(lukema), 7, "#ef6c00"))
+        ryhma.append(f'<text x="{tx + 10:.1f}" y="{y(lukema) - 8:.1f}" fill="#ef6c00" font-weight="600" '
+                     f'stroke="#fff" stroke-width="3" paint-order="stroke">{luku(lukema)}</text>')
     ryhma.append('</g>')
     osat += ryhma
     # alueiden selitykset: kohteen nimi ja rajat alueen yläreunassa, päällekkäiset siirretään alemmas
@@ -237,25 +244,27 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     # selite (rivittyy)
     selite = []
     if malli:
-        selite.append(("viiva", "#1565c0", "malli (ennuste katkoviivana)"))
+        selite.append(("viiva", "#1565c0", _t("malli (ennuste katkoviivana)")))
     elif ennuste:
-        selite.append(("katko", "#1565c0", "ennuste"))
+        selite.append(("katko", "#1565c0", _t("ennuste")))
     if havainnot:
-        selite.append(("vino" if havainto_viiva else "piste", "#000", "havainto"))
+        selite.append(("vino" if havainto_viiva else "piste", "#000", _t("havainto")))
     if aiemmat_arviot:
         virheet = [abs(v - havainnot[_ms(p) + PAIVA_MS // 2]) for p, v in aiemmat_arviot.items()
                    if _ms(p) + PAIVA_MS // 2 in havainnot]
-        teksti = "laskettu arvio" + (f" (keskivirhe {luku(sum(virheet) / len(virheet))})" if virheet else "")
+        teksti = _t("laskettu arvio") + (f" ({_t('keskivirhe')} {luku(sum(virheet) / len(virheet))})" if virheet else "")
         selite.append(("onttovino", "#ef6c00", teksti))
     if arvio is not None:
-        selite.append(("vino", "#ef6c00", "arvio tänään"))
+        selite.append(("vino", "#ef6c00", _t("arvio tänään")))
+    elif paivan_arvo:
+        selite.append(("vino", "#ef6c00", f"{_t('tänään')}: {luku(paivan_arvo[0])} ({_t(paivan_arvo[1])})"))
     if ennuste_vali:
-        selite.append(("alue", "#bcdcf7", "ennusteen 5–95 %"))
+        selite.append(("alue", "#bcdcf7", _t("ennusteen 5–95 %")))
     if tausta:
-        selite += [("alue", "#cfd4d9", "vaihteluväli"), ("viiva", "#d81b9a", "mediaani")]
-    selite.append(("katko", "#00bcd4", "tänään"))
+        selite += [("alue", "#cfd4d9", _t("vaihteluväli")), ("viiva", "#d81b9a", _t("mediaani"))]
+    selite.append(("katko", "#00bcd4", _t("tänään")))
     if alueet:
-        selite += [("alue", "#d5ecd6", "kohde toimii"), ("alue", "#a9d5aa", "kohde parhaimmillaan")]
+        selite += [("alue", "#d5ecd6", _t("kohde toimii")), ("alue", "#a9d5aa", _t("kohde parhaimmillaan"))]
     piilossa = [f"{n} {luku(a)}" for n, a, v in tunnus if (n, a, v) not in tunnus_nakyy]
     sx, sy = VASEN, YLA + piirto_k + 40
     for laji, vari, teksti in selite:
@@ -276,13 +285,13 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         sx += leveys
     if piilossa:
         osat.append(f'<text x="{VASEN + piirto_l}" y="{YLA - 6}" text-anchor="end" fill="#5c6670">'
-                    f'{e(", ".join(piilossa))} (yli kuvan)</text>')
+                    f'{e(", ".join(piilossa))} ({_t("yli kuvan")})</text>')
     osat.append("</svg>")
     return "\n".join(osat)
 
 
 def smhi_svg(havainto: dict | None, ennuste: dict | None, otsikko: str, nyt: dt.datetime,
-             alueet: list[Alue] | None = None) -> str:
+             alueet: list[Alue] | None = None, kieli: str = "fi") -> str:
     """Ruotsin mittarin kaavio SMHI:n havainnosta ja HydroNu-pisteen tiedoista."""
     kaavio = (ennuste or {}).get("chartData") or {}
 
@@ -303,14 +312,18 @@ def smhi_svg(havainto: dict | None, ennuste: dict | None, otsikko: str, nyt: dt.
     tunnus = [(nimi, float(kaavio[k]), vari) for nimi, k, vari in
               (("MHQ", "mhq", "#c62828"), ("MQ", "mq", "#2e7d32"), ("MLQ", "mlq", "#ef6c00"))
               if isinstance(kaavio.get(k), (int, float))]
-    alaotsikko = "Virtaama m³/s · SMHI HydroNu"
+    _t = lambda s: kielet.kaanna(s, kieli)   # noqa: E731
+    alaotsikko = _t("Virtaama m³/s") + " · SMHI HydroNu"
     tuotettu = str((ennuste or {}).get("productionTime") or "")
     if len(tuotettu) == 12:
-        alaotsikko += (f", ennuste tehty {int(tuotettu[6:8])}.{int(tuotettu[4:6])}. "
-                       f"klo {tuotettu[8:10]}.{tuotettu[10:12]} UTC")
+        alaotsikko += (f", {_t('ennuste tehty')} {int(tuotettu[6:8])}.{int(tuotettu[4:6])}. "
+                       f"{_t('klo')} {tuotettu[8:10]}.{tuotettu[10:12]} UTC")
+    # tämän päivän lukema: tuorein havainto
+    tuorein = smhi_data.tuorein_havainto(havainto) if havainto else None
     return piirra(otsikko, alaotsikko, smhi_data._suomen_paiva(nyt), malli=sarja("coutHindcast"),
                   ennuste=sarja("coutForecast"), tausta=tausta, havainnot=havainnot,
-                  tunnus=tunnus, alueet=alueet)
+                  paivan_arvo=(tuorein[0], "havainto") if tuorein else None,
+                  tunnus=tunnus, alueet=alueet, kieli=kieli)
 
 
 def _paivasarja(sarja: dict | None, alku: dt.date, loppu: dt.date) -> dict[dt.date, float]:
@@ -325,7 +338,8 @@ def _paivasarja(sarja: dict | None, alku: dt.date, loppu: dt.date) -> dict[dt.da
     return tulos
 
 
-def syke_svg(ajo: dict, kaavio: str, otsikko: str, alueet: list[Alue] | None = None) -> str | None:
+def syke_svg(ajo: dict, kaavio: str, otsikko: str, alueet: list[Alue] | None = None,
+             kieli: str = "fi") -> str | None:
     """SYKE:n mittarin kaavio ajo.jsonista: mitatut päiväarvot, mallin simuloitu historia,
     ennuste ja sen 5–95 %:n vaihteluväli. None, jos kaavion suuretta ei ole ajo.jsonissa."""
     sarjat = syke_data._sarjat(kaavio)
@@ -342,17 +356,24 @@ def syke_svg(ajo: dict, kaavio: str, otsikko: str, alueet: list[Alue] | None = N
                 for n in (ala_nimi, yla_nimi))
     havainnot = {_ms(p) + PAIVA_MS // 2: v for p, v in _paivasarja(ajo.get(hav_nimi), alku, tanaan).items()}
     metreja = hav_nimi == "whav"
-    alaotsikko = ((f"Vedenkorkeus m ({ajo['w1nolla']})" if metreja and ajo.get("w1nolla") else
-                   "Vedenkorkeus m" if metreja else "Virtaama m³/s")
-                  + f" · SYKE:n vesistömalli, ennuste tehty {tanaan.day}.{tanaan.month}.")
-    return piirra(otsikko, alaotsikko, tanaan, yksikko="m" if metreja else "m3/s",
+    _t = lambda s: kielet.kaanna(s, kieli)   # noqa: E731
+    alaotsikko = ((f"{_t('Vedenkorkeus m')} ({ajo['w1nolla']})" if metreja and ajo.get("w1nolla") else
+                   _t("Vedenkorkeus m") if metreja else _t("Virtaama m³/s"))
+                  + f" · {_t('SYKE:n vesistömalli')}, {_t('ennuste tehty')} {tanaan.day}.{tanaan.month}.")
+    # tämän päivän lukema: tämän päivän havainto, muuten mallin arvo (kuten Kaaviolukema.arvo)
+    havaittu = syke_data._arvo(ajo.get(hav_nimi) or {}, tanaan)
+    paivan_arvo = (havaittu, "havainto") if havaittu is not None else \
+        (malli[tanaan], "malli") if tanaan in malli else None
+    return piirra(otsikko, alaotsikko, tanaan, yksikko="m" if metreja else "m3/s", kieli=kieli,
+                  paivan_arvo=paivan_arvo,
                   malli={p: v for p, v in malli.items() if p <= tanaan},
                   ennuste={p: v for p, v in malli.items() if p > tanaan},
                   ennuste_vali={p: (ala[p], yla[p]) for p in ala if p in yla and p >= tanaan},
                   havainnot=havainnot, havainto_viiva=True, alueet=alueet)
 
 
-def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: list[Alue] | None = None) -> str:
+def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: list[Alue] | None = None,
+              kieli: str = "fi") -> str:
     """Arviomallin aseman kaavio: mitatut päiväarvot, samojen päivien lasketut arviot,
     tämän päivän arvio ja siitä jatkuva ennuste.
 
@@ -378,7 +399,9 @@ def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: l
             vali[p] = (a + siirto, b + siirto)
     tunnus = [(nimi, lukema.tunnusluvut[nimi], vari) for nimi, vari in
               (("MHQ", "#c62828"), ("MQ", "#2e7d32"), ("MNQ", "#ef6c00")) if nimi in lukema.tunnusluvut]
-    alaotsikko = (f"Virtaama m³/s · havainnot ja ennuste SYKE, tämän päivän arvo: {lukema.lahde} · "
-                  f"ennuste tehty {tanaan.day}.{tanaan.month}.")
+    _t = lambda s: kielet.kaanna(s, kieli)   # noqa: E731
+    alaotsikko = (f"{_t('Virtaama m³/s')} · {_t('havainnot ja ennuste SYKE, tämän päivän arvo')}: "
+                  f"{_t('(' + lukema.lahde)[1:]} · {_t('ennuste tehty')} {tanaan.day}.{tanaan.month}.")
     return piirra(otsikko, alaotsikko, tanaan, ennuste=ennuste, ennuste_vali=vali, havainnot=havainnot,
-                  havainto_viiva=True, arvio=arvio, aiemmat_arviot=aiemmat, tunnus=tunnus, alueet=alueet)
+                  havainto_viiva=True, arvio=arvio, aiemmat_arviot=aiemmat, tunnus=tunnus, alueet=alueet,
+                  kieli=kieli)

@@ -321,3 +321,42 @@ def test_suosikit_ja_sijainti_sivulla(palvelin):
     suosikit = pyynto("/", "tyyppi=suosikit")[2]
     assert '<table data-valilehti="suosikit">' in suosikit and 'id="ei-suosikkeja"' in suosikit
     assert "Veden lämpötila" not in suosikit
+
+
+def test_englanninkielinen_sivu(palvelin):
+    fi = pyynto("/")[2]
+    assert '<html lang="fi">' in fi and 'href="/?kieli=en" hreflang="en"' in fi and "In English" in fi
+    en = pyynto("/", "kieli=en")[2]
+    assert '<html lang="en">' in en and "<title>Paddling conditions</title>" in en
+    assert 'href="/" hreflang="fi"' in en and "Suomeksi" in en
+    assert '<a href="/?tyyppi=peli&amp;kieli=en">Play spots</a>' in en
+    assert "Water temperature" in en and "km from Oulu" in en and ">play spot<" not in en
+    assert "at its best" in en or "works (" in en or "too little water" in en
+    assert "Muut kohteet" not in en and "Other features" in en
+    # suomenkielisiä arvioinnin lauseita ei jää näkyviin
+    for fi_teksti in ("parhaimmillaan", "liian vähän vettä", "liikaa vettä", "Oulusta", " pv: "):
+        assert fi_teksti not in en.split("<script>")[0], fi_teksti
+    valilehti = pyynto("/", "tyyppi=ruotsi&kieli=en")[2]
+    assert 'href="/?tyyppi=ruotsi" hreflang="fi"' in valilehti
+
+
+def test_kaannokset():
+    import kielet
+    k = lambda s: kielet.kaanna(s, "en")   # noqa: E731
+    assert k("toimii (0.21 m alle parhaan)") == "works (0.21 m below best)"
+    assert k("liian vähän vettä (puuttuu 215 m³/s)") == "too little water (215 m³/s short)"
+    assert k("Haukipudas (Kiiminkijoki) vedenkorkeus 10.45 m (havainto, SYKE-data), 3 pv: ↘ 10.33 m, "
+             "tulvaindeksi 0.41") == ("Haukipudas (Kiiminkijoki) water level 10.45 m (observed, SYKE data), "
+                                      "3 d: ↘ 10.33 m, flood index 0.41")
+    assert k("Olkkajärvi, tulovirtaama (Raudanjoki) virtaama 81 m³/s (havainto 2 pv sitten)") == \
+        "Olkkajärvi, tulovirtaama (Raudanjoki) discharge 81 m³/s (observed 2 d ago)"
+    assert kielet.kaanna("parhaimmillaan", "fi") == "parhaimmillaan"
+
+
+def test_syke_kaavio_paivan_lukema_ja_englanti(ajot):
+    kuva = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
+    assert "tänään: " in kuva and "(havainto)" in kuva   # tämän päivän lukema selitteessä
+    en = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)", kieli="en")
+    ET.fromstring(en)
+    assert "Kipinä (Iijoki) – gauge" in en and "Water level m" in en and "today: " in en
+    assert "feature at its best" in en and "malli (ennuste" not in en

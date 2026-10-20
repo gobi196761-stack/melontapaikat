@@ -37,6 +37,7 @@ import melonta
 import osm_sivut as osm
 import smhi_data
 import kaavio_svg
+import kielet
 import syke_data
 from paikat import PAIKAT, aseman_nimi, nakyy
 
@@ -137,6 +138,10 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
 .suosikki { background:none; border:0; padding:0 4px; cursor:pointer; font-size:1.1rem;
             color:var(--heikko); line-height:1; vertical-align:-1px; }
 .suosikki[aria-pressed="true"] { color:var(--huono); }
+.otsake { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.kieli { display:inline-flex; align-items:center; gap:6px; font-size:.85rem; color:var(--heikko);
+         text-decoration:none; margin-top:4px; white-space:nowrap; }
+.kieli svg { border:1px solid var(--viiva); border-radius:2px; display:block; }
 nav button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; background:none;
              color:var(--linkki); font:inherit; font-size:.9rem; cursor:pointer; }
 """
@@ -146,6 +151,17 @@ nav button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999p
 SKRIPTI = """
 (() => {
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
+  const T = document.documentElement.lang === "en" ? {
+    lisaa: "Add to favourites", poista: "Remove from favourites", km: " km as the crow flies",
+    tila: "Distances as the crow flies from your location (driving distance is usually longer).",
+    eiTukea: "Your browser does not support location.", haetaan: "Getting location…",
+    eiSaatu: m => "Location not available (" + m + "). Distances are from Oulu city centre.",
+  } : {
+    lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: " km linnuntietä",
+    tila: "Etäisyydet linnuntietä omasta sijainnistasi (ajomatka on yleensä pidempi).",
+    eiTukea: "Selain ei tue sijaintia.", haetaan: "Haetaan sijaintia…",
+    eiSaatu: m => "Sijaintia ei saatu (" + m + "). Etäisyydet ovat Oulun keskustasta.",
+  };
   const lue = (k, oletus) => { try { return JSON.parse(localStorage.getItem(k)) ?? oletus; } catch { return oletus; } };
   const kirjoita = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
   const rivit = [...document.querySelectorAll("tr[data-paikka]")];
@@ -160,7 +176,7 @@ SKRIPTI = """
       const nappi = r.querySelector(".suosikki");
       nappi.textContent = on ? "♥" : "♡";
       nappi.setAttribute("aria-pressed", on);
-      nappi.title = on ? "Poista suosikeista" : "Lisää suosikkeihin";
+      nappi.title = on ? T.poista : T.lisaa;
       r.hidden = vainSuosikit && !on;
       if (!r.hidden) r.querySelector(".sija").textContent = ++n + ".";
     }
@@ -189,17 +205,17 @@ SKRIPTI = """
       const km = r.querySelector(".km");
       if (!km || !r.dataset.sijainti) continue;
       const d = etaisyys(oma, r.dataset.sijainti.split(",").map(Number));
-      km.textContent = "~" + (d < 10 ? d.toFixed(1) : Math.round(d)) + " km linnuntietä";
+      km.textContent = "~" + (d < 10 ? d.toFixed(1) : Math.round(d)) + T.km;
     }
-    tila.textContent = "Etäisyydet linnuntietä omasta sijainnistasi (ajomatka on yleensä pidempi).";
+    tila.textContent = T.tila;
     tila.hidden = false;
   }
   function hae() {
-    if (!navigator.geolocation) { tila.textContent = "Selain ei tue sijaintia."; tila.hidden = false; return; }
-    tila.textContent = "Haetaan sijaintia…"; tila.hidden = false;
+    if (!navigator.geolocation) { tila.textContent = T.eiTukea; tila.hidden = false; return; }
+    tila.textContent = T.haetaan; tila.hidden = false;
     navigator.geolocation.getCurrentPosition(
       p => { kirjoita(SIJ, true); nayta([p.coords.latitude, p.coords.longitude]); },
-      v => { kirjoita(SIJ, false); tila.textContent = "Sijaintia ei saatu (" + v.message + "). Etäisyydet ovat Oulun keskustasta."; },
+      v => { kirjoita(SIJ, false); tila.textContent = T.eiSaatu(v.message); },
       { maximumAge: 10 * 60 * 1000, timeout: 15000 });
   }
   const nappi = document.getElementById("sijainti");
@@ -209,41 +225,72 @@ SKRIPTI = """
 """
 
 
+EI_SUOSIKKEJA = {
+    "fi": "Ei vielä suosikkeja. Lisää paikka suosikiksi sen nimen vieressä olevasta ♡-napista – "
+          "suosikit tallentuvat tähän selaimeen.",
+    "en": "No favourites yet. Mark a spot as a favourite with the ♡ button next to its name – "
+          "favourites are saved in this browser.",
+}
+SELITE = {
+    "fi": "★ parhaimmillaan ✓ toimii ✗ ei toimi. Pisteet (0–100) kertovat, miten veden määrä osuu "
+          "paikan kuvauksen optimiin; tasapisteissä lähempi paikka ensin. Tarkista aina olosuhteet "
+          "paikan päällä.",
+    "en": "★ at its best ✓ works ✗ does not work. The score (0–100) tells how well the water level "
+          "matches the optimum in the spot description; on equal scores the closer spot comes first. "
+          "Spot and feature names and descriptions are in Finnish. Always check conditions on site.",
+}
+# Kielen vaihto: Ison-Britannian lippu englanniksi, Suomen lippu takaisin suomeksi
+LIPUT = {
+    "en": ('<svg viewBox="0 0 60 30" width="28" height="14" aria-hidden="true">'
+           '<clipPath id="uk-a"><path d="M0,0v30h60v-30z"/></clipPath>'
+           '<clipPath id="uk-b"><path d="M30,15h30v15zv15h-30zh-30v-15zv-15h30z"/></clipPath>'
+           '<g clip-path="url(#uk-a)"><path d="M0,0v30h60v-30z" fill="#012169"/>'
+           '<path d="M0,0L60,30M60,0L0,30" stroke="#fff" stroke-width="6"/>'
+           '<path d="M0,0L60,30M60,0L0,30" clip-path="url(#uk-b)" stroke="#C8102E" stroke-width="4"/>'
+           '<path d="M30,0v30M0,15h60" stroke="#fff" stroke-width="10"/>'
+           '<path d="M30,0v30M0,15h60" stroke="#C8102E" stroke-width="6"/></g></svg>'),
+    "fi": ('<svg viewBox="0 0 18 11" width="23" height="14" aria-hidden="true">'
+           '<rect width="18" height="11" fill="#fff"/><rect x="5" width="3" height="11" fill="#002f6c"/>'
+           '<rect y="4" width="18" height="3" fill="#002f6c"/></svg>'),
+}
+
+
 def _pisteluokka(p: float) -> str:
     return "p-hyva" if p >= 60 else "p-keski" if p >= 30 else "p-huono"
 
 
-def _paikan_rivi(sija: int, t) -> str:
+def _paikan_rivi(sija: int, t, kieli: str = "fi") -> str:
     p = t.paikka
+    k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
     nakyvat = []
     mittarit = []
     for avain in p.mittarit:
         l = t.lukemat.get(avain)
         if l and l.url not in nakyvat:
             nakyvat.append(l.url)
-            href = kaavion_osoite(p, avain, l) or l.url
-            mittarit.append(f'<li><a href="{e(href)}">{e(melonta.kuvaa_lukema(l))}</a></li>')
+            href = kaavion_osoite(p, avain, l, kieli) or l.url
+            mittarit.append(f'<li><a href="{e(href)}">{e(k_(melonta.kuvaa_lukema(l)))}</a></li>')
     kohteet = sorted(t.kohteet, key=lambda k: k.pisteet, reverse=True)
     toimivat = [k for k in kohteet if k.tila != "ei toimi"]
     lyhyet = toimivat[:3] if toimivat else kohteet[:1]
 
     def kohde(k) -> str:
-        return f"<li>{melonta._tila_merkki(k.tila)} <b>{e(k.kohde.nimi)}</b>: {e(k.selitys)}</li>"
+        return f"<li>{melonta._tila_merkki(k.tila)} <b>{e(k.kohde.nimi)}</b>: {e(k_(k.selitys))}</li>"
 
     muut = [k for k in kohteet if k not in lyhyet]
     lisat = ""
     if muut:
-        lisat = (f"<details><summary>Muut kohteet ({len(muut)})</summary><ul>"
+        lisat = (f"<details><summary>{k_('Muut kohteet')} ({len(muut)})</summary><ul>"
                  + "".join(kohde(k) for k in muut) + "</ul></details>")
-    huomiot = "".join(f'<li class="huom">! {e(h)}</li>' for h in t.huomiot)
+    huomiot = "".join(f'<li class="huom">! {e(k_(h))}</li>' for h in t.huomiot)
     ennuste = " / ".join(f"{t.ennuste[n]:.0f}" for n in sorted(t.ennuste)) or "–"
-    km = f'<span class="km">~{p.km_oulusta} km Oulusta</span>' if p.km_oulusta is not None else ""
+    km = f'<span class="km">~{p.km_oulusta} {k_("km Oulusta")}</span>' if p.km_oulusta is not None else ""
     sijainti = f' data-sijainti="{p.sijainti[0]},{p.sijainti[1]}"' if p.sijainti else ""
     return f"""<tr data-paikka="{e(p.nimi)}"{sijainti}>
 <td class="sija">{sija}.</td>
 <td><div class="nimi"><a href="{e(p.url)}">{e(p.nimi)}</a>
-<button type="button" class="suosikki" aria-pressed="false" title="Lisää suosikkeihin">♡</button></div>
-<div class="pieni">{e(p.tyyppi)}{' · ' + km if km else ''}</div>
+<button type="button" class="suosikki" aria-pressed="false" title="{k_('Lisää suosikkeihin')}">♡</button></div>
+<div class="pieni">{e(k_(p.tyyppi))}{' · ' + km if km else ''}</div>
 <ul class="pieni">{''.join(mittarit)}</ul>
 <ul>{''.join(kohde(k) for k in lyhyet)}{huomiot}</ul>{lisat}</td>
 <td class="pisteet {_pisteluokka(t.pisteet)}">{t.pisteet:.0f}</td>
@@ -251,61 +298,68 @@ def _paikan_rivi(sija: int, t) -> str:
 </tr>"""
 
 
+def _osoite(**parametrit) -> str:
+    """Sivun osoite annetuilla kyselyparametreilla (tyhjät jätetään pois, oletuskieli ei näy)."""
+    parametrit = {k: v for k, v in parametrit.items() if v and not (k == "kieli" and v == "fi")}
+    return "/" + ("?" + urlencode(parametrit) if parametrit else "")
+
+
 def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     valittu = kysely.get("tyyppi", [""])[0]
+    kieli = kielet.kieli(kysely)
+    k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
     suodattimet = "".join(
-        f'<a href="{href}"{" class=valittu" if valittu == arvo else ""}>{nimi}</a>'
-        for arvo, href, nimi in [("", "/", "Kaikki"), ("peli", "/?tyyppi=peli", "Pelipaikat"),
-                                 ("retki", "/?tyyppi=retki", "Retket"), ("ruotsi", "/?tyyppi=ruotsi", "Ruotsi"),
-                                 ("suosikit", "/?tyyppi=suosikit", "♥ Suosikit")])
+        f'<a href="{e(_osoite(tyyppi=arvo, kieli=kieli))}"{" class=valittu" if valittu == arvo else ""}>{k_(nimi)}</a>'
+        for arvo, nimi in [("", "Kaikki"), ("peli", "Pelipaikat"), ("retki", "Retket"), ("ruotsi", "Ruotsi"),
+                           ("suosikit", "♥ Suosikit")])
+    toinen = "fi" if kieli == "en" else "en"
+    vaihto = (f'<a class="kieli" href="{e(_osoite(tyyppi=valittu, kieli=toinen))}" hreflang="{toinen}" '
+              f'lang="{toinen}">{LIPUT[toinen]}{"Suomeksi" if toinen == "fi" else "In English"}</a>')
     # Veden lämpötila on Suomen asemalta (Kipinä), joten Ruotsi-välilehdellä sitä ei näytetä
     lampotilat = [l for t in tilanne.tulokset for l in t.sivun_kaaviot
                   if l.suure == "lampotila" and l.arvo is not None and valittu not in ("ruotsi", "suosikit")]
     lampo = ""
     if lampotilat:
         l = lampotilat[0]
-        lampo = (f'<div class="lampo">Veden lämpötila ({e(aseman_nimi(osm.kaavio_avain(l.url)))}): '
+        lampo = (f'<div class="lampo">{k_("Veden lämpötila")} ({e(aseman_nimi(osm.kaavio_avain(l.url)))}): '
                  f"<b>{l.arvo:.1f} °C</b>"
-                 + (" – kylmää vettä, pukeudu uintia varten!" if l.arvo < 10 else "") + "</div>")
+                 + (k_(" – kylmää vettä, pukeudu uintia varten!") if l.arvo < 10 else "") + "</div>")
     arvioidut = [t for t in tulokset if t.pisteet is not None]
-    rivit = "".join(_paikan_rivi(i, t) for i, t in enumerate(arvioidut, 1))
+    rivit = "".join(_paikan_rivi(i, t, kieli) for i, t in enumerate(arvioidut, 1))
     ilman = [t for t in tulokset if t.pisteet is None]
     ilman_html = ""
     if ilman:
-        ilman_html = ("<h2>Ei vesikaaviota – tarkista itse</h2><ul>" + "".join(
+        ilman_html = (f"<h2>{k_('Ei vesikaaviota – tarkista itse')}</h2><ul>" + "".join(
             f'<li><a href="{e(t.paikka.url)}">{e(t.paikka.nimi)}</a>: {e(t.paikka.kuvaus)}</li>'
             for t in ilman) + "</ul>")
     varoitukset = ""
     if tilanne.varoitukset:
-        varoitukset = ('<h2>Huomautukset</h2><ul class="pieni">'
+        varoitukset = (f'<h2>{k_("Huomautukset")}</h2><ul class="pieni">'
                        + "".join(f"<li>{e(v)}</li>" for v in tilanne.varoitukset) + "</ul>")
     api = e("/api" + ("?" + urlencode({k: v[0] for k, v in kysely.items()}) if kysely else ""))
     return f"""<!doctype html>
-<html lang="fi">
+<html lang="{kieli}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Melontatilanne</title>
+<title>{k_("Melontatilanne")}</title>
 <style>{TYYLI}</style>
 </head>
 <body><main>
-<h1>Melontapaikkojen tilanne {tilanne.paivitetty:%d.%m.%Y}</h1>
-<div class="meta">osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet ·
-päivitetty klo {tilanne.paivitetty:%H.%M} · <a href="{api}">JSON</a></div>
-<nav>{suodattimet}<button type="button" id="sijainti">📍 Etäisyydet omasta sijainnista</button></nav>
+<div class="otsake"><h1>{k_("Melontapaikkojen tilanne")} {tilanne.paivitetty:%d.%m.%Y}</h1>{vaihto}</div>
+<div class="meta">{k_("osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet")} ·
+{k_("päivitetty klo")} {tilanne.paivitetty:%H.%M} · <a href="{api}">JSON</a></div>
+<nav>{suodattimet}<button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button></nav>
 <p id="sijainti-tila" class="pieni" hidden></p>
 {lampo}
-<p id="ei-suosikkeja" hidden>Ei vielä suosikkeja. Lisää paikka suosikiksi sen nimen vieressä
-olevasta ♡-napista – suosikit tallentuvat tähän selaimeen.</p>
+<p id="ei-suosikkeja" hidden>{EI_SUOSIKKEJA[kieli]}</p>
 <table data-valilehti="{e(valittu)}">
-<thead><tr><th></th><th>Paikka</th><th>Pisteet</th><th class="piilo">+1 / +2 / +3 pv</th></tr></thead>
+<thead><tr><th></th><th>{k_("Paikka")}</th><th>{k_("Pisteet")}</th><th class="piilo">{k_("+1 / +2 / +3 pv")}</th></tr></thead>
 <tbody>{rivit}</tbody>
 </table>
 {ilman_html}
 {varoitukset}
-<p class="pieni">★ parhaimmillaan ✓ toimii ✗ ei toimi. Pisteet (0–100) kertovat, miten veden määrä
-osuu paikan kuvauksen optimiin; tasapisteissä lähempi paikka ensin. Tarkista aina olosuhteet
-paikan päällä.</p>
+<p class="pieni">{SELITE[kieli]}</p>
 </main>
 <script>{SKRIPTI}</script>
 </body>
@@ -351,12 +405,12 @@ def kaavion_asema(kaavio: str) -> list[str]:
     return kaavio.split("/")[:2]
 
 
-def kaavion_osoite(paikka, avain: str, lukema=None) -> str | None:
+def kaavion_osoite(paikka, avain: str, lukema=None, kieli: str = "fi") -> str | None:
     """Itse piirretyn kaavion osoite (None = linkitetään SYKE:n kuva). SMHI:ltä saadaan vain
     JSON-dataa; SYKE:n mittareille piirretään oma kuva, kun ajo.jsonin luvut täsmäsivät SYKE:n
     kuvaan (tietolahde ei ole "kaavio") – silloin kohteiden rajat ovat samassa korkeusjärjestelmässä."""
     kaavio = paikka.mittarit[avain].kaavio
-    kysely = "?" + urlencode({"paikka": paikka.nimi})
+    kysely = "?" + urlencode({"paikka": paikka.nimi, **({"kieli": kieli} if kieli != "fi" else {})})
     if kaavio.startswith("smhi/"):
         return f"/kaavio/{kaavio}{kysely}"
     if _arvioasema(kaavio) or (lukema is not None and lukema.tietolahde != "kaavio"
@@ -385,7 +439,7 @@ def _hae_json(hakija: osm.Hakija, url: str) -> dict | None:
 
 
 def smhi_kaavio_svg(kaavio: str, hakija: osm.Hakija | None = None, nyt: dt.datetime | None = None,
-                    paikan_nimi: str | None = None) -> str | None:
+                    paikan_nimi: str | None = None, kieli: str = "fi") -> str | None:
     """Ruotsin mittarin kaavio SVG:nä; None, jos mittaria ei ole paikoissa tai dataa ei saatu."""
     loydetty = _kaavion_paikka(lambda m: m.smhi and m.kaavio == kaavio, paikan_nimi)
     if not loydetty:
@@ -397,11 +451,12 @@ def smhi_kaavio_svg(kaavio: str, hakija: osm.Hakija | None = None, nyt: dt.datet
     ennuste = _hae_json(hakija, smhi_data.ennuste_url(piste))
     if not havainto and not ennuste:
         return None
-    return kaavio_svg.smhi_svg(havainto, ennuste, f"{paikka.nimi} – mittari {aseman_nimi(kaavio)}",
-                               nyt or suomen_aika(), _alueet(paikka, avain))
+    otsikko = f"{paikka.nimi} – {kielet.kaanna('mittari', kieli)} {aseman_nimi(kaavio)}"
+    return kaavio_svg.smhi_svg(havainto, ennuste, otsikko, nyt or suomen_aika(), _alueet(paikka, avain), kieli)
 
 
-def syke_kaavio_svg(polku: str, hakija: osm.Hakija | None = None, paikan_nimi: str | None = None) -> str | None:
+def syke_kaavio_svg(polku: str, hakija: osm.Hakija | None = None, paikan_nimi: str | None = None,
+                    kieli: str = "fi") -> str | None:
     """SYKE:n mittarin kaavio SVG:nä polusta '<alue>/<asema>/<kaavio>' (tai arviomallin asemalle
     '<alue>/<asema>'); None, jos mittaria ei ole paikoissa tai dataa ei saatu."""
     osat = polku.split("/")
@@ -414,15 +469,16 @@ def syke_kaavio_svg(polku: str, hakija: osm.Hakija | None = None, paikan_nimi: s
         return None
     paikka, avain, mittari = loydetty
     hakija = hakija or osm.Hakija(aikaraja=20)
-    otsikko = f"{paikka.nimi} – mittari {aseman_nimi(mittari.kaavio)}"
+    otsikko = f"{paikka.nimi} – {kielet.kaanna('mittari', kieli)} {aseman_nimi(mittari.kaavio)}"
     asema = _arvioasema(mittari.kaavio)
     if asema:
-        return _arvio_kaavio(paikka, avain, mittari, asema, hakija, otsikko)
+        return _arvio_kaavio(paikka, avain, mittari, asema, hakija, otsikko, kieli)
     ajo = _hae_json(hakija, osm.kaavio_url(syke_data.ajo_avain(mittari.kaavio)))
-    return kaavio_svg.syke_svg(ajo, mittari.kaavio, otsikko, _alueet(paikka, avain)) if ajo else None
+    return kaavio_svg.syke_svg(ajo, mittari.kaavio, otsikko, _alueet(paikka, avain), kieli) if ajo else None
 
 
-def _arvio_kaavio(paikka, avain, mittari, asema: str, hakija: osm.Hakija, otsikko: str) -> str | None:
+def _arvio_kaavio(paikka, avain, mittari, asema: str, hakija: osm.Hakija, otsikko: str,
+                  kieli: str = "fi") -> str | None:
     """Arviomallin aseman kaavio: mitatut arvot, lasketut arviot ja arviosta jatkuva ennuste."""
     avaimet = [f"{asema}/ajo.json"] + syke_data.ARVIOMALLIT[asema].ajo_avaimet()
     ajot = {a: d for a in avaimet if (d := _hae_json(hakija, osm.kaavio_url(a)))}
@@ -438,7 +494,7 @@ def _arvio_kaavio(paikka, avain, mittari, asema: str, hakija: osm.Hakija, otsikk
         for vanha in (l for t in _tilanne[1].tulokset for l in t.lukemat.values()):
             if vanha.url == lukema.url:
                 lukema.tunnusluvut = dict(vanha.tunnusluvut)
-    return kaavio_svg.arvio_svg(lukema, ajot, asema, otsikko, _alueet(paikka, avain))
+    return kaavio_svg.arvio_svg(lukema, ajot, asema, otsikko, _alueet(paikka, avain), kieli)
 
 
 def arvio_kaavio_svg(asema: str, hakija: osm.Hakija | None = None) -> str | None:
@@ -454,7 +510,7 @@ def app(environ, start_response):
     polku = environ.get("PATH_INFO", "/").rstrip("/") or "/"
     metodi = environ.get("REQUEST_METHOD", "GET")
     kysely = {k: v for k, v in parse_qs(environ.get("QUERY_STRING", "")).items()
-              if k in ("tyyppi", "max_km")}
+              if k in ("tyyppi", "max_km", "kieli")}
 
     def vastaa(status: str, tyyppi: str, runko: str, valimuisti: str = "no-store"):
         data = runko.encode("utf-8")
@@ -470,8 +526,9 @@ def app(environ, start_response):
     if polku.startswith("/kaavio/"):
         kaavio = polku.removeprefix("/kaavio/")
         paikan_nimi = parse_qs(environ.get("QUERY_STRING", "")).get("paikka", [None])[0]
-        kuva = (smhi_kaavio_svg(kaavio, paikan_nimi=paikan_nimi) if kaavio.startswith("smhi/")
-                else syke_kaavio_svg(kaavio.removeprefix("syke/"), paikan_nimi=paikan_nimi)
+        kieli = kielet.kieli(kysely)
+        kuva = (smhi_kaavio_svg(kaavio, paikan_nimi=paikan_nimi, kieli=kieli) if kaavio.startswith("smhi/")
+                else syke_kaavio_svg(kaavio.removeprefix("syke/"), paikan_nimi=paikan_nimi, kieli=kieli)
                 if kaavio.startswith("syke/") else None)
         if kuva is None:
             return vastaa("404 Not Found", "text/plain; charset=utf-8", "Kaaviota ei löydy.\n")
