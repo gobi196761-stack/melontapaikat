@@ -407,7 +407,7 @@ PAIKAT: tuple[Paikka, ...] = (
         ),
     ),
     Paikka(
-        "Pahakurkkio (Kalixälven)", "https://vattenwebb.smhi.se/hydronu/?subid=35732", "retki", 370,
+        "Pahakurkkio (Kalixälven)", "https://freestylemelonta.blogspot.com/2010/09/synkkaa-kuin-moron-pers.html", "retki", 370,
         "Ruotsi, Saittarova (Pajala): kanjonissa seitsemän kosken sarja 3–4 km ja "
         "ykköskönkään Åretsvågen, yksi maailman parhaista surffiaalloista. Kosket 1–3 n. III, "
         "4 hontto oikealla, 5 vaikein, 6–7 IV. Mittarina Männikkö (15 km alavirtaan). "
