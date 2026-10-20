@@ -284,7 +284,7 @@ PAIKAT: tuple[Paikka, ...] = (
         ),
     ),
     Paikka(
-        "Trollforsarna (Piteälven)", "https://sv.wikipedia.org/wiki/Trollforsarna", "peli", 450,
+        "Trollforsarna (Piteälven)", "https://tuusmelojat.fi/trollit-2017/", "peli", 450,
         "Ruotsi: Piteälvenin koskiosuus Granselin mittarin kohdalla, isoja aaltoja ja "
         "laskettavaa eri vesillä, paras kausi kesäkuu. Rajat paikalliselta kokeneelta "
         "melojalta (SMHI Gransel), kuvaukset myös Forsguidenista.",
