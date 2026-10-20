@@ -189,6 +189,30 @@ def _mallin_arvo(malli: Arviomalli, k: Kertoimet, ajot: dict[str, dict], paiva: 
     return malli.kaava(k, q, h * 100, h1 * 100)
 
 
+def arvioi_paiva(asema: str, ajot: dict[str, dict], paiva: dt.date) -> float | None:
+    """Arviomallin arvo päivälle: syötteet sen päivän havainnoista ja korjaus sitä edeltävästä
+    aseman havainnosta – eli arvo, jonka malli olisi antanut sinä päivänä. None, jos syötteitä puuttuu."""
+    malli = ARVIOMALLIT[asema]
+    oma = ajot.get(f"{asema}/ajo.json") or {}
+    # Aseman tuorein havainto (yleensä eilinen) valitsee kertoimet ja antaa korjauksen
+    viim = None
+    for n in range(1, HAVAINTO_MAX_IKA + 1):
+        v = _arvo(oma.get("qhav"), paiva - dt.timedelta(days=n)) if oma.get("qhav") else None
+        if v is not None:
+            viim = (n, v)
+            break
+    k = malli.iso if viim and viim[1] >= malli.raja else malli.pieni
+    arvo = _mallin_arvo(malli, k, ajot, paiva)
+    if arvo is None:
+        return None
+    if viim:
+        n, havaittu = viim
+        silloin = _mallin_arvo(malli, k, ajot, paiva - dt.timedelta(days=n))
+        if silloin is not None:
+            arvo += k.alfa ** n * (havaittu - silloin)   # vanhempi virhe painaa vähemmän
+    return arvo
+
+
 def arvioi_tanaan(lukema: Kaaviolukema, ajot: dict[str, dict]) -> str | None:
     """Korvaa vanhentuneen havainnon arviomallin arvolla (vain virtaamat).
 
@@ -203,22 +227,9 @@ def arvioi_tanaan(lukema: Kaaviolukema, ajot: dict[str, dict]) -> str | None:
         tanaan = dt.date.fromisoformat(oma["ennustepvm_www"])
     except (KeyError, TypeError, ValueError):
         return None
-    # Aseman tuorein havainto (yleensä eilinen) valitsee kertoimet ja antaa korjauksen
-    viim = None
-    for n in range(1, HAVAINTO_MAX_IKA + 1):
-        v = _arvo(oma.get("qhav"), tanaan - dt.timedelta(days=n)) if oma.get("qhav") else None
-        if v is not None:
-            viim = (n, v)
-            break
-    k = malli.iso if viim and viim[1] >= malli.raja else malli.pieni
-    arvo = _mallin_arvo(malli, k, ajot, tanaan)
+    arvo = arvioi_paiva(asema, ajot, tanaan)
     if arvo is None:
         return f"{asema}: arviomallin ({malli.nimi}) syötteitä puuttuu – käytetään havaintoa"
-    if viim:
-        n, havaittu = viim
-        silloin = _mallin_arvo(malli, k, ajot, tanaan - dt.timedelta(days=n))
-        if silloin is not None:
-            arvo += k.alfa ** n * (havaittu - silloin)   # vanhempi virhe painaa vähemmän
     lukema.havaittu, lukema.havaittu_paivia_sitten = arvo, 0
     lukema.tietolahde = f"arvio {malli.nimi}"
     return None

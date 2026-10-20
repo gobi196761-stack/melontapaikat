@@ -2,13 +2,16 @@ import datetime as dt
 import io
 import json
 import shutil
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
 
 import app
+import kaavio_svg
 import melonta
 import osm_sivut as osm
+import syke_data
 from paikat import PAIKAT
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -216,3 +219,60 @@ def test_arkistointi_ilman_firestorea(monkeypatch, arkisto):
     monkeypatch.setenv("CRON_SECRET", "s3cret")
     monkeypatch.setattr(app.firestore.Firestore, "ymparistosta", classmethod(lambda cls: None))
     assert cron(monkeypatch, "Bearer s3cret")[0].startswith("503")
+
+
+@pytest.fixture
+def ajot(tmp_path):
+    for tiedosto in (FIXTURES / "ajo").glob("*.json"):
+        avain = tiedosto.name.removesuffix("_ajo.json").replace("_", "/") + "/ajo.json"
+        shutil.copy(tiedosto, tmp_path / osm.Hakija._tiedostonimi(osm.kaavio_url(avain)))
+    return osm.Hakija(offline=tmp_path)
+
+
+def test_arviomallin_kaavio(ajot, monkeypatch):
+    monkeypatch.setattr(app, "_tilanne", None)
+    kuva = app.arvio_kaavio_svg("61/q6101750y", ajot)
+    ET.fromstring(kuva)
+    assert "Hawa&#x27;Ii (Iijoki, Maalismaa) – mittari" in kuva
+    assert "arvio Pudasjärvi + Siurua" in kuva and "ennuste tehty 18.10." in kuva
+    assert "arvio tänään" in kuva and "ennusteen 5–95 %" in kuva and "laskettu arvio (keskivirhe" in kuva
+    # vain mitatut historia-arvot: ei mallin jälkilaskennan viivaa
+    assert "malli (ennuste" not in kuva
+    # mitatut päivät 8.–17.10. (tämän päivän havaintoa ei vielä ole) vinoneliöinä + selitteen kaksi
+    assert kuva.count('fill="#000"/>') == 10 + 1
+    assert app.arvio_kaavio_svg("61/q6101600y", ajot) is None   # ei arviomallia
+
+
+def test_arviomallin_ennuste_jatkuu_arviosta(ajot):
+    lukema = syke_data.Kaaviolukema(url=osm.kaavio_url("61/q6101750y/qin3lyhyt.png"), suure="virtaama",
+                                    yksikko="m3/s", tanaan_paiva=None, havaittu=None,
+                                    havaittu_paivia_sitten=None, malli=None)
+    oma = json.loads((FIXTURES / "ajo" / "61_q6101750y_ajo.json").read_text(encoding="utf-8"))
+    luetut = {t.name.removesuffix("_ajo.json").replace("_", "/") + "/ajo.json":
+              json.loads(t.read_text(encoding="utf-8")) for t in (FIXTURES / "ajo").glob("*.json")}
+    syke_data.taydenna(lukema, oma)
+    syke_data.arvioi_tanaan(lukema, luetut)
+    assert lukema.tietolahde.startswith("arvio")
+    tallentaja = {}
+    monkey = kaavio_svg.piirra
+    try:
+        kaavio_svg.piirra = lambda *a, **k: tallentaja.update(k) or ""
+        kaavio_svg.arvio_svg(lukema, luetut, "61/q6101750y", "testi")
+    finally:
+        kaavio_svg.piirra = monkey
+    tanaan = dt.date(2026, 10, 18)
+    assert tallentaja["arvio"] == pytest.approx(lukema.arvo)
+    assert tanaan not in tallentaja["havainnot"]
+    # menneiden päivien arviot lasketaan kuten silloin olisi laskettu, havaintojen rinnalle
+    aiemmat = tallentaja["aiemmat_arviot"]
+    assert aiemmat and max(aiemmat) < tanaan
+    assert aiemmat[dt.date(2026, 10, 17)] == pytest.approx(
+        syke_data.arvioi_paiva("61/q6101750y", luetut, dt.date(2026, 10, 17)))
+    eka = tallentaja["ennuste"][tanaan + dt.timedelta(days=1)]
+    assert eka == pytest.approx(lukema.arvo + lukema.ennuste[1] - lukema.malli)
+
+
+def test_arviomallin_linkki():
+    assert app.kaavion_osoite("61/q6101750y/qin3lyhyt.png") == "/kaavio/syke/61/q6101750y"
+    assert app.kaavion_osoite("smhi/11/35732") == "/kaavio/smhi/11/35732"
+    assert app.kaavion_osoite("61/q6101600y/qinlyhyt.png") is None
