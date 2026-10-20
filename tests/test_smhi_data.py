@@ -1,6 +1,7 @@
 import datetime as dt
 import json
 import shutil
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -122,4 +123,31 @@ def test_ruotsin_paikat_sivulla(ruotsi):
     sivu = app.sivu(tilanne, tulokset, {})
     assert "Trollforsarna (Piteälven)" in sivu and "Pahakurkkio (Kalixälven)" in sivu
     assert "Gransel (Piteälven) virtaama 119 m³/s (havainto, SMHI)" in sivu
-    assert smhi_data.havainto_url("1387") in sivu
+    # SMHI:n mittareista linkki vie itse piirrettyyn kaavioon, ei raakaan JSON-dataan
+    assert '<a href="/kaavio/smhi/1387/31914">Gransel' in sivu
+    assert smhi_data.havainto_url("1387") not in sivu
+
+
+def test_smhi_kaavio(tmp_path):
+    kuva = app.smhi_kaavio_svg("smhi/11/35732", valimuisti(tmp_path), NYT)
+    assert kuva.startswith("<svg") and kuva.rstrip().endswith("</svg>")
+    ET.fromstring(kuva)   # kelvollista XML:ää
+    assert "Pahakurkkio (Kalixälven) – mittari Männikkö (Kalixälven)" in kuva
+    assert "ennuste tehty 18.10. klo 12.10 UTC" in kuva
+    assert "MQ 102" in kuva and "MHQ 531" in kuva   # MHQ on yli kuvan: vain tekstinä
+    assert "paras: Åretsvågen (ykköskönkään surffiaalto)" in kuva   # laadukkain kohde
+    assert kuva.count("<circle") > 20                 # havainnot tunnin välein + selite
+    assert '>19.10.</text>' in kuva                   # tänään-nimiö
+
+
+def test_smhi_kaavio_tuntematon_tai_ilman_dataa(tmp_path):
+    assert app.smhi_kaavio_svg("smhi/9999/1", valimuisti(tmp_path), NYT) is None
+    tyhja = tmp_path / "tyhja"
+    tyhja.mkdir()
+    hakija = valimuisti(tyhja, ilman=("hydroobs_11.json", "point_35732.json"))
+    assert app.smhi_kaavio_svg("smhi/11/35732", hakija, NYT) is None
+    # pelkkä havainto riittää kuvaan
+    osa = tmp_path / "osa"
+    osa.mkdir()
+    hakija = valimuisti(osa, ilman=("point_35732.json",))
+    assert "<circle" in app.smhi_kaavio_svg("smhi/11/35732", hakija, NYT)

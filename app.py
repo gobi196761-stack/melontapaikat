@@ -3,6 +3,7 @@
 Reitit:
     /       päivän järjestys taulukkona
     /api    sama JSON-muodossa (kuten `melonta.py --json`)
+    /kaavio/smhi/<asema>/<piste>  Ruotsin mittarin virtaamakaavio (SVG, ks. smhi_kaavio.py)
     /api/arkistoi  päivän ennusteiden arkistointi Firestoreen (Vercel Cron,
                    vaatii otsakkeen Authorization: Bearer $CRON_SECRET)
 Suodattimet kummallekin: ?tyyppi=peli|retki|ruotsi ja ?max_km=N
@@ -32,6 +33,8 @@ import ennustearkisto
 import firestore
 import melonta
 import osm_sivut as osm
+import smhi_data
+import smhi_kaavio
 from paikat import PAIKAT, aseman_nimi, nakyy
 
 VALIMUISTI_S = 15 * 60
@@ -143,7 +146,9 @@ def _paikan_rivi(sija: int, t) -> str:
         l = t.lukemat.get(avain)
         if l and l.url not in nakyvat:
             nakyvat.append(l.url)
-            mittarit.append(f'<li><a href="{e(l.url)}">{e(melonta.kuvaa_lukema(l))}</a></li>')
+            # SMHI:ltä saadaan vain JSON-dataa, joten linkki vie itse piirrettyyn kaavioon
+            href = f"/kaavio/{p.mittarit[avain].kaavio}" if p.mittarit[avain].smhi else l.url
+            mittarit.append(f'<li><a href="{e(href)}">{e(melonta.kuvaa_lukema(l))}</a></li>')
     kohteet = sorted(t.kohteet, key=lambda k: k.pisteet, reverse=True)
     toimivat = [k for k in kohteet if k.tila != "ei toimi"]
     lyhyet = toimivat[:3] if toimivat else kohteet[:1]
@@ -254,6 +259,30 @@ def arkistoi(environ) -> tuple[str, dict]:
                       "arvioita": len(arkisto["arviot"]), "varoitukset": virheet}
 
 
+def smhi_kaavio_svg(kaavio: str, hakija: osm.Hakija | None = None, nyt: dt.datetime | None = None) -> str | None:
+    """Ruotsin mittarin kaavio SVG:nä; None, jos mittaria ei ole paikoissa tai dataa ei saatu."""
+    paikka = next((p for p in PAIKAT for m in p.mittarit.values() if m.kaavio == kaavio and m.smhi), None)
+    if not paikka:
+        return None
+    hakija = hakija or osm.Hakija(aikaraja=20)
+    asema, piste = smhi_data.osat(kaavio)
+    luetut = []
+    for url in (smhi_data.havainto_url(asema), smhi_data.ennuste_url(piste)):
+        data, _ = osm.hae_turvallisesti(hakija, url)
+        try:
+            luetut.append(json.loads(data.decode("utf-8")) if data else None)
+        except ValueError:
+            luetut.append(None)
+    if not any(luetut):
+        return None
+    avaimet = {a for a, m in paikka.mittarit.items() if m.kaavio == kaavio}
+    kohteet = [k for k in paikka.kohteet if k.mittari in avaimet and k.muuttuja == "arvo"]
+    paras = max(kohteet, key=lambda k: k.laatu, default=None)
+    otsikko = f"{paikka.nimi} – mittari {aseman_nimi(kaavio)}"
+    return smhi_kaavio.svg(*luetut, otsikko, nyt or suomen_aika(),
+                           (paras.nimi, *paras.paras) if paras else None)
+
+
 # ---------------------------------------------------------------------------
 # WSGI
 # ---------------------------------------------------------------------------
@@ -275,6 +304,11 @@ def app(environ, start_response):
     if polku == "/api/arkistoi":
         status, tulos = arkistoi(environ)
         return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False))
+    if polku.startswith("/kaavio/"):
+        kuva = smhi_kaavio_svg(polku.removeprefix("/kaavio/"))
+        if kuva is None:
+            return vastaa("404 Not Found", "text/plain; charset=utf-8", "Kaaviota ei löydy.\n")
+        return vastaa("200 OK", "image/svg+xml; charset=utf-8", kuva, CACHE_CONTROL)
     if polku not in ("/", "/api"):
         return vastaa("404 Not Found", "text/plain; charset=utf-8", "Ei löydy.\n")
 
