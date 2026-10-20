@@ -62,7 +62,7 @@ def test_sivu(palvelin):
     assert status == "200 OK"
     assert otsakkeet["Content-Type"].startswith("text/html")
     assert "s-maxage=" in otsakkeet["Cache-Control"]
-    assert runko.index("Kipinä (Iijoki)") < runko.index("Matkakoski") < runko.index("Niskakoski")
+    assert runko.index("Matkakoski") < runko.index("Kipinä (Iijoki)") < runko.index("Niskakoski")
     assert "Oikean silta-aukon surffiaalto" in runko
     assert "Veden lämpötila" in runko and "2.8 °C" in runko
     assert "päivitetty klo 16.05" in runko
@@ -75,8 +75,8 @@ def test_api_ja_suodatus(palvelin):
     assert data["paiva"] == "2026-10-18"
     assert data["paivitetty"] == "2026-10-18T16:05:00"
     assert [p["nimi"] for p in data["paikat"]] == [
-        "Kipinä (Iijoki)", "Matkakoski (Tornionjoki)", "Niskakoski (Lestijoki)"]
-    assert data["paikat"][0]["pisteet"] == pytest.approx(80)
+        "Matkakoski (Tornionjoki)", "Kipinä (Iijoki)", "Niskakoski (Lestijoki)"]
+    assert data["paikat"][1]["pisteet"] == pytest.approx(80)
 
     data = json.loads(pyynto("/api/", "max_km=150")[2])
     assert all(p["km_oulusta"] <= 150 for p in data["paikat"])
@@ -272,10 +272,33 @@ def test_arviomallin_ennuste_jatkuu_arviosta(ajot):
     assert eka == pytest.approx(lukema.arvo + lukema.ennuste[1] - lukema.malli)
 
 
-def test_arviomallin_linkki():
-    assert app.kaavion_osoite("61/q6101750y/qin3lyhyt.png") == "/kaavio/syke/61/q6101750y"
-    assert app.kaavion_osoite("smhi/11/35732") == "/kaavio/smhi/11/35732"
-    assert app.kaavion_osoite("61/q6101600y/qinlyhyt.png") is None
+def test_kaavion_linkit():
+    paikka = {p.nimi: p for p in PAIKAT}
+    hawa = paikka["Hawa'Ii (Iijoki, Maalismaa)"]
+    assert app.kaavion_osoite(hawa, "paa") == "/kaavio/syke/61/q6101750y/qin3lyhyt?paikka=Hawa%27Ii+%28Iijoki%2C+Maalismaa%29"
+    assert app.kaavion_osoite(paikka["Pahakurkkio (Kalixälven)"], "paa").startswith("/kaavio/smhi/11/35732?paikka=")
+    # SYKE:n mittarille oma kaavio vain, kun ajo.jsonin luvut täsmäsivät kuvaan
+    kipina = paikka["Kipinä (Iijoki)"]
+    lukema = syke_data.Kaaviolukema(url="", suure="vedenkorkeus", yksikko="m", tanaan_paiva=None, havaittu=None,
+                                    havaittu_paivia_sitten=None, malli=None)
+    assert app.kaavion_osoite(kipina, "paa", lukema) is None
+    lukema.tietolahde = "SYKE-data"
+    assert app.kaavion_osoite(kipina, "paa", lukema).startswith("/kaavio/syke/61/l611331001y/w3lyhyt?paikka=Kipin")
+
+
+def test_syke_kaavio(ajot):
+    kuva = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
+    ET.fromstring(kuva)
+    assert "Kipinä (Iijoki) – mittari" in kuva and "Vedenkorkeus m" in kuva
+    assert "malli (ennuste katkoviivana)" in kuva and "havainto" in kuva
+    # kohteiden alueet nimettyinä
+    assert "Oikean silta-aukon surffiaalto 108.15–108.6" in kuva
+    assert "kohde parhaimmillaan" in kuva
+    # ei SYKE:n kuvan muita merkintöjä
+    assert "mediaani" not in kuva and "MHQ" not in kuva
+    assert app.syke_kaavio_svg("61/l611331001y/eiole", ajot) is None
+    virtaama = app.syke_kaavio_svg("61/q6101600y/qinlyhyt", ajot)
+    assert virtaama is None or "Virtaama" in virtaama   # asema ei ole minkään paikan mittari -> None
 
 
 def test_kaikilla_paikoilla_sijainti():

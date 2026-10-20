@@ -143,12 +143,14 @@ def test_paasta_paahan_offline(tmp_path, capsys):
     assert varoitukset == []
     tulokset = melonta.arvioi_kaikki(paikat, sivun_kaaviot, lukemat, dt.date(2026, 10, 18))
     nimet = [t.paikka.nimi for t in tulokset]
-    # Kipinä: Pudasjärvi 108.59 m -> oikean silta-aukon surffiaalto toimii (80 p.)
-    # Matkakoski 27.95 m -> peliajan paikat toimivat, vähän yli parhaan (70 p.)
+    # Matkakoski 27.95 m -> Matkan aalto parhaimmillaan (0.9 × 100 + 2)
+    # Kipinä: Pudasjärvi 108.59 m -> oikean silta-aukon surffiaalto parhaimmillaan (0.8 × 100)
     # Niskakoski 15 m³/s -> stoppari vaatii yli 50 m³/s (0 p.)
-    assert nimet == ["Kipinä (Iijoki)", "Matkakoski (Tornionjoki)", "Niskakoski (Lestijoki)"]
-    assert tulokset[0].pisteet == pytest.approx(80)
-    assert tulokset[0].paras_kohde.kohde.nimi == "Oikean silta-aukon surffiaalto"
+    assert nimet == ["Matkakoski (Tornionjoki)", "Kipinä (Iijoki)", "Niskakoski (Lestijoki)"]
+    assert tulokset[0].pisteet == pytest.approx(92)
+    assert tulokset[0].paras_kohde.kohde.nimi == "Matkan aalto"
+    assert tulokset[1].pisteet == pytest.approx(80)
+    assert tulokset[1].paras_kohde.kohde.nimi == "Oikean silta-aukon surffiaalto"
     assert tulokset[2].pisteet == 0
     assert not any("ei ole tältä päivältä" in h for t in tulokset for h in t.huomiot)
 
@@ -159,4 +161,4 @@ def test_paasta_paahan_offline(tmp_path, capsys):
     melonta.tulosta(tulokset, varoitukset, dt.date(2026, 10, 18), laaja=True)
     tuloste = capsys.readouterr().out
     assert "Veden lämpötila (Kipinä): 2.8 °C" in tuloste
-    assert " 1. Kipinä (Iijoki)" in tuloste
+    assert " 1. Matkakoski (Tornionjoki)" in tuloste and " 2. Kipinä (Iijoki)" in tuloste

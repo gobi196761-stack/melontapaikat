@@ -124,7 +124,7 @@ def test_ruotsin_paikat_sivulla(ruotsi):
     assert "Trollforsarna (Piteälven)" in sivu and "Pahakurkkio (Kalixälven)" in sivu
     assert "Gransel (Piteälven) virtaama 119 m³/s (havainto, SMHI)" in sivu
     # SMHI:n mittareista linkki vie itse piirrettyyn kaavioon, ei raakaan JSON-dataan
-    assert '<a href="/kaavio/smhi/1387/31914">Gransel' in sivu
+    assert '<a href="/kaavio/smhi/1387/31914?paikka=Trollforsarna+%28Pite%C3%A4lven%29">Gransel' in sivu
     assert smhi_data.havainto_url("1387") not in sivu
 
 
@@ -135,7 +135,7 @@ def test_smhi_kaavio(tmp_path):
     assert "Pahakurkkio (Kalixälven) – mittari Männikkö (Kalixälven)" in kuva
     assert "ennuste tehty 18.10. klo 12.10 UTC" in kuva
     assert "MQ 102" in kuva and "MHQ 531" in kuva   # MHQ on yli kuvan: vain tekstinä
-    assert "paras: Åretsvågen (ykköskönkään surffiaalto)" in kuva   # laadukkain kohde
+    assert "Åretsvågen (ykköskönkään surffiaalto)" in kuva and "Koskisarja 1–7 80–190" in kuva   # alueiden selitykset
     assert kuva.count("<circle") > 20                 # havainnot tunnin välein + selite
     assert '>19.10.</text>' in kuva                   # tänään-nimiö
 
