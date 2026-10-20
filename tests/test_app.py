@@ -276,3 +276,25 @@ def test_arviomallin_linkki():
     assert app.kaavion_osoite("61/q6101750y/qin3lyhyt.png") == "/kaavio/syke/61/q6101750y"
     assert app.kaavion_osoite("smhi/11/35732") == "/kaavio/smhi/11/35732"
     assert app.kaavion_osoite("61/q6101600y/qinlyhyt.png") is None
+
+
+def test_kaikilla_paikoilla_sijainti():
+    for p in PAIKAT:
+        assert p.sijainti, p.nimi
+        lat, lon = p.sijainti
+        assert 63 < lat < 68 and 19 < lon < 31, p.nimi
+
+
+def test_suosikit_ja_sijainti_sivulla(palvelin):
+    runko = pyynto("/")[2]
+    assert '<a href="/?tyyppi=suosikit">♥ Suosikit</a>' in runko
+    assert 'data-paikka="Kipinä (Iijoki)" data-sijainti="65.2838,26.5408"' in runko
+    assert runko.count('class="suosikki"') == runko.count("<tr data-paikka=")
+    assert '<span class="km">~60 km Oulusta</span>' in runko
+    assert 'id="sijainti"' in runko and "navigator.geolocation" in runko and "localStorage" in runko
+    # suosikit-välilehti listaa kaikki paikat (myös Ruotsin); selain piilottaa muut kuin suosikit
+    kaikki = app.suodata([type("T", (), {"paikka": p})() for p in PAIKAT], {"tyyppi": ["suosikit"]})
+    assert len(kaikki) == len(PAIKAT)
+    suosikit = pyynto("/", "tyyppi=suosikit")[2]
+    assert '<table data-valilehti="suosikit">' in suosikit and 'id="ei-suosikkeja"' in suosikit
+    assert "Veden lämpötila" not in suosikit

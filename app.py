@@ -133,6 +133,78 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
   .piilo { display:none; }
   td, th { padding:8px 4px; }
 }
+.suosikki { background:none; border:0; padding:0 4px; cursor:pointer; font-size:1.1rem;
+            color:var(--heikko); line-height:1; vertical-align:-1px; }
+.suosikki[aria-pressed="true"] { color:var(--huono); }
+nav button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; background:none;
+             color:var(--linkki); font:inherit; font-size:.9rem; cursor:pointer; }
+"""
+
+# Suosikit ja etäisyys omasta sijainnista: vain selaimessa (sivu on sama kaikille ja
+# CDN:n välimuistissa). Suosikit ja sijaintiluvan muistaminen localStoragessa.
+SKRIPTI = """
+(() => {
+  const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
+  const lue = (k, oletus) => { try { return JSON.parse(localStorage.getItem(k)) ?? oletus; } catch { return oletus; } };
+  const kirjoita = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+  const rivit = [...document.querySelectorAll("tr[data-paikka]")];
+  const taulukko = document.querySelector("table[data-valilehti]");
+  const vainSuosikit = taulukko && taulukko.dataset.valilehti === "suosikit";
+  let suosikit = new Set(lue(AVAIN, []));
+
+  function paivita() {
+    let n = 0;
+    for (const r of rivit) {
+      const on = suosikit.has(r.dataset.paikka);
+      const nappi = r.querySelector(".suosikki");
+      nappi.textContent = on ? "♥" : "♡";
+      nappi.setAttribute("aria-pressed", on);
+      nappi.title = on ? "Poista suosikeista" : "Lisää suosikkeihin";
+      r.hidden = vainSuosikit && !on;
+      if (!r.hidden) r.querySelector(".sija").textContent = ++n + ".";
+    }
+    const ohje = document.getElementById("ei-suosikkeja");
+    if (ohje) ohje.hidden = !(vainSuosikit && n === 0);
+  }
+  for (const r of rivit) {
+    r.querySelector(".suosikki").addEventListener("click", () => {
+      const nimi = r.dataset.paikka;
+      suosikit.has(nimi) ? suosikit.delete(nimi) : suosikit.add(nimi);
+      kirjoita(AVAIN, [...suosikit]);
+      paivita();
+    });
+  }
+  paivita();
+
+  // Etäisyys linnuntietä (haversine) käyttäjän sijainnista
+  const tila = document.getElementById("sijainti-tila");
+  function etaisyys(a, b) {
+    const r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2;
+    return 2 * 6371 * Math.asin(Math.sqrt(h));
+  }
+  function nayta(oma) {
+    for (const r of rivit) {
+      const km = r.querySelector(".km");
+      if (!km || !r.dataset.sijainti) continue;
+      const d = etaisyys(oma, r.dataset.sijainti.split(",").map(Number));
+      km.textContent = "~" + (d < 10 ? d.toFixed(1) : Math.round(d)) + " km linnuntietä";
+    }
+    tila.textContent = "Etäisyydet linnuntietä omasta sijainnistasi (ajomatka on yleensä pidempi).";
+    tila.hidden = false;
+  }
+  function hae() {
+    if (!navigator.geolocation) { tila.textContent = "Selain ei tue sijaintia."; tila.hidden = false; return; }
+    tila.textContent = "Haetaan sijaintia…"; tila.hidden = false;
+    navigator.geolocation.getCurrentPosition(
+      p => { kirjoita(SIJ, true); nayta([p.coords.latitude, p.coords.longitude]); },
+      v => { kirjoita(SIJ, false); tila.textContent = "Sijaintia ei saatu (" + v.message + "). Etäisyydet ovat Oulun keskustasta."; },
+      { maximumAge: 10 * 60 * 1000, timeout: 15000 });
+  }
+  const nappi = document.getElementById("sijainti");
+  if (nappi) nappi.addEventListener("click", hae);
+  if (lue(SIJ, false)) hae();   // lupa annettu aiemmin: päivitä suoraan
+})();
 """
 
 
@@ -164,10 +236,12 @@ def _paikan_rivi(sija: int, t) -> str:
                  + "".join(kohde(k) for k in muut) + "</ul></details>")
     huomiot = "".join(f'<li class="huom">! {e(h)}</li>' for h in t.huomiot)
     ennuste = " / ".join(f"{t.ennuste[n]:.0f}" for n in sorted(t.ennuste)) or "–"
-    km = f"~{p.km_oulusta} km" if p.km_oulusta is not None else ""
-    return f"""<tr>
+    km = f'<span class="km">~{p.km_oulusta} km Oulusta</span>' if p.km_oulusta is not None else ""
+    sijainti = f' data-sijainti="{p.sijainti[0]},{p.sijainti[1]}"' if p.sijainti else ""
+    return f"""<tr data-paikka="{e(p.nimi)}"{sijainti}>
 <td class="sija">{sija}.</td>
-<td><div class="nimi"><a href="{e(p.url)}">{e(p.nimi)}</a></div>
+<td><div class="nimi"><a href="{e(p.url)}">{e(p.nimi)}</a>
+<button type="button" class="suosikki" aria-pressed="false" title="Lisää suosikkeihin">♡</button></div>
 <div class="pieni">{e(p.tyyppi)}{' · ' + km if km else ''}</div>
 <ul class="pieni">{''.join(mittarit)}</ul>
 <ul>{''.join(kohde(k) for k in lyhyet)}{huomiot}</ul>{lisat}</td>
@@ -181,10 +255,11 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     suodattimet = "".join(
         f'<a href="{href}"{" class=valittu" if valittu == arvo else ""}>{nimi}</a>'
         for arvo, href, nimi in [("", "/", "Kaikki"), ("peli", "/?tyyppi=peli", "Pelipaikat"),
-                                 ("retki", "/?tyyppi=retki", "Retket"), ("ruotsi", "/?tyyppi=ruotsi", "Ruotsi")])
+                                 ("retki", "/?tyyppi=retki", "Retket"), ("ruotsi", "/?tyyppi=ruotsi", "Ruotsi"),
+                                 ("suosikit", "/?tyyppi=suosikit", "♥ Suosikit")])
     # Veden lämpötila on Suomen asemalta (Kipinä), joten Ruotsi-välilehdellä sitä ei näytetä
     lampotilat = [l for t in tilanne.tulokset for l in t.sivun_kaaviot
-                  if l.suure == "lampotila" and l.arvo is not None and valittu != "ruotsi"]
+                  if l.suure == "lampotila" and l.arvo is not None and valittu not in ("ruotsi", "suosikit")]
     lampo = ""
     if lampotilat:
         l = lampotilat[0]
@@ -216,9 +291,12 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <h1>Melontapaikkojen tilanne {tilanne.paivitetty:%d.%m.%Y}</h1>
 <div class="meta">osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet ·
 päivitetty klo {tilanne.paivitetty:%H.%M} · <a href="{api}">JSON</a></div>
-<nav>{suodattimet}</nav>
+<nav>{suodattimet}<button type="button" id="sijainti">📍 Etäisyydet omasta sijainnista</button></nav>
+<p id="sijainti-tila" class="pieni" hidden></p>
 {lampo}
-<table>
+<p id="ei-suosikkeja" hidden>Ei vielä suosikkeja. Lisää paikka suosikiksi sen nimen vieressä
+olevasta ♡-napista – suosikit tallentuvat tähän selaimeen.</p>
+<table data-valilehti="{e(valittu)}">
 <thead><tr><th></th><th>Paikka</th><th>Pisteet</th><th class="piilo">+1 / +2 / +3 pv</th></tr></thead>
 <tbody>{rivit}</tbody>
 </table>
@@ -227,7 +305,9 @@ päivitetty klo {tilanne.paivitetty:%H.%M} · <a href="{api}">JSON</a></div>
 <p class="pieni">★ parhaimmillaan ✓ toimii ✗ ei toimi. Pisteet (0–100) kertovat, miten veden määrä
 osuu paikan kuvauksen optimiin; tasapisteissä lähempi paikka ensin. Tarkista aina olosuhteet
 paikan päällä.</p>
-</main></body>
+</main>
+<script>{SKRIPTI}</script>
+</body>
 </html>"""
 
 

@@ -67,6 +67,11 @@ class Paikka:
     maa: str = "FI"               # "FI" | "SE"; Ruotsin paikat näkyvät vain omalla välilehdellään
 
     @property
+    def sijainti(self) -> tuple[float, float] | None:
+        """(leveys, pituus) WGS84 – selain laskee tästä etäisyyden käyttäjän sijainnista."""
+        return SIJAINNIT.get(self.nimi)
+
+    @property
     def osm_sivu(self) -> bool:
         """Onko paikalla osm.fi-sivu (josta kaaviot tarkistetaan)?"""
         return "://www.osm.fi/" in self.url
@@ -76,13 +81,51 @@ VALILEHDET = ("peli", "retki", "ruotsi")
 
 
 def nakyy(paikka: Paikka, valilehti: str | None) -> bool:
-    """Näkyykö paikka välilehdellä: None/"" = Kaikki (Suomi), "peli", "retki" tai "ruotsi"."""
+    """Näkyykö paikka välilehdellä: None/"" = Kaikki (Suomi), "peli", "retki", "ruotsi" tai
+    "suosikit" (kaikki paikat; selain näyttää käyttäjän suosikit)."""
+    if valilehti == "suosikit":
+        return True
     if valilehti == "ruotsi":
         return paikka.maa == "SE"
     if paikka.maa != "FI":
         return False
     return valilehti not in ("peli", "retki") or paikka.tyyppi == valilehti
 
+
+# Paikkojen sijainnit (leveys, pituus): osm.fi-sivujen karttamerkit, muille
+# OpenStreetMapin paikannimet tai foorumiketjun karttalinkki (20.10.2026).
+SIJAINNIT: dict[str, tuple[float, float]] = {
+    "Kipinä (Iijoki)": (65.2838, 26.5408),
+    "Koiteli (Kiiminkijoki)": (65.0982, 25.8144),
+    "Matkakoski (Tornionjoki)": (66.1478, 23.9321),
+    "Kattilakoski (Tornionjoki)": (66.5320, 23.7843),
+    "Kukkolankoski (Tornionjoki)": (65.9627, 24.0388),
+    "Vuentokoski (Tornionjoki)": (66.1753, 23.8366),
+    "Hawa'Ii (Iijoki, Maalismaa)": (65.3041, 25.6929),
+    "Pyhäjoki": (64.4566, 24.2509),
+    "Siikajoki (Pöyryn pato)": (64.7513, 24.9245),
+    "Niskakoski (Lestijoki)": (63.9898, 23.7600),
+    "Neitikoski (Lieksanjoki)": (63.3903, 30.4500),
+    "Trollforsarna (Piteälven)": (66.0178, 19.2878),
+    "Taivalkoski": (65.5740, 28.2304),
+    "Sanginjoki": (64.9985, 25.6988),
+    "Kuivajoki": (65.6045, 25.1870),
+    "Olhavajoki": (65.4734, 25.4156),
+    "Simojoki": (65.6594, 25.0713),
+    "Lieksanjoki (Matkalahti – Siikakoski)": (63.3901, 30.4541),
+    "Liminganjoki": (64.8071, 25.4058),
+    "Muhosjoki": (64.7480, 26.1337),
+    "Temmesjoki": (64.7731, 25.5400),
+    "Pahakurkkio (Kalixälven)": (67.3201, 22.1161),
+    "Vikaköngäs (Raudanjoki)": (66.6188, 26.1859),
+    "Korpikoski (Raudanjoki)": (66.6207, 26.2028),
+    "Vaattunkiköngäs (Raudanjoki)": (66.6126, 26.1513),
+    "Marraskoski (Ounasjoki)": (66.7947, 25.4176),
+    "Molkoköngäs (Ounasjoki)": (67.0620, 25.0790),
+    "Kutujoki": (64.6570, 26.8537),
+    "Oulujoki": (65.0005, 25.5643),
+    "Oulun edustan saaret": (65.0227, 25.4240),
+}
 
 T = "tulvaindeksi"
 
