@@ -275,9 +275,9 @@ PAIKAT: tuple[Paikka, ...] = (
         "varma.",
         {"paa": Mittari("61/q6101750y/qin3lyhyt.png", marginaali=200)},
         (
-            Kohde("Murtuva aalto", (650, 1300), (650, 1300), 1.0,
-                  huom="n. 600 m³/s keula kolisee; 650 m³/s:sta murtuva aalto on optimi (meloja); "
-                       "850 m³/s tosi hyvä; toimii 650–1300 m³/s (mpahkala.kapsi.fi)", lahde="meloja"),
+            Kohde("Murtuva aalto", (650, 1300), (850, 1300), 1.0,
+                  huom="n. 600 m³/s keula kolisee; 850 m³/s tosi hyvä ja paranee; "
+                       "toimii 650–1300 m³/s, 645 m³/s matala (mpahkala.kapsi.fi)", lahde="meloja"),
         ),
     ),
     Paikka(
