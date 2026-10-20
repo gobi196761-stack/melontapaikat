@@ -383,3 +383,18 @@ def test_kuvasta_luettu_kaavio():
 def test_kaavio_alkaa_kymmenen_paivaa_aiemmin(ajot):
     kuva = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
     assert '>8.10.</text>' in kuva and '>7.10.</text>' not in kuva and '>18.10.</text>' in kuva
+
+
+def test_kaukaiset_ja_tulvaindeksirajat():
+    # asteikon ulkopuolinen alue näkyy reunassa nuolella
+    svg = kaavio_svg.piirra("T", "a", dt.date(2026, 10, 20), malli={dt.date(2026, 10, 19): 60.0},
+                            ennuste={dt.date(2026, 10, 21): 55.0},
+                            alueet=[("Treeni", (15, 450), (20, 50)), ("Isot aallot", (200, 450), (300, 350)),
+                                    ("Matala", (None, 5), (None, 3))])
+    assert "↑ Isot aallot 300–350" in svg and "Treeni 20–50" in svg and "↓ Matala –3" in svg
+    # tulvaindeksi 0 = MNQ, 1 = MHQ
+    simo = next(p for p in PAIKAT if p.nimi == "Simojoki")
+    alueet = dict((n, (t, pa)) for n, t, pa in app._alueet(simo, "paa", {"MNW": 10.0, "MHW": 12.0}))
+    t, pa = alueet["Retkimelonta Alaniemi – Simo (kesävesi)"]
+    assert t == pytest.approx((10.2, 11.4)) and pa == pytest.approx((10.4, 11.2))
+    assert all(n != "Retkimelonta Alaniemi – Simo (kesävesi)" for n, _, _ in app._alueet(simo, "paa"))

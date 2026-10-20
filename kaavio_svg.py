@@ -156,7 +156,7 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
             f'<text x="{VASEN}" y="40" fill="#5c6670">{e(alaotsikko)}</text>',
             f'<clipPath id="alue"><rect x="{VASEN}" y="{YLA}" width="{piirto_l}" height="{piirto_k}"/></clipPath>']
     # kohteiden alueet: vaalea = toimii, tummempi = parhaimmillaan
-    nimioit = []
+    nimioit, reuna_yla, reuna_ala = [], [], []
     for nimi, toimii, paras in alueet:
         k1, k2 = kaista(toimii), kaista(paras)
         for k, vari, peitto in ((k1, "#81c784", 0.18), (k2, "#43a047", 0.22)):
@@ -165,6 +165,10 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
                             f'fill="{vari}" fill-opacity="{peitto}"/>')
         if k2 or k1:
             nimioit.append([(k2 or k1)[0] + 13, nimi, paras if k2 else toimii])
+        else:   # alue kokonaan asteikon ulkopuolella: nuoli kaavion reunaan
+            raja = paras if any(r is not None for r in paras) else toimii
+            yli = toimii[0] is not None and toimii[0] >= ylin
+            (reuna_yla if yli else reuna_ala).append((nimi, raja))
     # ruudukko ja y-akseli
     for t in tikit:
         if alin <= t <= ylin:
@@ -244,6 +248,15 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         rajat_teksti = "–".join("" if r is None else luku(r) for r in raja)
         osat.append(f'<text x="{VASEN + 6}" y="{ny:.1f}" fill="#1b5e20" font-size="11.5" font-weight="600" '
                     f'stroke="#fff" stroke-width="3" paint-order="stroke">{e(nimi)} {rajat_teksti}</text>')
+    # asteikon ulkopuoliset alueet oikeaan reunaan: ↑ yläpuolella, ↓ alapuolella
+    reunat = [(YLA + 14 + 14 * i, "↑", n, r) for i, (n, r) in enumerate(sorted(reuna_yla, key=lambda a: -(a[1][0] or 0)))]
+    reunat += [(YLA + piirto_k - 7 - 14 * i, "↓", n, r)
+               for i, (n, r) in enumerate(sorted(reuna_ala, key=lambda a: a[1][1] if a[1][1] is not None else 0))]
+    for ny, nuoli, nimi, raja in reunat:
+        rajat_teksti = "–".join("" if r is None else luku(r) for r in raja)
+        osat.append(f'<text x="{VASEN + piirto_l - 6}" y="{ny:.1f}" text-anchor="end" fill="#1b5e20" '
+                    f'font-size="11.5" font-weight="600" stroke="#fff" stroke-width="3" paint-order="stroke">'
+                    f'{nuoli} {e(nimi)} {rajat_teksti}</text>')
     osat.append(f'<rect x="{VASEN}" y="{YLA}" width="{piirto_l}" height="{piirto_k}" fill="none" stroke="#9aa4ae"/>')
 
     # selite (rivittyy)

@@ -426,9 +426,42 @@ def kaavion_osoite(paikka, avain: str, lukema=None, kieli: str = "fi") -> str | 
     return f"/kaavio/syke/{kaavio.removesuffix('.png')}?{urlencode(parametrit)}"
 
 
-def _alueet(paikka, avain: str) -> list:
-    """Paikan kohteiden rajat mittarin arvoina (tulvaindeksikohteita ei piirretä)."""
-    return [(k.nimi, k.toimii, k.paras) for k in paikka.kohteet if k.mittari == avain and k.muuttuja == "arvo"]
+def _alueet(paikka, avain: str, tunnusluvut: dict[str, float] | None = None) -> list:
+    """Paikan kohteiden rajat mittarin arvoina. Tulvaindeksin rajat (0 = MNQ/MNW, 1 = MHQ/MHW,
+    ks. Kaaviolukema.tulvaindeksi) muunnetaan arvoiksi, kun tunnusluvut tiedetään."""
+    tunnusluvut = tunnusluvut or {}
+    ala = tunnusluvut.get("MNW", tunnusluvut.get("MNQ"))
+    yla = tunnusluvut.get("MHW", tunnusluvut.get("MHQ"))
+    alueet = []
+    for k in paikka.kohteet:
+        if k.mittari != avain:
+            continue
+        if k.muuttuja == "arvo":
+            alueet.append((k.nimi, k.toimii, k.paras))
+        elif ala is not None and yla is not None and yla > ala:
+            arvoksi = lambda raja: tuple(None if r is None else ala + r * (yla - ala) for r in raja)  # noqa: E731
+            alueet.append((k.nimi, arvoksi(k.toimii), arvoksi(k.paras)))
+    return alueet
+
+
+def _tunnusluvut(mittari, hakija: osm.Hakija) -> dict[str, float]:
+    """Mittarin tunnusluvut (MHQ, MNQ, ...) SYKE:n kuvasta: muistissa olevasta tilanteesta tai
+    lukemalla kuva, jos paikalla on tulvaindeksikohteita (ajo.jsonissa niitä ei ole)."""
+    url = osm.kaavio_url(mittari.kaavio)
+    if _tilanne:
+        for lukema in (l for t in _tilanne[1].tulokset for l in t.lukemat.values()):
+            if lukema.url == url and lukema.tunnusluvut:
+                return dict(lukema.tunnusluvut)
+    data, _ = osm.hae_turvallisesti(hakija, url)
+    try:
+        return syke_kaavio.KaavioLukija().lue(data, url).tunnusluvut if data else {}
+    except syke_kaavio.KaavioVirhe:
+        return {}
+
+
+def _syke_alueet(paikka, avain: str, mittari, hakija: osm.Hakija) -> list:
+    tulvaindeksi = any(k.mittari == avain and k.muuttuja != "arvo" for k in paikka.kohteet)
+    return _alueet(paikka, avain, _tunnusluvut(mittari, hakija) if tulvaindeksi else None)
 
 
 def _kaavion_paikka(ehto, paikan_nimi: str | None = None) -> tuple | None:
@@ -482,7 +515,8 @@ def syke_kaavio_svg(polku: str, hakija: osm.Hakija | None = None, paikan_nimi: s
         return _arvio_kaavio(paikka, avain, mittari, asema, hakija, otsikko, kieli)
     if not kuvasta:
         ajo = _hae_json(hakija, osm.kaavio_url(syke_data.ajo_avain(mittari.kaavio)))
-        kuva = kaavio_svg.syke_svg(ajo, mittari.kaavio, otsikko, _alueet(paikka, avain), kieli) if ajo else None
+        alueet = _syke_alueet(paikka, avain, mittari, hakija)
+        kuva = kaavio_svg.syke_svg(ajo, mittari.kaavio, otsikko, alueet, kieli) if ajo else None
         if kuva:
             return kuva
     # ajo.jsonissa ei ole kaavion suuretta (tai luvut eivät täsmää kuvaan): sarjat SYKE:n kuvasta
@@ -495,7 +529,7 @@ def syke_kaavio_svg(polku: str, hakija: osm.Hakija | None = None, paikan_nimi: s
         return None
     _, yksikko = syke_kaavio.suure_urlista(mittari.kaavio)
     return kaavio_svg.kuva_svg(sarjat, _kuvan_paiva(sarjat.tanaan_paiva, nyt), otsikko, yksikko,
-                               _alueet(paikka, avain), kieli)
+                               _syke_alueet(paikka, avain, mittari, hakija), kieli)
 
 
 def _kuvan_paiva(paiva: int | None, nyt: dt.datetime | None = None) -> dt.date:
@@ -524,7 +558,8 @@ def _arvio_kaavio(paikka, avain, mittari, asema: str, hakija: osm.Hakija, otsikk
         for vanha in (l for t in _tilanne[1].tulokset for l in t.lukemat.values()):
             if vanha.url == lukema.url:
                 lukema.tunnusluvut = dict(vanha.tunnusluvut)
-    return kaavio_svg.arvio_svg(lukema, ajot, asema, otsikko, _alueet(paikka, avain), kieli)
+    return kaavio_svg.arvio_svg(lukema, ajot, asema, otsikko,
+                                _alueet(paikka, avain, lukema.tunnusluvut), kieli)
 
 
 def arvio_kaavio_svg(asema: str, hakija: osm.Hakija | None = None) -> str | None:
