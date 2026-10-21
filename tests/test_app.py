@@ -335,7 +335,7 @@ def test_englanninkielinen_sivu(palvelin):
     assert '<html lang="en">' in en and "<title>Paddling conditions</title>" in en
     assert 'href="/" hreflang="fi"' in en and "Suomeksi" in en
     assert '<a href="/?tyyppi=peli&amp;kieli=en">Play spots</a>' in en
-    assert "Water temperature" in en and "km from Oulu" in en and ">play spot<" not in en
+    assert "Water temperature" in en and "km from Oulu" in en and '<span class="tyyppi">play spot</span>' in en
     assert "at its best" in en or "works (" in en or "too little water" in en
     assert "Muut kohteet" not in en and "Other features" in en
     # suomenkielisiä arvioinnin lauseita ei jää näkyviin
@@ -498,9 +498,13 @@ def test_saa_perilla_ja_veden_lampotila(monkeypatch, palvelin, tilanne):
     assert "on arrival" in en and ">air</a> <span" in en and "water 4.6 °C" in en
     # reittilinkki kohdelinkin alla, sää sen perässä; "ilma" vie paikan tuntiennusteeseen
     lev, pit = t.paikka.sijainti
+    # nimi ♡ ryhmä; alla reitti · perillä klo · km / kesto (ei "ajomatka"); sitten lämpötilat
+    assert '♡</button>\n<span class="tyyppi">peli</span></div>' in runko
     assert (f'<div class="pieni matka"><a class="reitti" href="https://www.google.com/maps/dir/?api=1&amp;'
             f'destination={lev}%2C{pit}&amp;travelmode=driving" target="_blank" rel="noopener">🚗 Reitti</a> · '
-            f'<span class="saa"') in runko
+            f'<span class="saa-aika">perillä klo ') in runko
+    assert '</span> · <span class="km">~180 km Oulusta</span></div>\n<div class="pieni lampotilat"><span class="saa"' in runko
+    assert "ajomatka" not in runko.split("<script>")[0] and "\" ajomatka\"" not in runko
     assert f'<a href="https://www.yr.no/en/forecast/hourly-table/{lev},{pit}" target="_blank" rel="noopener">ilma</a>' in runko
     tilanne.saa, tilanne.ajo_min = {}, {}
 

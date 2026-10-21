@@ -275,7 +275,8 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
                      font-size:.9rem; width:11em; background:var(--tausta); color:var(--teksti); }
 .reitti { white-space:nowrap; }
 .saa { color:var(--heikko); }
-.matka { margin:1px 0; }
+.matka, .lampotilat { margin:1px 0; }
+.tyyppi { font-weight:400; font-size:.85rem; color:var(--heikko); margin-left:2px; }
 nav button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; background:none;
              color:var(--linkki); font:inherit; font-size:.9rem; cursor:pointer; }
 """
@@ -286,7 +287,7 @@ SKRIPTI = """
 (() => {
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
   const T = document.documentElement.lang === "en" ? {
-    lisaa: "Add to favourites", poista: "Remove from favourites", km: " by road",
+    lisaa: "Add to favourites", poista: "Remove from favourites", km: "",
     kieli: "en-GB", perilla: "on arrival",
     tila: "Driving distances from your location (OpenStreetMap routing).", lasketaan: "Calculating driving distances…",
     eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
@@ -295,7 +296,7 @@ SKRIPTI = """
     paikkakunnalta: n => "Driving distances from " + n + " (OpenStreetMap routing).",
     tuntematon: n => "Unknown municipality: " + n + ". Pick one from the list.",
   } : {
-    lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: " ajomatka",
+    lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "",
     kieli: "fi-FI", perilla: "perillä klo",
     tila: "Ajomatkat omasta sijainnistasi (OpenStreetMap-reititys).", lasketaan: "Lasketaan ajomatkoja…",
     eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
@@ -345,8 +346,8 @@ SKRIPTI = """
     let i = -1;
     s.aika.forEach((a, j) => { if (a <= perilla) i = j; });
     if (i < 0) return;
-    const aika = el.querySelector(".saa-aika"), ilma = el.querySelector(".saa-ilma"), kuva = el.querySelector(".saa-ikoni");
-    if (aika) aika.textContent = T.perilla + " " + kello(perilla) + ": ";
+    const aika = r.querySelector(".saa-aika"), ilma = el.querySelector(".saa-ilma"), kuva = el.querySelector(".saa-ikoni");
+    if (aika) aika.textContent = T.perilla + " " + kello(perilla);
     if (ilma) ilma.textContent = Math.round(s.t[i]).toString().replace("-", "−") + " °C";
     if (kuva) kuva.textContent = ikoni(s.k[i]);
   }
@@ -476,10 +477,11 @@ def _kello(aika: float, kieli: str) -> str:
 YR_SAA = "https://www.yr.no/en/forecast/hourly-table/{lev},{pit}"
 
 
-def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt: float) -> str:
-    """'🌡 perillä klo 12.40: ilma −1 °C ⛅ · vesi 4.6 °C' reittilinkin perään. Ilma ja sää
-    saapumishetkeltä (ajoaika Oulusta + 30 min; selain laskee uudelleen lähtöpaikan mukaan),
-    vesi mittariaseman vesistömallista. Sana "ilma" vie paikan tuntiennusteeseen (yr.no)."""
+def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt: float) -> tuple[str, str]:
+    """(saapumisaika, lämpörivi): 'perillä klo 12.40' reittilinkin perään ja omalle rivilleen
+    '🌡 ilma −1 °C ⛅ · vesi 4.6 °C'. Ilma ja sää saapumishetkeltä (ajoaika Oulusta + 30 min;
+    selain laskee uudelleen lähtöpaikan mukaan), vesi mittariaseman vesistömallista. Sana
+    "ilma" vie paikan tuntiennusteeseen (yr.no)."""
     vesi = next((l.veden_lampotila for avain in t.paikka.mittarit
                  if (l := t.lukemat.get(avain)) is not None and l.veden_lampotila is not None), None)
     tiedot = ""
@@ -492,15 +494,16 @@ def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt:
     if t.paikka.sijainti:
         osoite = YR_SAA.format(lev=t.paikka.sijainti[0], pit=t.paikka.sijainti[1])
         ilma_linkki = f'<a href="{e(osoite)}" target="_blank" rel="noopener">{ilma_linkki}</a>'
-    ilma = ""
+    ilma, saapuminen = "", ""
     if perilla:
         aika, lampo, koodi = perilla
         lampo_teksti = f"{lampo:.0f} °C".replace("-", "−")
-        ilma = (f'<span class="saa-aika">{k_("perillä klo")} {_kello(aika, kieli)}: </span>'
-                f'{ilma_linkki} <span class="saa-ilma">{lampo_teksti}</span> '
+        saapuminen = f'<span class="saa-aika">{k_("perillä klo")} {_kello(aika, kieli)}</span>'
+        ilma = (f'{ilma_linkki} <span class="saa-ilma">{lampo_teksti}</span> '
                 f'<span class="saa-ikoni">{saa_ikoni(koodi)}</span>')
     osat = ([ilma] if ilma else []) + ([f"{k_('vesi')} {vesi:.1f} °C"] if vesi is not None else [])
-    return f'<span class="saa"{tiedot}>🌡 {" · ".join(osat)}</span>' if osat or tiedot else ""
+    rivi = f'<span class="saa"{tiedot}>🌡 {" · ".join(osat)}</span>' if osat or tiedot else ""
+    return saapuminen, rivi
 
 
 def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_min: float | None = None,
@@ -541,15 +544,16 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
             {"api": 1, "destination": f"{p.sijainti[0]},{p.sijainti[1]}", "travelmode": "driving"})
         reitti = (f'<a class="reitti" href="{e(osoite)}" target="_blank" rel="noopener">'
                   f'{k_("🚗 Reitti")}</a>')
-    # kohdelinkin alle: reittilinkki ja sen perään sää perillä
-    lampo = _lampotilat(t, saa, ajo_min, k_, kieli, nyt or time.time())
-    reitti_ja_saa = " · ".join(x for x in (reitti, lampo) if x)
-    reitti_ja_saa = f'\n<div class="pieni matka">{reitti_ja_saa}</div>' if reitti_ja_saa else ""
+    # nimen alle: reittilinkki · perillä klo · km / kesto; seuraavalle riville lämpötilat
+    saapuminen, lampo = _lampotilat(t, saa, ajo_min, k_, kieli, nyt or time.time())
+    matka = " · ".join(x for x in (reitti, saapuminen, km) if x)
+    matka = f'\n<div class="pieni matka">{matka}</div>' if matka else ""
+    lampo = f'\n<div class="pieni lampotilat">{lampo}</div>' if lampo else ""
     return f"""<tr data-paikka="{e(p.nimi)}"{sijainti}>
 <td class="sija">{sija}.</td>
 <td><div class="nimi"><a href="{e(p.url)}">{e(p.nimi)}</a>
-<button type="button" class="suosikki" aria-pressed="false" title="{k_('Lisää suosikkeihin')}">♡</button></div>{reitti_ja_saa}
-<div class="pieni">{e(k_(p.tyyppi))}{' · ' + km if km else ''}</div>
+<button type="button" class="suosikki" aria-pressed="false" title="{k_('Lisää suosikkeihin')}">♡</button>
+<span class="tyyppi">{e(k_(p.tyyppi))}</span></div>{matka}{lampo}
 <ul class="pieni">{''.join(mittarit)}</ul>
 <ul>{''.join(kohde(k) for k in lyhyet)}{huomiot}</ul>{lisat}</td>
 <td class="pisteet {_pisteluokka(t.pisteet)}">{t.pisteet:.0f}</td>
