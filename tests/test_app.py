@@ -536,6 +536,7 @@ def test_ajomatka_ja_kesto_oulusta(palvelin, tilanne):
     tilanne.surffi = {"nyt": [], "ennuste": ["yppari"]}
     runko = pyynto("/")[2]
     assert '<span class="km">~181 km / 2 h 30 min Oulusta</span>' in runko
-    assert runko.index("Merelle Surffaamaan") < runko.index(">Kaikki</a>")
+    # surffilinkki heti otsikon alla ennen osm.fi-tekstiä
+    assert runko.index("</h1>") < runko.index("Merelle Surffaamaan") < runko.index("osm.fi:n paikkakuvaukset")
     assert "~181 km / 2 h 30 min from Oulu" in pyynto("/", "kieli=en")[2]
     tilanne.ajo_km, tilanne.ajo_min, tilanne.surffi = {}, {}, {}

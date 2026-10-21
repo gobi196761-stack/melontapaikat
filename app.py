@@ -237,6 +237,8 @@ h1 { font-size:1.45rem; margin:0 0 4px; }
 nav { margin:14px 0 18px; display:flex; gap:8px; flex-wrap:wrap; }
 nav > a, .surffi { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px;
                    color:var(--teksti); text-decoration:none; font-size:.9rem; }
+.surffirivi { margin:6px 0 8px; }
+.surffi { display:inline-block; }
 .surffi a { color:inherit; }
 .surffi .surffi-paa { text-decoration:none; }
 .surffi.ok { border-color:var(--hyva); }
@@ -565,7 +567,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     valittu = kysely.get("tyyppi", [""])[0]
     kieli = kielet.kieli(kysely)
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
-    suodattimet = surffilinkki(tilanne.surffi, k_) + "".join(
+    suodattimet = "".join(
         f'<a href="{e(_osoite(tyyppi=arvo, kieli=kieli))}"{" class=valittu" if valittu == arvo else ""}>{k_(nimi)}</a>'
         for arvo, nimi in [("", "Kaikki"), ("peli", "Pelipaikat"), ("retki", "Retket"), ("ruotsi", "Ruotsi"),
                            ("suosikit", "♥ Suosikit")])
@@ -605,6 +607,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 </head>
 <body><main>
 <div class="otsake"><h1>{k_("Melontapaikkojen tilanne")} {tilanne.paivitetty:%d.%m.%Y}</h1>{vaihto}</div>
+<div class="surffirivi">{surffilinkki(tilanne.surffi, k_)}</div>
 <div class="meta">{k_("osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet")} ·
 {k_("päivitetty klo")} {tilanne.paivitetty:%H.%M}</div>
 <nav>{suodattimet}<button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button>
