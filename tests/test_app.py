@@ -539,8 +539,15 @@ def test_ajomatka_ja_kesto_oulusta(palvelin, tilanne):
     tilanne.ajo_km, tilanne.ajo_min = {t.paikka.nimi: 181.4}, {t.paikka.nimi: 150}
     tilanne.surffi = {"nyt": [], "ennuste": ["yppari"]}
     runko = pyynto("/")[2]
-    assert '<span class="km">~181 km / 2 h 30 min Oulusta</span>' in runko
+    assert '<span class="km">~181 km / 2 h 30 min, lähtö Oulu</span>' in runko
     # surffilinkki heti otsikon alla ennen osm.fi-tekstiä
     assert runko.index("</h1>") < runko.index("Merelle Surffaamaan") < runko.index("osm.fi:n paikkakuvaukset")
-    assert "~181 km / 2 h 30 min from Oulu" in pyynto("/", "kieli=en")[2]
+    assert "~181 km / 2 h 30 min, from Oulu" in pyynto("/", "kieli=en")[2]
     tilanne.ajo_km, tilanne.ajo_min, tilanne.surffi = {}, {}, {}
+
+
+def test_lahtoaika_valinta(palvelin):
+    runko = pyynto("/")[2]
+    assert '<label class="paikkakunta">lähtöaika <input id="lahtoaika" type="datetime-local"' in runko
+    assert "lahtoKentta.addEventListener(\"change\", paivitaSaat)" in runko
+    assert ">departure <input" in pyynto("/", "kieli=en")[2]

@@ -101,7 +101,7 @@ OULU = "65.01,25.47"          # oletuslähtöpaikka ajoajoille (Oulun keskusta)
 LISAAIKA_MIN = 30             # ajoajan päälle: pakkaus, tauot – sää katsotaan perillä tähän aikaan
 
 
-def saaennusteet(hakija: osm.Hakija, tunteja: int = 48) -> dict[str, dict]:
+def saaennusteet(hakija: osm.Hakija, tunteja: int = 72) -> dict[str, dict]:
     """Tuntiennuste (lämpötila, WMO-sääkoodi) paikkojen sijainneissa Open-Meteosta yhdellä
     kyselyllä: nimi -> {"aika": [unix s], "t": [...], "k": [...]}. Tyhjä, jos palvelu ei vastaa."""
     paikat = [p for p in PAIKAT if p.sijainti]
@@ -271,6 +271,7 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
          text-decoration:none; margin-top:4px; white-space:nowrap; }
 .kieli svg { border:1px solid var(--viiva); border-radius:2px; display:block; }
 .paikkakunta { display:inline-flex; align-items:center; gap:6px; font-size:.9rem; color:var(--heikko); }
+#lahtoaika { width:auto; }
 .paikkakunta input { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; font:inherit;
                      font-size:.9rem; width:11em; background:var(--tausta); color:var(--teksti); }
 .reitti { white-space:nowrap; }
@@ -288,7 +289,7 @@ SKRIPTI = """
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
   const T = document.documentElement.lang === "en" ? {
     lisaa: "Add to favourites", poista: "Remove from favourites", km: "",
-    kieli: "en-GB", perilla: "on arrival",
+    kieli: "en-GB", perilla: "on arrival", lahto: "from", oma: "your location",
     tila: "Driving distances from your location (OpenStreetMap routing).", lasketaan: "Calculating driving distances…",
     eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
     eiTukea: "Your browser does not support location.", haetaan: "Getting location…",
@@ -297,7 +298,7 @@ SKRIPTI = """
     tuntematon: n => "Unknown municipality: " + n + ". Pick one from the list.",
   } : {
     lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "",
-    kieli: "fi-FI", perilla: "perillä klo",
+    kieli: "fi-FI", perilla: "perillä klo", lahto: "lähtö", oma: "oma sijainti",
     tila: "Ajomatkat omasta sijainnistasi (OpenStreetMap-reititys).", lasketaan: "Lasketaan ajomatkoja…",
     eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
     eiTukea: "Selain ei tue sijaintia.", haetaan: "Haetaan sijaintia…",
@@ -336,30 +337,49 @@ SKRIPTI = """
   }
   paivita();
 
-  // Sää perillä: tuntiennuste rivillä (data-saa), saapuminen = nyt + ajoaika + 30 min
+  // Sää perillä: tuntiennuste rivillä (data-saa), saapuminen = lähtöaika (oletus nyt) + ajoaika + 30 min
   const ikoni = k => k <= 1 ? "☀️" : k === 2 ? "⛅" : (k === 3 || k === 45 || k === 48) ? "☁️" : "🌧️";
   const kello = s => new Date(s * 1000).toLocaleTimeString(T.kieli, {hour: "2-digit", minute: "2-digit", timeZone: "Europe/Helsinki"});
+  const lahtoKentta = document.getElementById("lahtoaika");
+  const paikallinen = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  if (lahtoKentta) {   // oletuksena nykyhetki; valittavissa ennusteen ajalle (72 h)
+    const nyt = new Date();
+    lahtoKentta.value = lahtoKentta.min = paikallinen(nyt);
+    lahtoKentta.max = paikallinen(new Date(nyt.getTime() + 66 * 3600000));
+  }
+  const lahto = () => {
+    const v = lahtoKentta && lahtoKentta.value ? new Date(lahtoKentta.value).getTime() : NaN;
+    return (isNaN(v) ? Date.now() : Math.max(v, Date.now())) / 1000;
+  };
   function saa(r, ajoMin) {
     const el = r.querySelector(".saa[data-saa]");
     if (!el || ajoMin == null) return;
-    const s = JSON.parse(el.dataset.saa), perilla = Date.now() / 1000 + (ajoMin + 30) * 60;
+    const s = JSON.parse(el.dataset.saa), perilla = lahto() + (ajoMin + 30) * 60;
     let i = -1;
     s.aika.forEach((a, j) => { if (a <= perilla) i = j; });
-    if (i < 0) return;
+    const ohi = i < 0 || perilla >= s.aika[s.aika.length - 1] + 3600;   // ennuste ei ulotu
     const aika = r.querySelector(".saa-aika"), ilma = el.querySelector(".saa-ilma"), kuva = el.querySelector(".saa-ikoni");
-    if (aika) aika.textContent = T.perilla + " " + kello(perilla);
-    if (ilma) ilma.textContent = Math.round(s.t[i]).toString().replace("-", "−") + " °C";
-    if (kuva) kuva.textContent = ikoni(s.k[i]);
+    if (aika) aika.textContent = T.perilla + " " + kello(perilla) + (lahto() > Date.now() / 1000 + 43200 ? " " + paiva(perilla) : "");
+    if (ilma) ilma.textContent = ohi ? "–" : Math.round(s.t[i]).toString().replace("-", "−") + " °C";
+    if (kuva) kuva.textContent = ohi ? "" : ikoni(s.k[i]);
   }
-  const saaOulusta = () => rivit.forEach(r => { const el = r.querySelector(".saa[data-ajo]"); if (el) saa(r, Number(el.dataset.ajo)); });
+  const paiva = s => new Date(s * 1000).toLocaleDateString(T.kieli, {weekday: "short", day: "numeric", month: "numeric", timeZone: "Europe/Helsinki"});
+  let ajoajat = null;   // null = Oulusta (rivin data-ajo), muuten valitun lähtöpaikan ajoajat
+  const paivitaSaat = () => rivit.forEach(r => {
+    const el = r.querySelector(".saa[data-ajo]");
+    saa(r, ajoajat ? ajoajat[r.dataset.paikka] : el ? Number(el.dataset.ajo) : null);
+  });
+  const saaOulusta = () => { ajoajat = null; paivitaSaat(); };
   saaOulusta();   // sivu voi olla välimuistista: saapumisaika tämän hetken mukaan
+  if (lahtoKentta) lahtoKentta.addEventListener("change", paivitaSaat);
 
   // Ajomatkat (tavallinen ajoreitti) lähtöpisteestä kaikkiin paikkoihin: /api/ajomatkat
   // laskee ne yhdellä reitityskyselyllä. Lähtöpiste pyöristetään ~1 km:n tarkkuuteen.
   const tila = document.getElementById("sijainti-tila");
   const kesto = m => m < 60 ? Math.round(m) + " min" : Math.floor(m / 60) + " h " + String(Math.round(m % 60)).padStart(2, "0") + " min";
   let kysely = 0;
-  function nayta(oma, teksti, lahto) {
+  // nimi = lähtöpaikka matkatietoon (paikkakunta tai oma sijainti)
+  function nayta(oma, teksti, lahto, nimi) {
     for (const r of rivit) {
       const km = r.querySelector(".km");
       if (km) { km.dataset.oulu ??= km.textContent; km.textContent = km.dataset.oulu; }
@@ -381,9 +401,11 @@ SKRIPTI = """
         for (const r of rivit) {
           const km = r.querySelector(".km"), k = d.km[r.dataset.paikka];
           const m = d.min ? d.min[r.dataset.paikka] : null;
-          if (km && k != null) km.textContent = "~" + Math.round(k) + " km" + (m != null ? " / " + kesto(m) : "") + T.km;
-          saa(r, d.min ? d.min[r.dataset.paikka] : null);
+          if (km && k != null) km.textContent = "~" + Math.round(k) + " km" + (m != null ? " / " + kesto(m) : "") + T.km
+                                                + (nimi ? ", " + T.lahto + " " + nimi : "");
         }
+        ajoajat = d.min || null;
+        paivitaSaat();
         tila.textContent = teksti;
       })
       .catch(() => { if (tama === kysely) tila.textContent = T.eiAjo; });
@@ -393,7 +415,7 @@ SKRIPTI = """
     tila.textContent = T.haetaan; tila.hidden = false;
     navigator.geolocation.getCurrentPosition(
       p => { kirjoita(SIJ, true); kentta && (kentta.value = "");
-             nayta([p.coords.latitude, p.coords.longitude], T.tila, null); },
+             nayta([p.coords.latitude, p.coords.longitude], T.tila, null, T.oma); },
       v => { kirjoita(SIJ, false); tila.textContent = T.eiSaatu(v.message); },
       { maximumAge: 10 * 60 * 1000, timeout: 15000 });
   }
@@ -409,7 +431,7 @@ SKRIPTI = """
     const [lev, pit] = kunnat[nimi];
     if (muista) kirjoita(SIJ, {paikkakunta: nimi});
     kentta.value = nimi;
-    nayta([lev, pit], T.paikkakunnalta(nimi), lev + "," + pit);
+    nayta([lev, pit], T.paikkakunnalta(nimi), lev + "," + pit, nimi);
   }
   if (kentta) kentta.addEventListener("change", () => valitse(kentta.value, true));
   const nappi = document.getElementById("sijainti");
@@ -533,7 +555,7 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
     huomiot = "".join(f'<li class="huom">! {e(k_(h))}</li>' for h in t.huomiot)
     ennuste = " / ".join(f"{t.ennuste[n]:.0f}" for n in sorted(t.ennuste)) or "–"
     if ajo_km is not None and ajo_min is not None:   # reititetty ajomatka ja -aika Oulusta
-        km = f'<span class="km">~{ajo_km:.0f} km / {_kesto(ajo_min)} {k_("Oulusta")}</span>'
+        km = f'<span class="km">~{ajo_km:.0f} km / {_kesto(ajo_min)}, {k_("lähtö")} Oulu</span>'
     else:
         km = f'<span class="km">~{p.km_oulusta} {k_("km Oulusta")}</span>' if p.km_oulusta is not None else ""
     sijainti = f' data-sijainti="{p.sijainti[0]},{p.sijainti[1]}"' if p.sijainti else ""
@@ -616,7 +638,8 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 {k_("päivitetty klo")} {tilanne.paivitetty:%H.%M}</div>
 <nav>{suodattimet}<button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button>
 <label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
-placeholder="{k_("esim. Rovaniemi")}"></label></nav>
+placeholder="{k_("esim. Rovaniemi")}"></label>
+<label class="paikkakunta">{k_("lähtöaika")} <input id="lahtoaika" type="datetime-local" step="900"></label></nav>
 <datalist id="kunnat">{KUNTALISTA}</datalist>
 <script type="application/json" id="paikkakunnat">{KUNNAT_JSON}</script>
 <p id="sijainti-tila" class="pieni" hidden></p>

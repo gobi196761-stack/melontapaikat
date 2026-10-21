@@ -40,6 +40,8 @@ SANAT = {
     "retki": "river run",
     "km Oulusta": "km from Oulu",
     "Oulusta": "from Oulu",
+    "lähtö": "from",
+    "lähtöaika": "departure",
     "Merelle Surffaamaan": "Surfing at sea",
     "ennusteessa": "in forecast",
     "Muut kohteet": "Other features",
