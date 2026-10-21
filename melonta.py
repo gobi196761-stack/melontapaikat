@@ -220,6 +220,14 @@ def kuvaa_lukema(l: Kaaviolukema, ennustepaiva: int = 3) -> str:
     return teksti
 
 
+def kuvaa_ennuste(l: Kaaviolukema, paivia: int) -> str | None:
+    """Mittarin ennustettu arvo päivän päästä (havaintoon korjattu): '... vedenkorkeus 10.30 m (ennuste +2 pv)'."""
+    arvo = l.ennuste_korjattu(paivia)
+    if arvo is None:
+        return None
+    return f"{lukeman_asema(l)} {SUURE.get(l.suure, l.suure)} {_luku(arvo, l.yksikko)} (ennuste +{paivia} pv)"
+
+
 def _tila_merkki(tila: str) -> str:
     return {"paras": "★", "toimii": "✓", "ei toimi": "✗"}[tila]
 

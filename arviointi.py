@@ -53,6 +53,7 @@ class PaikkaTulos:
     kohteet: list[KohdeTulos] = field(default_factory=list)
     lukemat: dict[str, Kaaviolukema] = field(default_factory=dict)  # mittariavain -> lukema
     ennuste: dict[int, float] = field(default_factory=dict)          # päivä -> pisteet
+    ennusteen_kohteet: dict[int, list[KohdeTulos]] = field(default_factory=dict)  # päivä -> kohteet
     huomiot: list[str] = field(default_factory=list)
     sivun_kaaviot: list[Kaaviolukema] = field(default_factory=list)  # kaikki sivun kaaviot
 
@@ -177,6 +178,7 @@ def arvioi(paikka: Paikka, lukemat: dict[str, Kaaviolukema]) -> PaikkaTulos:
         p = _yhdista(kohteet_n)
         if p is not None:
             tulos.ennuste[n] = p
+            tulos.ennusteen_kohteet[n] = kohteet_n
     return tulos
 
 

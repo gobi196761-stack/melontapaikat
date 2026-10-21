@@ -20,6 +20,7 @@ Kaikissa: syaani katkoviiva = tänään, vihreät alueet = paikan kohteiden raja
 
 from __future__ import annotations
 
+import contextvars
 import datetime as dt
 import html
 import math
@@ -34,6 +35,10 @@ PAIVA_MS = smhi_data.PAIVA_MS
 HISTORIA_PAIVIA = 10   # kaavio alkaa näin monta päivää ennen tätä päivää
 
 e = html.escape
+
+# Reissun ajankohta (unix s, saapuminen perille): sivun mittarilinkki välittää sen (?reissu=),
+# ja kaavioon piirretään sen kohdalle pystykatkoviiva "reissu". Asetetaan pyynnön ajaksi.
+reissu: contextvars.ContextVar[float | None] = contextvars.ContextVar("reissu", default=None)
 
 # kohteen rajat: (nimi, toimii (ala, ylä), paras (ala, ylä)); None = avoin raja
 Alue = tuple[str, tuple[float | None, float | None], tuple[float | None, float | None]]
@@ -239,6 +244,13 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     tx = x(tanaan)
     ryhma.append(f'<line x1="{tx:.1f}" x2="{tx:.1f}" y1="{YLA}" y2="{YLA + piirto_k}" stroke="#00bcd4" '
                  f'stroke-width="2" stroke-dasharray="6 4"/>')
+    reissun_x = None
+    if reissu.get() is not None:
+        rx = x_ms(reissu.get() * 1000)
+        if VASEN <= rx <= VASEN + piirto_l:
+            reissun_x = rx
+            ryhma.append(f'<line x1="{rx:.1f}" x2="{rx:.1f}" y1="{YLA}" y2="{YLA + piirto_k}" stroke="#6a1b9a" '
+                         f'stroke-width="2" stroke-dasharray="3 3"/>')
     lukema = arvio if arvio is not None else paivan_arvo[0] if paivan_arvo else None
     if lukema is not None:   # tämän päivän lukema numerona, kuten Hawa'Iin arvio
         ryhma.append(vinonelio(tx, y(lukema), 7, "#ef6c00"))
@@ -275,6 +287,9 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         osat.append(f'<text x="{VASEN + piirto_l - 6}" y="{ny:.1f}" text-anchor="end" fill="#1b5e20" '
                     f'font-size="11.5" font-weight="600" stroke="#fff" stroke-width="3" paint-order="stroke">'
                     f'{nuoli} {e(nimi)} {rajat_teksti(toimii, paras)}</text>')
+    if reissun_x is not None:   # nimi viivan yläpäähän (piirtoalueen päälle, ei leikata)
+        osat.append(f'<text x="{reissun_x + 4:.1f}" y="{YLA + 13}" fill="#6a1b9a" font-size="12" font-weight="700" '
+                    f'stroke="#fff" stroke-width="3" paint-order="stroke">{e(_t("reissu"))}</text>')
     osat.append(f'<rect x="{VASEN}" y="{YLA}" width="{piirto_l}" height="{piirto_k}" fill="none" stroke="#9aa4ae"/>')
 
     # selite (rivittyy)
@@ -304,6 +319,8 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     if tausta:
         selite += [("alue", "#cfd4d9", _t("vaihteluväli")), ("viiva", "#d81b9a", _t("mediaani"))]
     selite.append(("katko", "#00bcd4", _t("tänään")))
+    if reissun_x is not None:
+        selite.append(("katko", "#6a1b9a", _t("reissu (perillä)")))
     if alueet:
         selite += [("alue", "#d5ecd6", _t("kohde toimii")), ("alue", "#a9d5aa", _t("kohde parhaimmillaan"))]
     piilossa = [f"{n} {luku(a)}" for n, a, v in tunnus if (n, a, v) not in tunnus_nakyy]

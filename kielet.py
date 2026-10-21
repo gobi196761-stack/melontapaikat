@@ -67,6 +67,8 @@ SANAT = {
     "vaihteluväli": "range (other years)",
     "mediaani": "median",
     "tänään": "today",
+    "reissu": "trip",
+    "reissu (perillä)": "trip (arrival)",
     "kohde toimii": "feature works",
     "kohde parhaimmillaan": "feature at its best",
     "paras": "best",
@@ -105,6 +107,7 @@ KORVAUKSET = [
     (r"eilinen korjaus", "yesterday's correction"),
     (r", (\d+) pv: ", r", \1 d: "),
     (r"tulvaindeksi", "flood index"),
+    (r"\(ennuste \+(\d+) pv\)", r"(forecast +\1 d)"),
 ]
 
 

@@ -391,7 +391,7 @@ SKRIPTI = """
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
   const T = document.documentElement.lang === "en" ? {
     lisaa: "Add to favourites", poista: "Remove from favourites", km: "",
-    kieli: "en-GB", perilla: "on arrival", ukkonen: "thunderstorm forecast", lahto: "from", oma: "your location",
+    kieli: "en-GB", perilla: "on arrival", paivaTila: "Water levels and ratings from the forecast for", ukkonen: "thunderstorm forecast", lahto: "from", oma: "your location",
     tila: "Driving distances from your location (OpenStreetMap routing).", lasketaan: "Calculating driving distances…",
     eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
     eiTukea: "Your browser does not support location.", haetaan: "Getting location…",
@@ -400,7 +400,7 @@ SKRIPTI = """
     tuntematon: n => "Unknown municipality: " + n + ". Pick one from the list.",
   } : {
     lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "",
-    kieli: "fi-FI", perilla: "perillä klo", ukkonen: "ukkosta ennustettu", lahto: "lähtö", oma: "oma sijainti",
+    kieli: "fi-FI", perilla: "perillä klo", paivaTila: "Vesitilanne ja arviot ennusteen mukaan:", ukkonen: "ukkosta ennustettu", lahto: "lähtö", oma: "oma sijainti",
     tila: "Ajomatkat omasta sijainnistasi (OpenStreetMap-reititys).", lasketaan: "Lasketaan ajomatkoja…",
     eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
     eiTukea: "Selain ei tue sijaintia.", haetaan: "Haetaan sijaintia…",
@@ -463,6 +463,12 @@ SKRIPTI = """
     const ohi = i < 0 || perilla >= s.aika[s.aika.length - 1] + 3600;   // ennuste ei ulotu
     const aika = r.querySelector(".saa-aika"), ilma = el.querySelector(".saa-ilma"), kuva = el.querySelector(".saa-ikoni");
     if (aika) aika.textContent = T.perilla + " " + kello(perilla) + (lahto() > Date.now() / 1000 + 43200 ? " " + paiva(perilla) : "");
+    // kaaviolinkit: reissun ajankohta (varttiin pyöristettynä) pystyviivaksi kaavioon
+    r.querySelectorAll('a[href^="/kaavio/"]').forEach(a => {
+      const url = new URL(a.href);
+      url.searchParams.set("reissu", Math.round(perilla / 900) * 900);
+      a.href = url.pathname + url.search;
+    });
     if (ilma) ilma.textContent = ohi ? "–" : Math.round(s.t[i]).toString().replace("-", "−") + " °C";
     if (kuva) kuva.textContent = ohi ? "" : ikoni(s.k[i]);
     // ukkonen tiedossa saapumisesta 4 h eteenpäin: ilma-linkki punaiseksi
@@ -480,8 +486,32 @@ SKRIPTI = """
     saa(r, ajoajat ? ajoajat[r.dataset.paikka] : el ? Number(el.dataset.ajo) : null);
   });
   const saaOulusta = () => { ajoajat = null; paivitaSaat(); };
+
+  // Lähtöpäivä muu kuin tänään: vesitilanne, kohteiden arviot ja pisteet sen päivän ennusteesta,
+  // paikat sen mukaiseen järjestykseen (sama sääntö kuin palvelimella: pisteet 5:n tarkkuudella, lähempi ensin)
+  const paivaTila = document.getElementById("paiva-tila");
+  const luokka = p => p >= 60 ? "p-hyva" : p >= 30 ? "p-keski" : "p-huono";
+  function naytaPaiva() {
+    if (!taulukko || !lahtoKentta) return;
+    const alku = new Date(taulukko.dataset.paiva0 + "T00:00");
+    const lahtoPv = lahtoKentta.value ? new Date(lahtoKentta.value.slice(0, 10) + "T00:00") : alku;
+    const n = Math.max(0, Math.min(3, Math.round((lahtoPv - alku) / 86400000)));
+    for (const r of rivit) {
+      const p = JSON.parse(r.dataset.pisteet || "{}"), nn = (n in p) ? n : 0;
+      r.querySelectorAll(".paiva").forEach(d => d.hidden = Number(d.dataset.paiva) !== nn);
+      const solu = r.querySelector("td.pisteet");
+      if (solu && p[nn] != null) { solu.textContent = p[nn]; solu.className = "pisteet " + luokka(p[nn]); }
+      r.dataset.nyt = p[nn] ?? -1;
+    }
+    rivit.sort((a, b) => (Math.round(b.dataset.nyt / 5) - Math.round(a.dataset.nyt / 5)) || (a.dataset.km - b.dataset.km));
+    const runko = rivit[0] && rivit[0].parentElement;
+    if (runko) rivit.forEach(r => runko.appendChild(r));
+    paivita();
+    paivaTila.textContent = n ? T.paivaTila + " " + lahtoPv.toLocaleDateString(T.kieli, {weekday: "short", day: "numeric", month: "numeric"}) : "";
+    paivaTila.hidden = !n;
+  }
   saaOulusta();   // sivu voi olla välimuistista: saapumisaika tämän hetken mukaan
-  if (lahtoKentta) lahtoKentta.addEventListener("change", paivitaSaat);
+  if (lahtoKentta) lahtoKentta.addEventListener("change", () => { paivitaSaat(); naytaPaiva(); });
 
   // Ajomatkat (tavallinen ajoreitti) lähtöpisteestä kaikkiin paikkoihin: /api/ajomatkat
   // laskee ne yhdellä reitityskyselyllä. Lähtöpiste pyöristetään ~1 km:n tarkkuuteen.
@@ -645,27 +675,41 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
                  nyt: float | None = None, ajo_km: float | None = None) -> str:
     p = t.paikka
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
-    nakyvat = []
-    mittarit = []
-    for avain in p.mittarit:
-        l = t.lukemat.get(avain)
-        if l and l.url not in nakyvat:
-            nakyvat.append(l.url)
-            href = kaavion_osoite(p, avain, l, kieli) or l.url
-            mittarit.append(f'<li><a href="{e(href)}">{e(k_(melonta.kuvaa_lukema(l)))}</a></li>')
-    kohteet = sorted(t.kohteet, key=lambda k: k.pisteet, reverse=True)
-    toimivat = [k for k in kohteet if k.tila != "ei toimi"]
-    lyhyet = toimivat[:3] if toimivat else kohteet[:1]
+    def mittarit(paiva: int) -> str:
+        nakyvat, rivit = [], []
+        for avain in p.mittarit:
+            l = t.lukemat.get(avain)
+            if l and l.url not in nakyvat:
+                nakyvat.append(l.url)
+                teksti = melonta.kuvaa_lukema(l) if paiva == 0 else melonta.kuvaa_ennuste(l, paiva)
+                if teksti:
+                    href = kaavion_osoite(p, avain, l, kieli) or l.url
+                    rivit.append(f'<li><a href="{e(href)}">{e(k_(teksti))}</a></li>')
+        return "".join(rivit)
 
     def kohde(k) -> str:
         return f"<li>{melonta._tila_merkki(k.tila)} <b>{e(k.kohde.nimi)}</b>: {e(k_(k.selitys))}</li>"
 
-    muut = [k for k in kohteet if k not in lyhyet]
-    lisat = ""
-    if muut:
-        lisat = (f"<details><summary>{k_('Muut kohteet')} ({len(muut)})</summary><ul>"
-                 + "".join(kohde(k) for k in muut) + "</ul></details>")
+    def kohteet(lista: list, huomiot: str) -> str:
+        jarjestetty = sorted(lista, key=lambda k: k.pisteet, reverse=True)
+        toimivat = [k for k in jarjestetty if k.tila != "ei toimi"]
+        lyhyet = toimivat[:3] if toimivat else jarjestetty[:1]
+        muut = [k for k in jarjestetty if k not in lyhyet]
+        lisat = ""
+        if muut:
+            lisat = (f"<details><summary>{k_('Muut kohteet')} ({len(muut)})</summary><ul>"
+                     + "".join(kohde(k) for k in muut) + "</ul></details>")
+        return f"<ul>{''.join(kohde(k) for k in lyhyet)}{huomiot}</ul>{lisat}"
+
+    # Päivä 0 = tänään; 1–3 = ennuste (selain näyttää lähtöpäivän version, kaavioita ei muuteta)
     huomiot = "".join(f'<li class="huom">! {e(k_(h))}</li>' for h in t.huomiot)
+    paivat = {0: (t.kohteet, t.pisteet, huomiot)}
+    paivat.update({n: (t.ennusteen_kohteet[n], t.ennuste[n], "") for n in sorted(t.ennuste)
+                   if n in t.ennusteen_kohteet})
+    versiot = "".join(f'<div class="paiva" data-paiva="{n}"{"" if n == 0 else " hidden"}>\n'
+                      f'<ul class="pieni">{mittarit(n)}</ul>\n{kohteet(lista, huom)}</div>'
+                      for n, (lista, _, huom) in paivat.items())
+    pisteet_json = json.dumps({n: round(pist) for n, (_, pist, _) in paivat.items()}, separators=(",", ":"))
     ennuste = " / ".join(f"{t.ennuste[n]:.0f}" for n in sorted(t.ennuste)) or "–"
     if ajo_km is not None and ajo_min is not None:   # reititetty ajomatka ja -aika Oulusta
         km = f'<span class="km">~{ajo_km:.0f} km / {_kesto(ajo_min)}, {k_("lähtö")} Oulu</span>'
@@ -684,13 +728,12 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
     matka = " · ".join(x for x in (reitti, saapuminen, km) if x)
     matka = f'\n<div class="pieni matka">{matka}</div>' if matka else ""
     lampo = f'\n<div class="pieni lampotilat">{lampo}</div>' if lampo else ""
-    return f"""<tr data-paikka="{e(p.nimi)}"{sijainti}>
+    return f"""<tr data-paikka="{e(p.nimi)}"{sijainti} data-pisteet='{pisteet_json}' data-km="{p.km_oulusta or 0}">
 <td class="sija">{sija}.</td>
 <td><div class="nimi"><a href="{e(p.url)}">{e(p.nimi)}</a>
 <button type="button" class="suosikki" aria-pressed="false" title="{k_('Lisää suosikkeihin')}">♡</button>
 <span class="tyyppi">{e(k_(p.tyyppi))}</span></div>{matka}{lampo}
-<ul class="pieni">{''.join(mittarit)}</ul>
-<ul>{''.join(kohde(k) for k in lyhyet)}{huomiot}</ul>{lisat}</td>
+{versiot}</td>
 <td class="pisteet {_pisteluokka(t.pisteet)}">{t.pisteet:.0f}</td>
 <td class="ennuste piilo">{ennuste}</td>
 </tr>"""
@@ -758,7 +801,8 @@ placeholder="{k_("esim. Rovaniemi")}"></label>
 <p id="sijainti-tila" class="pieni" hidden></p>
 {lampo}
 <p id="ei-suosikkeja" hidden>{EI_SUOSIKKEJA[kieli]}</p>
-<table data-valilehti="{e(valittu)}">
+<p id="paiva-tila" class="pieni" hidden></p>
+<table data-valilehti="{e(valittu)}" data-paiva0="{tilanne.paivitetty:%Y-%m-%d}">
 <thead><tr><th></th><th>{k_("Paikka")}</th><th>{k_("Pisteet")}</th><th class="piilo">{k_("+1 / +2 / +3 pv")}</th></tr></thead>
 <tbody>{rivit}</tbody>
 </table>
@@ -1061,10 +1105,18 @@ def app(environ, start_response):
         paikan_nimi = parse_qs(environ.get("QUERY_STRING", "")).get("paikka", [None])[0]
         kieli = kielet.kieli(kysely)
         kuvasta = parse_qs(environ.get("QUERY_STRING", "")).get("lahde", [""])[0] == "kuva"
-        kuva = (smhi_kaavio_svg(kaavio, paikan_nimi=paikan_nimi, kieli=kieli) if kaavio.startswith("smhi/")
-                else syke_kaavio_svg(kaavio.removeprefix("syke/"), paikan_nimi=paikan_nimi, kieli=kieli,
-                                     kuvasta=kuvasta)
-                if kaavio.startswith("syke/") else None)
+        try:   # reissun ajankohta (unix s) pystyviivaksi kaavioon
+            reissu = float(parse_qs(environ.get("QUERY_STRING", "")).get("reissu", [""])[0])
+        except ValueError:
+            reissu = None
+        merkki = kaavio_svg.reissu.set(reissu)
+        try:
+            kuva = (smhi_kaavio_svg(kaavio, paikan_nimi=paikan_nimi, kieli=kieli) if kaavio.startswith("smhi/")
+                    else syke_kaavio_svg(kaavio.removeprefix("syke/"), paikan_nimi=paikan_nimi, kieli=kieli,
+                                         kuvasta=kuvasta)
+                    if kaavio.startswith("syke/") else None)
+        finally:
+            kaavio_svg.reissu.reset(merkki)
         if kuva is None:
             return vastaa("404 Not Found", "text/plain; charset=utf-8", "Kaaviota ei löydy.\n")
         return vastaa("200 OK", "image/svg+xml; charset=utf-8", kuva, CACHE_CONTROL)

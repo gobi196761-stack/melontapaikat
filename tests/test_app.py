@@ -324,7 +324,7 @@ def test_suosikit_ja_sijainti_sivulla(palvelin):
     kaikki = app.suodata([type("T", (), {"paikka": p})() for p in PAIKAT], {"tyyppi": ["suosikit"]})
     assert len(kaikki) == len(PAIKAT)
     suosikit = pyynto("/", "tyyppi=suosikit")[2]
-    assert '<table data-valilehti="suosikit">' in suosikit and 'id="ei-suosikkeja"' in suosikit
+    assert '<table data-valilehti="suosikit" data-paiva0=' in suosikit and 'id="ei-suosikkeja"' in suosikit
     assert "Veden lämpötila" not in suosikit
 
 
@@ -569,7 +569,7 @@ def test_ajomatka_ja_kesto_oulusta(palvelin, tilanne):
 def test_lahtoaika_valinta(palvelin):
     runko = pyynto("/")[2]
     assert '<label class="paikkakunta">lähtöaika <input id="lahtoaika" type="datetime-local"' in runko
-    assert "lahtoKentta.addEventListener(\"change\", paivitaSaat)" in runko
+    assert 'lahtoKentta.addEventListener("change", () => { paivitaSaat(); naytaPaiva(); })' in runko
     assert ">departure <input" in pyynto("/", "kieli=en")[2]
 
 
@@ -591,3 +591,43 @@ def test_ukkonen(palvelin, tilanne):
     assert '<a class="ilma-linkki ukkonen" title="ukkosta ennustettu" href="https://www.yr.no/' in runko
     assert 'UKKONEN.includes(k) ? "⛈️"' in runko
     tilanne.saa, tilanne.ajo_min = {}, {}
+
+
+def test_paivakohtaiset_arviot(palvelin, tilanne):
+    """Lähtöpäivä muu kuin tänään: sivulla jokaiselle ennustepäivälle oma versio arvioista."""
+    t = next(x for x in tilanne.tulokset if x.ennuste)
+    assert set(t.ennusteen_kohteet) == set(t.ennuste)
+    runko = pyynto("/")[2]
+    rivi = runko[runko.index(f'<tr data-paikka="{t.paikka.nimi}"'):]
+    rivi = rivi[:rivi.index("</tr>")]
+    pisteet = json.loads(rivi.split("data-pisteet='")[1].split("'")[0])
+    assert pisteet["0"] == round(t.pisteet) and pisteet["1"] == round(t.ennuste[1])
+    assert '<div class="paiva" data-paiva="0">' in rivi and '<div class="paiva" data-paiva="1" hidden>' in rivi
+    paiva1 = rivi.split('data-paiva="1" hidden>')[1].split("</div>")[0]
+    assert "(ennuste +1 pv)" in paiva1 and "(ennuste +1 pv)" not in rivi.split('data-paiva="1"')[0]
+    assert 'data-paiva0="2026-10-18"' in runko and 'id="paiva-tila"' in runko
+    assert "(forecast +1 d)" in pyynto("/", "kieli=en")[2]
+
+
+def test_reissun_pystyviiva(ajot):
+    reissu = dt.datetime(2026, 10, 20, 10, tzinfo=dt.timezone.utc).timestamp()
+    merkki = kaavio_svg.reissu.set(reissu)
+    try:
+        kuva = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
+    finally:
+        kaavio_svg.reissu.reset(merkki)
+    ET.fromstring(kuva)
+    assert 'stroke="#6a1b9a" stroke-width="2" stroke-dasharray="3 3"' in kuva and ">reissu</text>" in kuva
+    assert "reissu (perillä)" in kuva
+    assert ">reissu</text>" not in app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
+    # reitti: ?reissu= välitetään kaavioon; kaavion ulkopuolinen aika ei piirrä viivaa
+    kaukana = kaavio_svg.reissu.set(reissu + 365 * 86400)
+    try:
+        assert ">reissu</text>" not in app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
+    finally:
+        kaavio_svg.reissu.reset(kaukana)
+
+
+def test_kaaviolinkit_saavat_reissun(palvelin):
+    runko = pyynto("/")[2]
+    assert 'url.searchParams.set("reissu", Math.round(perilla / 900) * 900)' in runko
