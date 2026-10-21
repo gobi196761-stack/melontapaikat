@@ -64,6 +64,15 @@ SANAT = {
     "laskettu jälkikäteen": "computed afterwards",
     "keskivirhe": "mean error",
     "arvio tänään": "estimate today",
+    "toinen arvio tänään": "second estimate today",
+    "toinen arvio tunneittain SYKE:n reaaliaikamittauksista": "second estimate hourly from SYKE real-time measurements",
+    "päivän keskiarvo-ennuste": "forecast daily mean",
+    "arvio mitatuista syötteistä": "estimate from measured inputs",
+    "ennuste päivän loppuun": "forecast to end of day",
+    "viimeisin mittaus": "latest measurement",
+    "nykyinen malli": "current model",
+    "eilen mitattu": "measured yesterday",
+    "tuntiarvio": "hourly estimate",
     "ennusteen 5–95 %": "forecast 5–95 %",
     "vaihteluväli": "range (other years)",
     "mediaani": "median",
@@ -108,6 +117,7 @@ KORVAUKSET = [
     (r"eilinen korjaus", "yesterday's correction"),
     (r", (\d+) pv: ", r", \1 d: "),
     (r"tulvaindeksi", "flood index"),
+    (r"toinen arvio", "second estimate"),
     (r"\(ennuste \+(\d+) pv\)", r"(forecast +\1 d)"),
 ]
 

@@ -75,6 +75,7 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
            aiemmat_arviot: dict[dt.date, float] | None = None,
            jalkikateen_arviot: dict[dt.date, float] | None = None,
            paivan_arvo: tuple[float, str] | None = None,
+           toinen_arvio: tuple[str, float] | None = None,
            tunnus: list[tuple[str, float, str]] | None = None,
            alueet: list[Alue] | None = None,
            kieli: str = "fi") -> str:
@@ -110,6 +111,7 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     arvot = list(malli.values()) + list(ennuste.values()) + list(havainnot.values()) \
         + [v for t in tausta.values() for v in t] + [v for t in ennuste_vali.values() for v in t] \
         + list(aiemmat_arviot.values()) + list(jalkikateen_arviot.values()) \
+        + ([toinen_arvio[1]] if toinen_arvio else []) \
         + ([arvio] if arvio is not None else []) \
         + ([paivan_arvo[0]] if paivan_arvo else [])
     if not arvot:
@@ -252,6 +254,11 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
             ryhma.append(f'<line x1="{rx:.1f}" x2="{rx:.1f}" y1="{YLA}" y2="{YLA + piirto_k}" stroke="#6a1b9a" '
                          f'stroke-width="2" stroke-dasharray="3 3"/>')
     lukema = arvio if arvio is not None else paivan_arvo[0] if paivan_arvo else None
+    if toinen_arvio is not None:   # toinen arviomalli rinnalla: violetti ontto vinoneliö
+        ty = y(toinen_arvio[1])
+        ryhma.append(vinonelio(tx, ty, 7, "#6a1b9a", ontto=True))
+        ryhma.append(f'<text x="{tx - 10:.1f}" y="{ty + 18:.1f}" text-anchor="end" fill="#6a1b9a" font-weight="600" '
+                     f'stroke="#fff" stroke-width="3" paint-order="stroke">{luku(toinen_arvio[1])}</text>')
     if lukema is not None:   # tämän päivän lukema numerona, kuten Hawa'Iin arvio
         ryhma.append(vinonelio(tx, y(lukema), 7, "#ef6c00"))
         ryhma.append(f'<text x="{tx + 10:.1f}" y="{y(lukema) - 8:.1f}" fill="#ef6c00" font-weight="600" '
@@ -312,6 +319,8 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         selite.append(("onttovino_vaalea", "#f4b183", _t("laskettu jälkikäteen") + keskivirhe(jalkikateen)))
     if arvio is not None:
         selite.append(("vino", "#ef6c00", _t("arvio tänään")))
+    if toinen_arvio is not None:
+        selite.append(("onttovino", "#6a1b9a", f"{_t('toinen arvio tänään')} ({toinen_arvio[0]})"))
     elif paivan_arvo:
         selite.append(("vino", "#ef6c00", f"{_t('tänään')}: {luku(paivan_arvo[0])} ({_t(paivan_arvo[1])})"))
     if ennuste_vali:
@@ -470,6 +479,80 @@ def kuva_svg(sarjat, tanaan: dt.date, otsikko: str, yksikko: str, alueet: list[A
                   alueet=alueet)
 
 
+def tunti_svg(otsikko: str, paiva: dt.date, tunnit: dict, vertailu: list[tuple[str, float, str]],
+              kieli: str = "fi") -> str:
+    """Päivän tuntikaavio arviomallin asemalle (syke_data.tuntiarviot): toisen arvion tuntiarvot
+    syötteiden mittauksista (yhtenäinen), loppupäivän ennuste (katkoviiva) ja vaakaviivoina
+    päivän keskiarvo-ennuste sekä vertailuarvot (nimi, arvo, väri)."""
+    _t = lambda s: kielet.kaanna(s, kieli)   # noqa: E731
+    lev, kork, vasen, oikea, yla, ala = 900, 380, 64, 20, 58, 70
+    pl, pk = lev - vasen - oikea, kork - yla - ala
+    kaikki = list(tunnit["arviot"].values()) + list(tunnit["ennuste"].values()) + [tunnit["keskiarvo"]] \
+        + [v for _, v, _ in vertailu]
+    a_, y_ = min(kaikki), max(kaikki)
+    vara = max((y_ - a_) * 0.15, 3.0)
+    tikit = _asteikko(a_ - vara, y_ + vara)
+    alin, ylin = min(tikit[0], a_ - vara), max(tikit[-1], y_ + vara)
+    x = lambda t: vasen + t / 24 * pl   # noqa: E731   (tunnin keskikohta: t + 0.5)
+    y = lambda v: yla + (ylin - v) / (ylin - alin) * pk   # noqa: E731
+    polku = lambda pis: " ".join(f"{'M' if i == 0 else 'L'}{px:.1f},{py:.1f}" for i, (px, py) in enumerate(pis))  # noqa: E731
+    osat = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {lev} {kork}" '
+            f'font-family="system-ui, Segoe UI, sans-serif" font-size="12">',
+            f'<rect width="{lev}" height="{kork}" fill="#fff"/>',
+            f'<text x="{vasen}" y="22" font-size="16" font-weight="600" fill="#1b1f24">{e(otsikko)}</text>',
+            f'<text x="{vasen}" y="40" fill="#5c6670">{e(_t("Virtaama m³/s"))} · '
+            f'{e(_t("toinen arvio tunneittain SYKE:n reaaliaikamittauksista"))} {paiva.day}.{paiva.month}.</text>']
+    for t in tikit:
+        if alin <= t <= ylin:
+            osat.append(f'<line x1="{vasen}" x2="{vasen + pl}" y1="{y(t):.1f}" y2="{y(t):.1f}" stroke="#e3e7eb"/>'
+                        f'<text x="{vasen - 6}" y="{y(t) + 4:.1f}" text-anchor="end" fill="#5c6670">{_luku(t)}</text>')
+    for h in range(0, 25, 3):
+        osat.append(f'<line x1="{x(h):.1f}" x2="{x(h):.1f}" y1="{yla}" y2="{yla + pk}" stroke="#f0f2f4"/>'
+                    f'<text x="{x(h):.1f}" y="{yla + pk + 16}" text-anchor="middle" fill="#5c6670">{h:02d}</text>')
+    for nimi, arvo, vari in vertailu:
+        osat.append(f'<line x1="{vasen}" x2="{vasen + pl}" y1="{y(arvo):.1f}" y2="{y(arvo):.1f}" stroke="{vari}" '
+                    f'stroke-dasharray="2 4" stroke-width="1.5"/><text x="{vasen + pl - 4}" y="{y(arvo) - 4:.1f}" '
+                    f'text-anchor="end" fill="{vari}">{e(nimi)} {_luku(arvo)}</text>')
+    ka = tunnit["keskiarvo"]
+    osat.append(f'<line x1="{vasen}" x2="{vasen + pl}" y1="{y(ka):.1f}" y2="{y(ka):.1f}" stroke="#6a1b9a" '
+                f'stroke-width="1.5"/><text x="{vasen + 6}" y="{y(ka) - 5:.1f}" fill="#6a1b9a" font-weight="600" '
+                f'stroke="#fff" stroke-width="3" paint-order="stroke">{e(_t("päivän keskiarvo-ennuste"))} {_luku(ka)}</text>')
+    if tunnit["arviot"]:
+        osat.append(f'<path d="{polku([(x(t + 0.5), y(v)) for t, v in sorted(tunnit["arviot"].items())])}" '
+                    f'fill="none" stroke="#6a1b9a" stroke-width="2.5"/>')
+        for t, v in sorted(tunnit["arviot"].items()):
+            osat.append(f'<circle cx="{x(t + 0.5):.1f}" cy="{y(v):.1f}" r="2.8" fill="#6a1b9a"/>')
+    if len(tunnit["ennuste"]) > 1:
+        osat.append(f'<path d="{polku([(x(t + 0.5), y(v)) for t, v in sorted(tunnit["ennuste"].items())])}" '
+                    f'fill="none" stroke="#6a1b9a" stroke-width="2.5" stroke-dasharray="8 5"/>')
+    nx = x(tunnit["viim"] + 1)
+    osat.append(f'<line x1="{nx:.1f}" x2="{nx:.1f}" y1="{yla}" y2="{yla + pk}" stroke="#00bcd4" stroke-width="2" '
+                f'stroke-dasharray="6 4"/>')
+    osat.append(f'<rect x="{vasen}" y="{yla}" width="{pl}" height="{pk}" fill="none" stroke="#9aa4ae"/>')
+    selite = [("viiva", "#6a1b9a", _t("arvio mitatuista syötteistä")), ("katko", "#6a1b9a", _t("ennuste päivän loppuun")),
+              ("katko", "#00bcd4", _t("viimeisin mittaus"))]
+    sx, sy = vasen, yla + pk + 40
+    for laji, vari, teksti in selite:
+        viiva = 'stroke-dasharray="5 3"' if laji == "katko" else ""
+        osat.append(f'<line x1="{sx}" x2="{sx + 18}" y1="{sy - 4}" y2="{sy - 4}" stroke="{vari}" stroke-width="2.5" {viiva}/>'
+                    f'<text x="{sx + 23}" y="{sy}" fill="#1b1f24">{e(teksti)}</text>')
+        sx += 30 + len(teksti) * 6.4
+    osat.append("</svg>")
+    return "\n".join(osat)
+
+
+def pinoa(*kuvat: str) -> str:
+    """SVG-kaaviot allekkain yhdeksi kuvaksi (sama leveys 900)."""
+    korkeudet = [int(k.split('viewBox="0 0 900 ')[1].split('"')[0]) for k in kuvat]
+    osat = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 {sum(korkeudet)}">']
+    yy = 0
+    for kuva, kk in zip(kuvat, korkeudet):
+        osat.append(kuva.replace("<svg ", f'<svg x="0" y="{yy}" width="900" height="{kk}" ', 1))
+        yy += kk
+    osat.append("</svg>")
+    return "\n".join(osat)
+
+
 def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: list[Alue] | None = None,
               kieli: str = "fi", arkisto: dict[dt.date, float] | None = None) -> str:
     """Arviomallin aseman kaavio: mitatut päiväarvot, samojen päivien arviot, tämän päivän
@@ -507,5 +590,6 @@ def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: l
                   f"{_t('(' + lukema.lahde)[1:]} · {_t('ennuste tehty')} {tanaan.day}.{tanaan.month}.")
     return piirra(otsikko, alaotsikko, tanaan, ennuste=ennuste, ennuste_vali=vali, havainnot=havainnot,
                   havainto_viiva=True, arvio=arvio, aiemmat_arviot=aiemmat, jalkikateen_arviot=jalkikateen,
+                  toinen_arvio=lukema.toinen_arvio,
                   tunnus=tunnus, alueet=alueet,
                   kieli=kieli)

@@ -1070,7 +1070,10 @@ def _arvio_kaavio(paikka, avain, mittari, asema: str, hakija: osm.Hakija, otsikk
                   kieli: str = "fi") -> str | None:
     """Arviomallin aseman kaavio: mitatut arvot, lasketut arviot ja arviosta jatkuva ennuste."""
     avaimet = [f"{asema}/ajo.json"] + syke_data.ARVIOMALLIT[asema].ajo_avaimet()
+    if asema in syke_data.TARKENNETUT:
+        avaimet += syke_data.TARKENNETUT[asema].ajo_avaimet()
     ajot = {a: d for a in avaimet if (d := _hae_json(hakija, osm.kaavio_url(a)))}
+    syke_data.lisaa_reaaliaika(ajot, lambda url: osm.hae_turvallisesti(hakija, url)[0])
     oma = ajot.get(f"{asema}/ajo.json")
     if not oma or "ennustepvm_www" not in oma:
         return None
@@ -1083,8 +1086,21 @@ def _arvio_kaavio(paikka, avain, mittari, asema: str, hakija: osm.Hakija, otsikk
         for vanha in (l for t in _tilanne[1].tulokset for l in t.lukemat.values()):
             if vanha.url == lukema.url:
                 lukema.tunnusluvut = dict(vanha.tunnusluvut)
-    return kaavio_svg.arvio_svg(lukema, ajot, asema, otsikko,
+    kuva = kaavio_svg.arvio_svg(lukema, ajot, asema, otsikko,
                                 _alueet(paikka, avain, lukema.tunnusluvut), kieli, arkistoidut_arviot(asema))
+    # alle päivän tuntikaavio toisesta arviosta (syötteiden reaaliaikamittaukset)
+    tanaan = dt.date.fromisoformat(oma["ennustepvm_www"])
+    tunnit = syke_data.tuntiarviot(asema, ajot, tanaan)
+    if tunnit:
+        vertailu = []
+        if lukema.tietolahde.startswith("arvio") and lukema.arvo is not None:
+            vertailu.append((kielet.kaanna("nykyinen malli", kieli), lukema.arvo, "#ef6c00"))
+        eilen = syke_data._arvo(oma.get("qhav") or {}, tanaan - dt.timedelta(days=1))
+        if eilen is not None:
+            vertailu.append((kielet.kaanna("eilen mitattu", kieli), eilen, "#1b1f24"))
+        nimi = f"{paikka.nimi} – {kielet.kaanna('tuntiarvio', kieli)} {tanaan.day}.{tanaan.month}."
+        kuva = kaavio_svg.pinoa(kuva, kaavio_svg.tunti_svg(nimi, tanaan, tunnit, vertailu, kieli))
+    return kuva
 
 
 _arkisto: tuple[float, dict[str, dict]] | None = None

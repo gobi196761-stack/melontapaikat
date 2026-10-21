@@ -83,6 +83,8 @@ def oma_arvio(asema: str, ajot: dict[str, dict]) -> dict | None:
         "lahde": lukema.lahde,
         "ennustepvm_www": t.isoformat(),
         "tanaan": None if lukema.arvo is None else round(lukema.arvo, 3),
+        # toinen arvio (syke_data.TARKENNETUT), tallennetaan vertailua varten
+        "tanaan2": None if lukema.toinen_arvio is None else round(lukema.toinen_arvio[1], 3),
         "ennuste": ennuste,
         "varoitukset": varoitukset,
     }
@@ -117,7 +119,7 @@ def onnistuneet(arkisto: dict) -> list[str]:
 def hae_ajot(aikaraja: float = 20) -> tuple[dict[str, dict], dict[str, str]]:
     """Hakee asemien ja arviomallien syöteasemien ajo.jsonit; palauttaa (ajot, virheet)."""
     avaimet = {f"{a}/ajo.json" for a in ASEMAT}
-    for malli in syke_data.ARVIOMALLIT.values():
+    for malli in (*syke_data.ARVIOMALLIT.values(), *syke_data.TARKENNETUT.values()):
         avaimet.update(malli.ajo_avaimet())
     hakija = osm.Hakija(aikaraja=aikaraja)
     ajot, virheet = {}, {}
@@ -130,4 +132,5 @@ def hae_ajot(aikaraja: float = 20) -> tuple[dict[str, dict], dict[str, str]]:
             virhe = f"ajo.json ei ole luettavissa ({e})"
         if virhe:
             virheet[avain.rsplit("/", 1)[0]] = virhe
+    syke_data.lisaa_reaaliaika(ajot, lambda url: osm.hae_turvallisesti(hakija, url)[0])
     return ajot, virheet

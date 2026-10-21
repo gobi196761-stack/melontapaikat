@@ -136,6 +136,8 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
     for asema, malli in syke_data.ARVIOMALLIT.items():
         if f"{asema}/ajo.json" in ajot:
             ajot.update(malli.ajo_avaimet())
+            if asema in syke_data.TARKENNETUT:   # toisen arvion syötteet
+                ajot.update(syke_data.TARKENNETUT[asema].ajo_avaimet())
     ajot = sorted(ajot)
     with ThreadPoolExecutor(max_workers=16) as pool:
         ladatut = dict(zip(ajot, pool.map(lambda a: osm.hae_turvallisesti(hakija, osm.kaavio_url(a))[0], ajot)))
@@ -147,6 +149,9 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
             luetut[a] = syke_data.lue_ajo(data)
         except ValueError as e:
             varoitukset.append(f"{a}: ajo.json ei ole luettavissa ({e})")
+    # Arviomallien syöteasemien tämän päivän mittaukset SYKE:n reaaliaikatiedostoista
+    if any(f"{a}/ajo.json" in luetut for a in syke_data.ARVIOMALLIT):
+        syke_data.lisaa_reaaliaika(luetut, lambda url: osm.hae_turvallisesti(hakija, url)[0])
     for avain, lukema in lukemat.items():
         ajo = luetut.get(syke_data.ajo_avain(avain))
         if not ajo:
@@ -217,6 +222,8 @@ def kuvaa_lukema(l: Kaaviolukema, ennustepaiva: int = 3) -> str:
     ti = l.tulvaindeksi
     if ti is not None:
         teksti += f", tulvaindeksi {ti:.2f}"
+    if l.toinen_arvio is not None:   # toinen arviomalli rinnalla (syke_data.TARKENNETUT)
+        teksti += f", toinen arvio {_luku(l.toinen_arvio[1], l.yksikko)}"
     return teksti
 
 
