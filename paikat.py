@@ -246,6 +246,8 @@ PAIKAT: tuple[Paikka, ...] = (
                        "(mpahkala.kapsi.fi)", lahde="meloja"),
             Kohde("Svansteinin stoppari", (78.00, AVOIN), (79.00, AVOIN), 0.8,
                   huom="14 km ylävirtaan; sopii kaikentasoisille"),
+            Kohde("Kattilakoski ja Svanstein (yleinen)", (78.00, 82.00), (78.00, 82.00), 0.5,
+                  huom="toimiva vedenkorkeus 78.00–82.00 m (mpahkala.kapsi.fi)", lahde="meloja"),
         ),
     ),
     Paikka(
@@ -278,6 +280,9 @@ PAIKAT: tuple[Paikka, ...] = (
             Kohde("Murtuva aalto", (650, 1300), (850, 1300), 1.0,
                   huom="n. 600 m³/s keula kolisee; 850 m³/s tosi hyvä ja paranee; "
                        "toimii 650–1300 m³/s, 645 m³/s matala (mpahkala.kapsi.fi)", lahde="meloja"),
+            Kohde("Kitula", (650, 1300), (650, 1300), 0.8,
+                  huom="toimii 650–1300 m³/s (mpahkala.kapsi.fi); 607 m³/s keskiaallosta loppui pito, "
+                       "645–649 m³/s matala", lahde="meloja"),
         ),
     ),
     Paikka(
@@ -298,7 +303,7 @@ PAIKAT: tuple[Paikka, ...] = (
         "Pöyryn padon alla monipuolinen koskialue: Vaahtokylpy ja Kalliosaaren "
         "paikat. Mittarina Länkelän virtaama; vedenkorkeus rinnalla (kuten Neitikoskella).",
         {"paa": Mittari("57/q5700700y/qinlyhyt.png", marginaali=40),
-         "korkeus": Mittari("57/q5700700y/w3lyhyt.png")},
+         "korkeus": Mittari("57/q5700700y/w3lyhyt.png", marginaali=0.3)},
         (
             Kohde("Vaahtokylpy (murtuva aalto)", (250, AVOIN), (300, 400), 1.0,
                   huom="loistava akanvirta, sopii vähemmän meloneillekin"),
@@ -308,6 +313,9 @@ PAIKAT: tuple[Paikka, ...] = (
                   huom="70 m³/s: keula kolisee upotuksessa; mukavia virranrajoja; hyvä yli 100 m³/s "
                        "(mpahkala.kapsi.fi)", lahde="meloja"),
             Kohde("Aalto 5 km alavirtaan", (150, AVOIN), (150, AVOIN), 0.7, huom="aaltoon pitää kantaa"),
+            Kohde("Koskialue vedenkorkeuden mukaan", (19.50, 21.00), (19.70, 21.00), 0.8, mittari="korkeus",
+                  huom="toimiva vedenkorkeus 19.50–21.00 m NN; 19.57 m matala, 19.75–19.79 m hyvä "
+                       "(mpahkala.kapsi.fi)", lahde="meloja"),
         ),
     ),
     Paikka(
