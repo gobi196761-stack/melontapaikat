@@ -503,3 +503,39 @@ def test_saa_perilla_ja_veden_lampotila(monkeypatch, palvelin, tilanne):
             f'<span class="saa"') in runko
     assert f'<a href="https://www.yr.no/en/forecast/hourly-table/{lev},{pit}" target="_blank" rel="noopener">ilma</a>' in runko
     tilanne.saa, tilanne.ajo_min = {}, {}
+
+
+def test_surffitilanne_ja_linkki(monkeypatch):
+    nyt = dt.datetime(2026, 10, 21, 9, 30, tzinfo=dt.timezone.utc)
+    tunnit = lambda *r: {"hours": [{"timestamp": f"2026-10-21T{9 + i:02d}:00:00Z", "rating": v,   # noqa: E731
+                                    "data_unknown": False} for i, v in enumerate(r)]}
+    vastaukset = {"/api/forecast": tunnit(1, 0), "/api/forecast/tauvo": tunnit(0, 0, 2),
+                  "/api/forecast/olkijoki": {"hours": [{"timestamp": "2026-10-21T12:00:00Z", "rating": 3,
+                                                        "data_unknown": True}]}}
+
+    def hae(hakija, url):
+        polku = url.removeprefix(app.SURFFI)
+        return (json.dumps(vastaukset[polku]).encode(), None) if polku in vastaukset else (None, "404")
+
+    monkeypatch.setattr(app.osm, "hae_turvallisesti", hae)
+    surffi = app.surffitilanne(None, nyt)
+    assert surffi == {"nyt": ["yppari"], "ennuste": ["tauvo"]}   # olkijoki: data epävarma
+    k_ = lambda s: s   # noqa: E731
+    linkki = app.surffilinkki(surffi, k_)
+    assert linkki.startswith('<span class="surffi ok"><a class="surffi-paa" href="https://surffiennustaja.vercel.app/"')
+    assert '🏄 Merelle Surffaamaan</a>: <a href="https://surffiennustaja.vercel.app/yppari"' in linkki
+    assert '<span class="ok">(ennusteessa: <a href="https://surffiennustaja.vercel.app/tauvo"' in linkki
+    tyhja = app.surffilinkki({"nyt": [], "ennuste": []}, k_)
+    assert tyhja.startswith('<span class="surffi">') and "ennusteessa" not in tyhja
+
+
+def test_ajomatka_ja_kesto_oulusta(palvelin, tilanne):
+    assert app._kesto(20) == "20 min" and app._kesto(183) == "3 h 03 min"
+    t = tilanne.tulokset[0]
+    tilanne.ajo_km, tilanne.ajo_min = {t.paikka.nimi: 181.4}, {t.paikka.nimi: 150}
+    tilanne.surffi = {"nyt": [], "ennuste": ["yppari"]}
+    runko = pyynto("/")[2]
+    assert '<span class="km">~181 km / 2 h 30 min Oulusta</span>' in runko
+    assert runko.index("Merelle Surffaamaan") < runko.index(">Kaikki</a>")
+    assert "~181 km / 2 h 30 min from Oulu" in pyynto("/", "kieli=en")[2]
+    tilanne.ajo_km, tilanne.ajo_min, tilanne.surffi = {}, {}, {}

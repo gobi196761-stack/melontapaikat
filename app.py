@@ -65,6 +65,8 @@ class Tilanne:
     # paikan nimi -> tuntiennuste {"aika": [unix s], "t": [°C], "k": [WMO-sääkoodi]} (Open-Meteo)
     saa: dict[str, dict] = field(default_factory=dict)
     ajo_min: dict[str, float] = field(default_factory=dict)   # paikan nimi -> ajoaika Oulusta (min)
+    ajo_km: dict[str, float] = field(default_factory=dict)    # paikan nimi -> ajomatka Oulusta (km)
+    surffi: dict[str, list[str]] = field(default_factory=dict)  # {"nyt": [spotti], "ennuste": [spotti]}
 
 
 _lukko = threading.Lock()
@@ -83,8 +85,10 @@ def hae_tilanne() -> Tilanne:
         sivun_kaaviot, lukemat, varoitukset = melonta.kerää_tilanne(hakija, PAIKAT)
         tulokset = melonta.arvioi_kaikki(PAIKAT, sivun_kaaviot, lukemat, nyt.date())
         status, oulusta = ajomatkat(OULU, hakija)
+        if not status.startswith("200"):
+            oulusta = {}
         tilanne = Tilanne(nyt, tulokset, varoitukset, len(lukemat), saaennusteet(hakija),
-                          oulusta.get("min", {}) if status.startswith("200") else {})
+                          oulusta.get("min", {}), oulusta.get("km", {}), surffitilanne(hakija))
         if lukemat:   # epäonnistunutta hakua ei jätetä muistiin
             _tilanne = (time.monotonic(), tilanne)
         return tilanne
@@ -121,6 +125,72 @@ def saaennusteet(hakija: osm.Hakija, tunteja: int = 48) -> dict[str, dict]:
         return tulos
     except (ValueError, AttributeError, KeyError, TypeError):
         return {}
+
+
+SURFFI = "https://surffiennustaja.vercel.app"
+# spotti -> (nimi, ennusteen rajapinta); Yppärin ennuste on oletusreitissä /api/forecast
+SURFFISPOTIT = {
+    "yppari": ("Yppäri", "/api/forecast"),
+    "tauvo": ("Tauvo", "/api/forecast/tauvo"),
+    "ohtakari": ("Ohtakari", "/api/forecast/ohtakari"),
+    "marjaniemi": ("Marjaniemi", "/api/forecast/marjaniemi"),
+    "ohtakari-vattaja": ("Ohtakari Vattaja", "/api/forecast/ohtakari-vattaja"),
+    "olkijoki": ("Olkijoki", "/api/forecast/olkijoki"),
+    "pumppari": ("Pumppari", "/api/forecast/pumppari"),
+}
+
+
+def surffitilanne(hakija: osm.Hakija, nyt: dt.datetime | None = None) -> dict[str, list[str]]:
+    """Surffiennustajan spotit, joissa surffattavaa (rating > 0) nyt ja seuraavan 48 h ennusteessa:
+    {"nyt": [spotti], "ennuste": [spotti]} (ennusteessa vain ne, jotka eivät toimi jo nyt)."""
+    from concurrent.futures import ThreadPoolExecutor
+    nyt = nyt or dt.datetime.now(dt.timezone.utc)
+
+    def tila(spotti: str) -> tuple[bool, bool]:
+        data, _ = osm.hae_turvallisesti(hakija, SURFFI + SURFFISPOTIT[spotti][1])
+        try:
+            tunnit = json.loads(data.decode("utf-8"))["hours"] if data else []
+        except (ValueError, KeyError, TypeError):
+            return False, False
+        heti, myohemmin = False, False
+        for h in tunnit:
+            try:
+                alku = dt.datetime.fromisoformat(h["timestamp"].replace("Z", "+00:00"))
+            except (KeyError, TypeError, ValueError, AttributeError):
+                continue
+            if h.get("data_unknown") or not (h.get("rating") or 0) > 0:
+                continue
+            if alku <= nyt < alku + dt.timedelta(hours=1):
+                heti = True
+            elif alku > nyt:
+                myohemmin = True
+        return heti, myohemmin
+
+    with ThreadPoolExecutor(max_workers=len(SURFFISPOTIT)) as pool:
+        tilat = dict(zip(SURFFISPOTIT, pool.map(tila, SURFFISPOTIT)))
+    return {"nyt": [s for s, (heti, _) in tilat.items() if heti],
+            "ennuste": [s for s, (heti, myoh) in tilat.items() if myoh and not heti]}
+
+
+def surffilinkki(surffi: dict[str, list[str]], k_) -> str:
+    """Navigaation ensimmäinen kohta: linkki Surffiennustajaan, vihreä jos jossain on surffattavaa nyt;
+    toimivat spotit linkkeinä perässä ja ennusteessa olevat vihreinä sulkeissa."""
+    spotti = lambda s: (f'<a href="{SURFFI}/{s}" target="_blank" rel="noopener">'   # noqa: E731
+                        f'{e(SURFFISPOTIT[s][0])}</a>')
+    nyt, ennuste = surffi.get("nyt") or [], surffi.get("ennuste") or []
+    osat = [f'<a class="surffi-paa" href="{SURFFI}/" target="_blank" rel="noopener">'
+            f'🏄 {k_("Merelle Surffaamaan")}</a>']
+    if nyt:
+        osat.append(": " + ", ".join(spotti(s) for s in nyt))
+    if ennuste:
+        osat.append(f' <span class="ok">({k_("ennusteessa")}: {", ".join(spotti(s) for s in ennuste)})</span>')
+    return f'<span class="surffi{" ok" if nyt else ""}">{"".join(osat)}</span>'
+
+
+def _kesto(minuutit: float) -> str:
+    """Ajoaika: '20 min' tai '3 h 05 min'."""
+    m = round(minuutit)
+    return f"{m} min" if m < 60 else f"{m // 60} h {m % 60:02d} min"
 
 
 def saa_ikoni(koodi: int) -> str:
@@ -165,8 +235,12 @@ main { max-width:960px; margin:0 auto; padding:24px 16px 48px; }
 h1 { font-size:1.45rem; margin:0 0 4px; }
 .meta, .pieni { color:var(--heikko); font-size:.88rem; }
 nav { margin:14px 0 18px; display:flex; gap:8px; flex-wrap:wrap; }
-nav a { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px;
-        color:var(--teksti); text-decoration:none; font-size:.9rem; }
+nav > a, .surffi { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px;
+                   color:var(--teksti); text-decoration:none; font-size:.9rem; }
+.surffi a { color:inherit; }
+.surffi .surffi-paa { text-decoration:none; }
+.surffi.ok { border-color:var(--hyva); }
+.surffi.ok, .surffi .ok { color:var(--hyva); font-weight:600; }
 nav a.valittu { background:var(--teksti); color:var(--tausta); border-color:var(--teksti); }
 a { color:var(--linkki); }
 .lampo { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
@@ -210,7 +284,7 @@ SKRIPTI = """
 (() => {
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
   const T = document.documentElement.lang === "en" ? {
-    lisaa: "Add to favourites", poista: "Remove from favourites", km: " km by road",
+    lisaa: "Add to favourites", poista: "Remove from favourites", km: " by road",
     kieli: "en-GB", perilla: "on arrival",
     tila: "Driving distances from your location (OpenStreetMap routing).", lasketaan: "Calculating driving distances…",
     eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
@@ -219,7 +293,7 @@ SKRIPTI = """
     paikkakunnalta: n => "Driving distances from " + n + " (OpenStreetMap routing).",
     tuntematon: n => "Unknown municipality: " + n + ". Pick one from the list.",
   } : {
-    lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: " km ajomatka",
+    lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: " ajomatka",
     kieli: "fi-FI", perilla: "perillä klo",
     tila: "Ajomatkat omasta sijainnistasi (OpenStreetMap-reititys).", lasketaan: "Lasketaan ajomatkoja…",
     eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
@@ -280,6 +354,7 @@ SKRIPTI = """
   // Ajomatkat (tavallinen ajoreitti) lähtöpisteestä kaikkiin paikkoihin: /api/ajomatkat
   // laskee ne yhdellä reitityskyselyllä. Lähtöpiste pyöristetään ~1 km:n tarkkuuteen.
   const tila = document.getElementById("sijainti-tila");
+  const kesto = m => m < 60 ? Math.round(m) + " min" : Math.floor(m / 60) + " h " + String(Math.round(m % 60)).padStart(2, "0") + " min";
   let kysely = 0;
   function nayta(oma, teksti, lahto) {
     for (const r of rivit) {
@@ -302,7 +377,8 @@ SKRIPTI = """
         if (tama !== kysely) return;   // uudempi valinta ehti ensin
         for (const r of rivit) {
           const km = r.querySelector(".km"), k = d.km[r.dataset.paikka];
-          if (km && k != null) km.textContent = "~" + Math.round(k) + T.km;
+          const m = d.min ? d.min[r.dataset.paikka] : null;
+          if (km && k != null) km.textContent = "~" + Math.round(k) + " km" + (m != null ? " / " + kesto(m) : "") + T.km;
           saa(r, d.min ? d.min[r.dataset.paikka] : null);
         }
         tila.textContent = teksti;
@@ -426,7 +502,7 @@ def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt:
 
 
 def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_min: float | None = None,
-                 nyt: float | None = None) -> str:
+                 nyt: float | None = None, ajo_km: float | None = None) -> str:
     p = t.paikka
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
     nakyvat = []
@@ -451,7 +527,10 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
                  + "".join(kohde(k) for k in muut) + "</ul></details>")
     huomiot = "".join(f'<li class="huom">! {e(k_(h))}</li>' for h in t.huomiot)
     ennuste = " / ".join(f"{t.ennuste[n]:.0f}" for n in sorted(t.ennuste)) or "–"
-    km = f'<span class="km">~{p.km_oulusta} {k_("km Oulusta")}</span>' if p.km_oulusta is not None else ""
+    if ajo_km is not None and ajo_min is not None:   # reititetty ajomatka ja -aika Oulusta
+        km = f'<span class="km">~{ajo_km:.0f} km / {_kesto(ajo_min)} {k_("Oulusta")}</span>'
+    else:
+        km = f'<span class="km">~{p.km_oulusta} {k_("km Oulusta")}</span>' if p.km_oulusta is not None else ""
     sijainti = f' data-sijainti="{p.sijainti[0]},{p.sijainti[1]}"' if p.sijainti else ""
     # Google Mapsin ajoreitti; lähtöpiste on oma sijainti (Google) tai valittu paikkakunta (selain lisää)
     reitti = ""
@@ -486,7 +565,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     valittu = kysely.get("tyyppi", [""])[0]
     kieli = kielet.kieli(kysely)
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
-    suodattimet = "".join(
+    suodattimet = surffilinkki(tilanne.surffi, k_) + "".join(
         f'<a href="{e(_osoite(tyyppi=arvo, kieli=kieli))}"{" class=valittu" if valittu == arvo else ""}>{k_(nimi)}</a>'
         for arvo, nimi in [("", "Kaikki"), ("peli", "Pelipaikat"), ("retki", "Retket"), ("ruotsi", "Ruotsi"),
                            ("suosikit", "♥ Suosikit")])
@@ -503,7 +582,8 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
                  f"<b>{l.arvo:.1f} °C</b>"
                  + (k_(" – kylmää vettä, pukeudu uintia varten!") if l.arvo < 10 else "") + "</div>")
     arvioidut = [t for t in tulokset if t.pisteet is not None]
-    rivit = "".join(_paikan_rivi(i, t, kieli, tilanne.saa.get(t.paikka.nimi), tilanne.ajo_min.get(t.paikka.nimi))
+    rivit = "".join(_paikan_rivi(i, t, kieli, tilanne.saa.get(t.paikka.nimi), tilanne.ajo_min.get(t.paikka.nimi),
+                                 ajo_km=tilanne.ajo_km.get(t.paikka.nimi))
                     for i, t in enumerate(arvioidut, 1))
     ilman = [t for t in tulokset if t.pisteet is None]
     ilman_html = ""
