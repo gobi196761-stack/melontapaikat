@@ -65,7 +65,10 @@ def test_sivu(palvelin):
     assert "s-maxage=" in otsakkeet["Cache-Control"]
     assert runko.index("Matkakoski") < runko.index("Kipinä (Iijoki)") < runko.index("Niskakoski")
     assert "Oikean silta-aukon surffiaalto" in runko
-    assert "Veden lämpötila" in runko and "2.8 °C" in runko
+    # alussa merkintöjen ja kuvakkeiden selitykset (Kipinän veden lämpötila -laatikko poistettu)
+    assert '<details class="selitykset" open><summary>Merkinnät ja kuvakkeet</summary>' in runko
+    assert runko.index('class="selitykset"') < runko.index("<table") and "Veden lämpötila" not in runko
+    assert "<b>★</b> parhaimmillaan" in runko and "slalomkajakki" in runko.split("<table")[0]
     assert "päivitetty klo 16.05" in runko
 
 
@@ -336,7 +339,7 @@ def test_englanninkielinen_sivu(palvelin):
     assert '<html lang="en">' in en and "<title>Paddling conditions</title>" in en
     assert 'href="/" hreflang="fi"' in en and "Suomeksi" in en
     assert '<a href="/?tyyppi=peli&amp;kieli=en">Play spots</a>' in en
-    assert "Water temperature" in en and "km from Oulu" in en and '<span class="tyyppi">play spot</span>' in en
+    assert "Symbols and icons" in en and "km from Oulu" in en and '<span class="tyyppi">play spot</span>' in en
     assert "at its best" in en or "works (" in en or "too little water" in en
     assert "Muut kohteet" not in en and "Other features" in en
     # suomenkielisiä arvioinnin lauseita ei jää näkyviin

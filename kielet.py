@@ -29,6 +29,7 @@ SANAT = {
     "esim. Rovaniemi": "e.g. Rovaniemi",
     "🚗 Reitti": "🚗 Route",
     "ilma": "air",
+    "Merkinnät ja kuvakkeet": "Symbols and icons",
     "freestyle-kajakki": "freestyle kayak",
     "slice-kajakki (half / full slice)": "slice kayak (half / full slice)",
     "slalomkajakki": "slalom kayak",

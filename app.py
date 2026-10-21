@@ -386,6 +386,9 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
 .saa { color:var(--heikko); }
 .matka, .lampotilat { margin:1px 0; }
 .kajakit { white-space:nowrap; }
+.selitykset { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
+.selitykset ul { display:flex; flex-wrap:wrap; gap:4px 16px; list-style:none; padding:0; margin:6px 0; }
+.selitykset p { margin:4px 0 0; }
 .kajakki { width:26px; height:13px; vertical-align:-2px; margin-left:3px; color:var(--linkki); }
 .ukkonen { color:var(--huono) !important; font-weight:700; }
 .tyyppi { font-weight:400; font-size:.85rem; color:var(--heikko); margin-left:2px; }
@@ -620,14 +623,37 @@ EI_SUOSIKKEJA = {
     "en": "No favourites yet. Mark a spot as a favourite with the ♡ button next to its name – "
           "favourites are saved in this browser.",
 }
+# Sivun alun selitykset: merkinnät ja kuvakkeet (kajakkikuvakkeet KAJAKKI_KUVAKKEET)
+SELITYKSET = {
+    "fi": [("★", "parhaimmillaan"), ("✓", "toimii"), ("✗", "ei toimi"), ("♡ / ♥", "lisää suosikiksi / suosikki"),
+           ("🚗", "reitti Google Mapsiin; perillä-aika sekä matkan pituus ja kesto valitusta lähtöpaikasta ja -ajasta"),
+           ("🌡", "ilma ja vesi perillä; ilma-linkki vie paikan säähän, punaisena ukkosta ennustettu"),
+           ("☀️ ⛅ ☁️ 🌧️ ⛈️", "aurinkoista, puolipilvistä, pilvistä, sadetta, ukkosta")],
+    "en": [("★", "at its best"), ("✓", "works"), ("✗", "does not work"), ("♡ / ♥", "add to favourites / favourite"),
+           ("🚗", "driving route in Google Maps; arrival time and distance from the chosen start and departure"),
+           ("🌡", "air and water on arrival; the air link opens the local weather, red when a thunderstorm is forecast"),
+           ("☀️ ⛅ ☁️ 🌧️ ⛈️", "sunny, partly cloudy, cloudy, rain, thunderstorm")],
+}
 SELITE = {
-    "fi": "★ parhaimmillaan ✓ toimii ✗ ei toimi. Pisteet (0–100) kertovat, miten veden määrä osuu "
-          "paikan kuvauksen optimiin; tasapisteissä lähempi paikka ensin. Tarkista aina olosuhteet "
+    "fi": "Kajakit: suositeltu tyyppi kohteen nimen perässä. Pisteet (0–100) kertovat, miten veden määrä "
+          "osuu paikan kuvauksen optimiin; tasapisteissä lähempi paikka ensin. Tarkista aina olosuhteet "
           "paikan päällä.",
-    "en": "★ at its best ✓ works ✗ does not work. The score (0–100) tells how well the water level "
-          "matches the optimum in the spot description; on equal scores the closer spot comes first. "
+    "en": "Kayaks: recommended type after the feature name. The score (0–100) tells how well the water "
+          "level matches the optimum in the spot description; on equal scores the closer spot comes first. "
           "Spot and feature names and descriptions are in Finnish. Always check conditions on site.",
 }
+
+
+def _selitykset(kieli: str) -> str:
+    """Merkintöjen ja kuvakkeiden selitykset sivun alkuun (aiemmin osa sivun lopussa)."""
+    k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
+    merkit = "".join(f"<li><b>{e(m)}</b> {e(t)}</li>" for m, t in SELITYKSET[kieli])
+    kajakit = "".join(
+        f'<li><svg class="kajakki" viewBox="0 0 40 20" aria-hidden="true"><g fill="currentColor">'
+        f'<path d="{runko}"/>{KAJAKKI_MELOJA}</g></svg> {e(k_(nimi))}</li>'
+        for nimi, runko in KAJAKKI_KUVAKKEET.values())
+    return (f'<details class="selitykset" open><summary>{e(k_("Merkinnät ja kuvakkeet"))}</summary>'
+            f'<ul class="pieni">{merkit}{kajakit}</ul><p class="pieni">{SELITE[kieli]}</p></details>')
 # Kielen vaihto: Ison-Britannian lippu englanniksi, Suomen lippu takaisin suomeksi
 LIPUT = {
     "en": ('<svg viewBox="0 0 60 30" width="28" height="14" aria-hidden="true">'
@@ -824,15 +850,6 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     toinen = "fi" if kieli == "en" else "en"
     vaihto = (f'<a class="kieli" href="{e(_osoite(tyyppi=valittu, kieli=toinen))}" hreflang="{toinen}" '
               f'lang="{toinen}">{LIPUT[toinen]}{"Suomeksi" if toinen == "fi" else "In English"}</a>')
-    # Veden lämpötila on Suomen asemalta (Kipinä), joten Ruotsi-välilehdellä sitä ei näytetä
-    lampotilat = [l for t in tilanne.tulokset for l in t.sivun_kaaviot
-                  if l.suure == "lampotila" and l.arvo is not None and valittu not in ("ruotsi", "suosikit")]
-    lampo = ""
-    if lampotilat:
-        l = lampotilat[0]
-        lampo = (f'<div class="lampo">{k_("Veden lämpötila")} ({e(aseman_nimi(osm.kaavio_avain(l.url)))}): '
-                 f"<b>{l.arvo:.1f} °C</b>"
-                 + (k_(" – kylmää vettä, pukeudu uintia varten!") if l.arvo < 10 else "") + "</div>")
     arvioidut = [t for t in tulokset if t.pisteet is not None]
     rivit = "".join(_paikan_rivi(i, t, kieli, tilanne.saa.get(t.paikka.nimi), tilanne.ajo_min.get(t.paikka.nimi),
                                  ajo_km=tilanne.ajo_km.get(t.paikka.nimi))
@@ -867,7 +884,7 @@ placeholder="{k_("esim. Rovaniemi")}"></label>
 <datalist id="kunnat">{KUNTALISTA}</datalist>
 <script type="application/json" id="paikkakunnat">{KUNNAT_JSON}</script>
 <p id="sijainti-tila" class="pieni" hidden></p>
-{lampo}
+{_selitykset(kieli)}
 <p id="ei-suosikkeja" hidden>{EI_SUOSIKKEJA[kieli]}</p>
 <p id="paiva-tila" class="pieni" hidden></p>
 <table data-valilehti="{e(valittu)}" data-paiva0="{tilanne.paivitetty:%Y-%m-%d}">
@@ -876,7 +893,6 @@ placeholder="{k_("esim. Rovaniemi")}"></label>
 </table>
 {ilman_html}
 {varoitukset}
-<p class="pieni">{SELITE[kieli]}</p>
 </main>
 <script>{SKRIPTI}</script>
 </body>
