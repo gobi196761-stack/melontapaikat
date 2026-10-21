@@ -3,6 +3,7 @@
 Reitit:
     /       päivän järjestys taulukkona
     /api    sama JSON-muodossa (kuten `melonta.py --json`)
+    /api/ajomatkat?lahto=lev,pit  ajomatkat paikkoihin (OSRM), sivun paikkakunta / oma sijainti
     /kaavio/smhi/<asema>/<piste>  Ruotsin mittarin virtaamakaavio (SVG, ks. kaavio_svg.py)
     /kaavio/syke/<alue>/<asema>/<kaavio>  SYKE:n mittarin kaavio ajo.jsonista; arviomallin
                   asemalla (Hawa'Ii) mitatut arvot + arvio. ?paikka=<nimi> valitsee kohteiden alueet
@@ -158,18 +159,20 @@ SKRIPTI = """
 (() => {
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
   const T = document.documentElement.lang === "en" ? {
-    lisaa: "Add to favourites", poista: "Remove from favourites", km: " km as the crow flies",
-    tila: "Distances as the crow flies from your location (driving distance is usually longer).",
+    lisaa: "Add to favourites", poista: "Remove from favourites", km: " km by road",
+    tila: "Driving distances from your location (OpenStreetMap routing).", lasketaan: "Calculating driving distances…",
+    eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
     eiTukea: "Your browser does not support location.", haetaan: "Getting location…",
     eiSaatu: m => "Location not available (" + m + "). Distances are from Oulu city centre.",
-    paikkakunnalta: n => "Distances as the crow flies from " + n + " (driving distance is usually longer).",
+    paikkakunnalta: n => "Driving distances from " + n + " (OpenStreetMap routing).",
     tuntematon: n => "Unknown municipality: " + n + ". Pick one from the list.",
   } : {
-    lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: " km linnuntietä",
-    tila: "Etäisyydet linnuntietä omasta sijainnistasi (ajomatka on yleensä pidempi).",
+    lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: " km ajomatka",
+    tila: "Ajomatkat omasta sijainnistasi (OpenStreetMap-reititys).", lasketaan: "Lasketaan ajomatkoja…",
+    eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
     eiTukea: "Selain ei tue sijaintia.", haetaan: "Haetaan sijaintia…",
     eiSaatu: m => "Sijaintia ei saatu (" + m + "). Etäisyydet ovat Oulun keskustasta.",
-    paikkakunnalta: n => "Etäisyydet linnuntietä paikkakunnalta " + n + " (ajomatka on yleensä pidempi).",
+    paikkakunnalta: n => "Ajomatkat paikkakunnalta " + n + " (OpenStreetMap-reititys).",
     tuntematon: n => "Tuntematon paikkakunta: " + n + ". Valitse listasta.",
   };
   const lue = (k, oletus) => { try { return JSON.parse(localStorage.getItem(k)) ?? oletus; } catch { return oletus; } };
@@ -203,22 +206,14 @@ SKRIPTI = """
   }
   paivita();
 
-  // Etäisyys linnuntietä (haversine) käyttäjän sijainnista
+  // Ajomatkat (tavallinen ajoreitti) lähtöpisteestä kaikkiin paikkoihin: /api/ajomatkat
+  // laskee ne yhdellä reitityskyselyllä. Lähtöpiste pyöristetään ~1 km:n tarkkuuteen.
   const tila = document.getElementById("sijainti-tila");
-  function etaisyys(a, b) {
-    const r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
-    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2;
-    return 2 * 6371 * Math.asin(Math.sqrt(h));
-  }
-  // oma = [lev, pit] tai null (takaisin Oulun keskustaan); lahto = reittilinkkien lähtöpiste
+  let kysely = 0;
   function nayta(oma, teksti, lahto) {
     for (const r of rivit) {
       const km = r.querySelector(".km");
-      if (km && r.dataset.sijainti) {
-        km.dataset.oulu ??= km.textContent;
-        const d = oma && etaisyys(oma, r.dataset.sijainti.split(",").map(Number));
-        km.textContent = oma ? "~" + (d < 10 ? d.toFixed(1) : Math.round(d)) + T.km : km.dataset.oulu;
-      }
+      if (km) { km.dataset.oulu ??= km.textContent; km.textContent = km.dataset.oulu; }
       const reitti = r.querySelector(".reitti");
       if (reitti) {
         const url = new URL(reitti.href);
@@ -226,8 +221,21 @@ SKRIPTI = """
         reitti.href = url.toString();
       }
     }
-    tila.textContent = teksti || "";
-    tila.hidden = !teksti;
+    tila.textContent = oma ? T.lasketaan : "";
+    tila.hidden = !oma;
+    if (!oma) return;
+    const oma2 = oma.map(v => v.toFixed(2)), tama = ++kysely;
+    fetch("/api/ajomatkat?lahto=" + oma2.join(","))
+      .then(v => v.ok ? v.json() : Promise.reject(v.status))
+      .then(d => {
+        if (tama !== kysely) return;   // uudempi valinta ehti ensin
+        for (const r of rivit) {
+          const km = r.querySelector(".km"), k = d.km[r.dataset.paikka];
+          if (km && k != null) km.textContent = "~" + Math.round(k) + T.km;
+        }
+        tila.textContent = teksti;
+      })
+      .catch(() => { if (tama === kysely) tila.textContent = T.eiAjo; });
   }
   function hae() {
     if (!navigator.geolocation) { tila.textContent = T.eiTukea; tila.hidden = false; return; }
@@ -383,7 +391,6 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     if tilanne.varoitukset:
         varoitukset = (f'<h2>{k_("Huomautukset")}</h2><ul class="pieni">'
                        + "".join(f"<li>{e(v)}</li>" for v in tilanne.varoitukset) + "</ul>")
-    api = e("/api" + ("?" + urlencode({k: v[0] for k, v in kysely.items()}) if kysely else ""))
     return f"""<!doctype html>
 <html lang="{kieli}">
 <head>
@@ -395,7 +402,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <body><main>
 <div class="otsake"><h1>{k_("Melontapaikkojen tilanne")} {tilanne.paivitetty:%d.%m.%Y}</h1>{vaihto}</div>
 <div class="meta">{k_("osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet")} ·
-{k_("päivitetty klo")} {tilanne.paivitetty:%H.%M} · <a href="{api}">JSON</a></div>
+{k_("päivitetty klo")} {tilanne.paivitetty:%H.%M}</div>
 <nav>{suodattimet}<button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button>
 <label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
 placeholder="{k_("esim. Rovaniemi")}"></label></nav>
@@ -415,6 +422,37 @@ placeholder="{k_("esim. Rovaniemi")}"></label></nav>
 <script>{SKRIPTI}</script>
 </body>
 </html>"""
+
+
+OSRM_TAULUKKO = "https://router.project-osrm.org/table/v1/driving/{pisteet}?sources=0&annotations=distance"
+AJOMATKA_CACHE = "public, max-age=86400, s-maxage=604800"
+_ajomatkat: dict[tuple[float, float], dict[str, float]] = {}
+
+
+def ajomatkat(lahto: str, hakija: osm.Hakija | None = None) -> tuple[str, dict]:
+    """Ajomatkat (km) lähtöpisteestä 'lev,pit' kaikkiin paikkoihin OSRM:n taulukkokyselyllä
+    (OpenStreetMap-reititys, tavallinen ajoreitti). Lähtöpiste pyöristetään 0.01°:een, jotta
+    tarkka sijainti ei lähde eteenpäin ja tulokset voidaan pitää muistissa."""
+    try:
+        lev, pit = (round(float(v), 2) for v in lahto.split(","))
+    except ValueError:
+        return "400 Bad Request", {"virhe": "lahto=lev,pit puuttuu tai on virheellinen"}
+    if not (54 <= lev <= 71 and 4 <= pit <= 35):
+        return "400 Bad Request", {"virhe": "lähtöpiste on liian kaukana"}
+    if (lev, pit) not in _ajomatkat:
+        paikat = [p for p in PAIKAT if p.sijainti]
+        pisteet = ";".join(f"{x[1]},{x[0]}" for x in [(lev, pit)] + [p.sijainti for p in paikat])
+        data, virhe = osm.hae_turvallisesti(hakija or osm.Hakija(aikaraja=15), OSRM_TAULUKKO.format(pisteet=pisteet))
+        try:
+            matkat = json.loads(data.decode("utf-8"))["distances"][0][1:] if data else None
+        except (ValueError, KeyError, IndexError, TypeError):
+            matkat = None
+        if not matkat:
+            return "503 Service Unavailable", {"virhe": f"reitityspalvelu ei vastannut: {virhe or 'virheellinen vastaus'}"}
+        if len(_ajomatkat) > 2000:
+            _ajomatkat.clear()
+        _ajomatkat[(lev, pit)] = {p.nimi: round(m / 1000, 1) for p, m in zip(paikat, matkat) if m is not None}
+    return "200 OK", {"lahto": [lev, pit], "km": _ajomatkat[(lev, pit)]}
 
 
 def arkistoi(environ) -> tuple[str, dict]:
@@ -660,6 +698,10 @@ def app(environ, start_response):
 
     if metodi not in ("GET", "HEAD"):
         return vastaa("405 Method Not Allowed", "text/plain; charset=utf-8", "Vain GET.\n")
+    if polku == "/api/ajomatkat":
+        status, tulos = ajomatkat(parse_qs(environ.get("QUERY_STRING", "")).get("lahto", [""])[0])
+        return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False),
+                      AJOMATKA_CACHE if status.startswith("200") else "no-store")
     if polku == "/api/arkistoi":
         status, tulos = arkistoi(environ)
         return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False))

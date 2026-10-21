@@ -437,3 +437,32 @@ def test_paikkakunta_ja_reittilinkit(palvelin):
             in runko) and "🚗 Reitti" in runko
     en = pyynto("/", "kieli=en")[2]
     assert "or municipality" in en and "🚗 Route" in en and "e.g. Rovaniemi" in en
+
+
+def test_ajomatkat(monkeypatch):
+    monkeypatch.setattr(app, "_ajomatkat", {})
+    paikat = [p for p in PAIKAT if p.sijainti]
+    kyselyt = []
+
+    def hae(hakija, url):
+        kyselyt.append(url)
+        if hakija == "rikki":
+            return None, "aikakatkaisu"
+        return json.dumps({"code": "Ok", "distances": [[0] + [1000.0 * (i + 1) for i in range(len(paikat))]]}).encode(), None
+
+    monkeypatch.setattr(app.osm, "hae_turvallisesti", hae)
+    # lähtöpiste pyöristetään 0.01°:een ennen reitityskyselyä (OSRM: pit,lev)
+    status, tulos = app.ajomatkat("66.50281,25.72849", "ok")
+    assert status == "200 OK" and tulos["lahto"] == [66.5, 25.73]
+    assert kyselyt[0].startswith("https://router.project-osrm.org/table/v1/driving/25.73,66.5;")
+    assert tulos["km"][paikat[0].nimi] == 1.0 and tulos["km"][paikat[2].nimi] == 3.0
+    assert app.ajomatkat("66.5,25.73", "rikki")[0] == "200 OK" and len(kyselyt) == 1   # muistista
+    assert app.ajomatkat("abc", "ok")[0] == "400 Bad Request"
+    assert app.ajomatkat("40.0,25.0", "ok")[0] == "400 Bad Request"
+    assert app.ajomatkat("60.0,25.0", "rikki")[0] == "503 Service Unavailable"
+
+
+def test_ei_json_linkkia_ja_ajomatka_selaimessa(palvelin):
+    runko = pyynto("/")[2]
+    assert ">JSON</a>" not in runko
+    assert 'fetch("/api/ajomatkat?lahto="' in runko and "linnuntietä" not in runko
