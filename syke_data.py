@@ -106,6 +106,14 @@ def taydenna(lukema: Kaaviolukema, ajo: dict) -> str | None:
     return None
 
 
+def veden_lampotila(ajo: dict) -> float | None:
+    """Vesistömallin veden lämpötila (tw_ka, °C) ennusteen alkupäivältä."""
+    try:
+        return _arvo(ajo["tw_ka"], dt.date.fromisoformat(ajo["ennustepvm_www"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def lue_ajo(data: bytes) -> dict:
     return json.loads(data.decode("utf-8"))
 

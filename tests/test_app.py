@@ -465,4 +465,41 @@ def test_ajomatkat(monkeypatch):
 def test_ei_json_linkkia_ja_ajomatka_selaimessa(palvelin):
     runko = pyynto("/")[2]
     assert ">JSON</a>" not in runko
-    assert 'fetch("/api/ajomatkat?lahto="' in runko and "linnuntietä" not in runko
+    assert 'fetch("/api/ajomatkat?v=2&lahto="' in runko and "linnuntietä" not in runko
+
+
+def test_saa_perilla_ja_veden_lampotila(monkeypatch, palvelin, tilanne):
+    ajo = {"ennustepvm_www": "2026-10-18", "tw_ka": {"ensim_pvm": "2026-10-17", "lst": [5.2, 4.64, 4.1]}}
+    assert syke_data.veden_lampotila(ajo) == pytest.approx(4.64)
+    assert syke_data.veden_lampotila({"ennustepvm_www": "2026-10-18"}) is None
+    assert [app.saa_ikoni(k) for k in (0, 1, 2, 3, 45, 61, 71, 95)] == ["☀️", "☀️", "⛅", "☁️", "☁️", "🌧️", "🌧️", "🌧️"]
+    # tuntiennuste Open-Meteosta: menneet tunnit (yli tunti sitten) jätetään pois
+    nyt = 1_792_540_800
+    monkeypatch.setattr(app.time, "time", lambda: nyt)
+    paikat = [p for p in PAIKAT if p.sijainti]
+    tunnit = [nyt - 7200 + 3600 * i for i in range(6)]
+    vastaus = [{"hourly": {"time": tunnit, "temperature_2m": [-2.0, -1.4, 0.2, 1.0, 2.0, 3.0],
+                           "weather_code": [0, 0, 2, 3, 61, 61]}} for _ in paikat]
+    monkeypatch.setattr(app.osm, "hae_turvallisesti", lambda h, url: (json.dumps(vastaus).encode(), None))
+    saa = app.saaennusteet(None)
+    assert saa[paikat[0].nimi]["aika"][0] == nyt - 3600 and len(saa) == len(paikat)
+    # 60 min ajoa + 30 min -> saapuminen nyt + 1.5 h -> tunti nyt + 1 h
+    assert app.saa_perilla(saa[paikat[0].nimi], 60, nyt) == (nyt + 5400, 1.0, 3)
+    monkeypatch.setattr(app.osm, "hae_turvallisesti", lambda h, url: (None, "aikakatkaisu"))
+    assert app.saaennusteet(None) == {}
+    # sivulla kohteen perässä: saapumisaika, ilma, ikoni ja vesi
+    t = tilanne.tulokset[0]
+    next(iter(t.lukemat.values())).veden_lampotila = 4.64
+    tilanne.saa, tilanne.ajo_min = {t.paikka.nimi: saa[paikat[0].nimi]}, {t.paikka.nimi: 0}
+    runko = pyynto("/")[2]
+    assert '<span class="saa-aika">perillä klo ' in runko and '<span class="saa-ilma">0 °C</span>' in runko
+    assert '<span class="saa-ikoni">⛅</span> · vesi 4.6 °C' in runko and 'data-ajo="0"' in runko
+    en = pyynto("/", "kieli=en")[2]
+    assert "on arrival" in en and ">air</a> <span" in en and "water 4.6 °C" in en
+    # reittilinkki kohdelinkin alla, sää sen perässä; "ilma" vie paikan tuntiennusteeseen
+    lev, pit = t.paikka.sijainti
+    assert (f'<div class="pieni matka"><a class="reitti" href="https://www.google.com/maps/dir/?api=1&amp;'
+            f'destination={lev}%2C{pit}&amp;travelmode=driving" target="_blank" rel="noopener">🚗 Reitti</a> · '
+            f'<span class="saa"') in runko
+    assert f'<a href="https://www.yr.no/en/forecast/hourly-table/{lev},{pit}" target="_blank" rel="noopener">ilma</a>' in runko
+    tilanne.saa, tilanne.ajo_min = {}, {}

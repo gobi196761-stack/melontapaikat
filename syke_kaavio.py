@@ -310,6 +310,7 @@ class Kaaviolukema:
     tunnusluvut: dict[str, float] = field(default_factory=dict)  # MHW, MNW, ...
     asteikko: tuple[float, float] = (0.0, 0.0)  # arvo = a + b * y
     tietolahde: str = "kaavio"      # "kaavio" | "SYKE-data" | "arvio <malli>" (ks. syke_data.py)
+    veden_lampotila: float | None = None  # aseman ajo.jsonin vesistömallin veden lämpötila tänään (°C)
 
     @property
     def arvo(self) -> float | None:

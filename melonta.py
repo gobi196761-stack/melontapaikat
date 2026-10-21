@@ -151,6 +151,7 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
         ajo = luetut.get(syke_data.ajo_avain(avain))
         if not ajo:
             continue
+        lukema.veden_lampotila = syke_data.veden_lampotila(ajo)
         for virhe in (syke_data.taydenna(lukema, ajo), syke_data.arvioi_tanaan(lukema, luetut)):
             if virhe:
                 varoitukset.append(virhe)

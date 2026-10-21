@@ -29,7 +29,7 @@ import json
 import os
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import parse_qs, urlencode
 
 import ennustearkisto
@@ -62,6 +62,9 @@ class Tilanne:
     tulokset: list
     varoitukset: list[str]
     lukemia: int
+    # paikan nimi -> tuntiennuste {"aika": [unix s], "t": [°C], "k": [WMO-sääkoodi]} (Open-Meteo)
+    saa: dict[str, dict] = field(default_factory=dict)
+    ajo_min: dict[str, float] = field(default_factory=dict)   # paikan nimi -> ajoaika Oulusta (min)
 
 
 _lukko = threading.Lock()
@@ -79,10 +82,56 @@ def hae_tilanne() -> Tilanne:
         hakija = osm.Hakija(aikaraja=20)
         sivun_kaaviot, lukemat, varoitukset = melonta.kerää_tilanne(hakija, PAIKAT)
         tulokset = melonta.arvioi_kaikki(PAIKAT, sivun_kaaviot, lukemat, nyt.date())
-        tilanne = Tilanne(nyt, tulokset, varoitukset, len(lukemat))
+        status, oulusta = ajomatkat(OULU, hakija)
+        tilanne = Tilanne(nyt, tulokset, varoitukset, len(lukemat), saaennusteet(hakija),
+                          oulusta.get("min", {}) if status.startswith("200") else {})
         if lukemat:   # epäonnistunutta hakua ei jätetä muistiin
             _tilanne = (time.monotonic(), tilanne)
         return tilanne
+
+
+OPEN_METEO = "https://api.open-meteo.com/v1/forecast?{kysely}"
+
+
+OULU = "65.01,25.47"          # oletuslähtöpaikka ajoajoille (Oulun keskusta)
+LISAAIKA_MIN = 30             # ajoajan päälle: pakkaus, tauot – sää katsotaan perillä tähän aikaan
+
+
+def saaennusteet(hakija: osm.Hakija, tunteja: int = 48) -> dict[str, dict]:
+    """Tuntiennuste (lämpötila, WMO-sääkoodi) paikkojen sijainneissa Open-Meteosta yhdellä
+    kyselyllä: nimi -> {"aika": [unix s], "t": [...], "k": [...]}. Tyhjä, jos palvelu ei vastaa."""
+    paikat = [p for p in PAIKAT if p.sijainti]
+    kysely = urlencode({"latitude": ",".join(str(p.sijainti[0]) for p in paikat),
+                        "longitude": ",".join(str(p.sijainti[1]) for p in paikat),
+                        "hourly": "temperature_2m,weather_code", "forecast_days": 3,
+                        "timeformat": "unixtime"})
+    data, _ = osm.hae_turvallisesti(hakija, OPEN_METEO.format(kysely=kysely))
+    try:
+        vastaus = json.loads(data.decode("utf-8")) if data else []
+        vastaus = vastaus if isinstance(vastaus, list) else [vastaus]
+        alku = int(time.time()) - 3600
+        tulos = {}
+        for p, v in zip(paikat, vastaus):
+            h = v["hourly"]
+            rivit = [(a, t, k) for a, t, k in zip(h["time"], h["temperature_2m"], h["weather_code"])
+                     if a >= alku and isinstance(t, (int, float)) and isinstance(k, int)][:tunteja]
+            if rivit:
+                tulos[p.nimi] = {"aika": [r[0] for r in rivit], "t": [round(r[1], 1) for r in rivit],
+                                 "k": [r[2] for r in rivit]}
+        return tulos
+    except (ValueError, AttributeError, KeyError, TypeError):
+        return {}
+
+
+def saa_ikoni(koodi: int) -> str:
+    """WMO-sääkoodi -> aurinko, puolipilvi, pilvi tai sadepilvi."""
+    if koodi <= 1:
+        return "☀️"
+    if koodi == 2:
+        return "⛅"
+    if koodi in (3, 45, 48):
+        return "☁️"
+    return "🌧️"   # tihku, sade, lumi, kuurot, ukkonen
 
 
 def suodata(tulokset: list, kysely: dict[str, list[str]]) -> list:
@@ -149,6 +198,8 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
 .paikkakunta input { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; font:inherit;
                      font-size:.9rem; width:11em; background:var(--tausta); color:var(--teksti); }
 .reitti { white-space:nowrap; }
+.saa { color:var(--heikko); }
+.matka { margin:1px 0; }
 nav button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; background:none;
              color:var(--linkki); font:inherit; font-size:.9rem; cursor:pointer; }
 """
@@ -160,6 +211,7 @@ SKRIPTI = """
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
   const T = document.documentElement.lang === "en" ? {
     lisaa: "Add to favourites", poista: "Remove from favourites", km: " km by road",
+    kieli: "en-GB", perilla: "on arrival",
     tila: "Driving distances from your location (OpenStreetMap routing).", lasketaan: "Calculating driving distances…",
     eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
     eiTukea: "Your browser does not support location.", haetaan: "Getting location…",
@@ -168,6 +220,7 @@ SKRIPTI = """
     tuntematon: n => "Unknown municipality: " + n + ". Pick one from the list.",
   } : {
     lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: " km ajomatka",
+    kieli: "fi-FI", perilla: "perillä klo",
     tila: "Ajomatkat omasta sijainnistasi (OpenStreetMap-reititys).", lasketaan: "Lasketaan ajomatkoja…",
     eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
     eiTukea: "Selain ei tue sijaintia.", haetaan: "Haetaan sijaintia…",
@@ -206,6 +259,24 @@ SKRIPTI = """
   }
   paivita();
 
+  // Sää perillä: tuntiennuste rivillä (data-saa), saapuminen = nyt + ajoaika + 30 min
+  const ikoni = k => k <= 1 ? "☀️" : k === 2 ? "⛅" : (k === 3 || k === 45 || k === 48) ? "☁️" : "🌧️";
+  const kello = s => new Date(s * 1000).toLocaleTimeString(T.kieli, {hour: "2-digit", minute: "2-digit", timeZone: "Europe/Helsinki"});
+  function saa(r, ajoMin) {
+    const el = r.querySelector(".saa[data-saa]");
+    if (!el || ajoMin == null) return;
+    const s = JSON.parse(el.dataset.saa), perilla = Date.now() / 1000 + (ajoMin + 30) * 60;
+    let i = -1;
+    s.aika.forEach((a, j) => { if (a <= perilla) i = j; });
+    if (i < 0) return;
+    const aika = el.querySelector(".saa-aika"), ilma = el.querySelector(".saa-ilma"), kuva = el.querySelector(".saa-ikoni");
+    if (aika) aika.textContent = T.perilla + " " + kello(perilla) + ": ";
+    if (ilma) ilma.textContent = Math.round(s.t[i]).toString().replace("-", "−") + " °C";
+    if (kuva) kuva.textContent = ikoni(s.k[i]);
+  }
+  const saaOulusta = () => rivit.forEach(r => { const el = r.querySelector(".saa[data-ajo]"); if (el) saa(r, Number(el.dataset.ajo)); });
+  saaOulusta();   // sivu voi olla välimuistista: saapumisaika tämän hetken mukaan
+
   // Ajomatkat (tavallinen ajoreitti) lähtöpisteestä kaikkiin paikkoihin: /api/ajomatkat
   // laskee ne yhdellä reitityskyselyllä. Lähtöpiste pyöristetään ~1 km:n tarkkuuteen.
   const tila = document.getElementById("sijainti-tila");
@@ -223,15 +294,16 @@ SKRIPTI = """
     }
     tila.textContent = oma ? T.lasketaan : "";
     tila.hidden = !oma;
-    if (!oma) return;
+    if (!oma) { saaOulusta(); return; }
     const oma2 = oma.map(v => v.toFixed(2)), tama = ++kysely;
-    fetch("/api/ajomatkat?lahto=" + oma2.join(","))
+    fetch("/api/ajomatkat?v=2&lahto=" + oma2.join(","))   // v: vastauksen muoto (ajoajat mukana)
       .then(v => v.ok ? v.json() : Promise.reject(v.status))
       .then(d => {
         if (tama !== kysely) return;   // uudempi valinta ehti ensin
         for (const r of rivit) {
           const km = r.querySelector(".km"), k = d.km[r.dataset.paikka];
           if (km && k != null) km.textContent = "~" + Math.round(k) + T.km;
+          saa(r, d.min ? d.min[r.dataset.paikka] : null);
         }
         tila.textContent = teksti;
       })
@@ -307,7 +379,54 @@ def _pisteluokka(p: float) -> str:
     return "p-hyva" if p >= 60 else "p-keski" if p >= 30 else "p-huono"
 
 
-def _paikan_rivi(sija: int, t, kieli: str = "fi") -> str:
+def saa_perilla(saa: dict, ajo_min: float, nyt: float) -> tuple[float, float, int] | None:
+    """(saapumisaika unix s, lämpötila, sääkoodi) tunnilta, jolle nyt + ajoaika + 30 min osuu."""
+    perilla = nyt + (ajo_min + LISAAIKA_MIN) * 60
+    i = max((i for i, a in enumerate(saa["aika"]) if a <= perilla), default=None)
+    return (perilla, saa["t"][i], saa["k"][i]) if i is not None else None
+
+
+def _kello(aika: float, kieli: str) -> str:
+    try:
+        from zoneinfo import ZoneInfo
+        hetki = dt.datetime.fromtimestamp(aika, ZoneInfo("Europe/Helsinki"))
+    except Exception:  # aikavyöhyketietokanta puuttuu
+        hetki = dt.datetime.fromtimestamp(aika, dt.timezone(dt.timedelta(hours=2)))
+    return hetki.strftime("%H:%M" if kieli == "en" else "%H.%M")
+
+
+YR_SAA = "https://www.yr.no/en/forecast/hourly-table/{lev},{pit}"
+
+
+def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt: float) -> str:
+    """'🌡 perillä klo 12.40: ilma −1 °C ⛅ · vesi 4.6 °C' reittilinkin perään. Ilma ja sää
+    saapumishetkeltä (ajoaika Oulusta + 30 min; selain laskee uudelleen lähtöpaikan mukaan),
+    vesi mittariaseman vesistömallista. Sana "ilma" vie paikan tuntiennusteeseen (yr.no)."""
+    vesi = next((l.veden_lampotila for avain in t.paikka.mittarit
+                 if (l := t.lukemat.get(avain)) is not None and l.veden_lampotila is not None), None)
+    tiedot = ""
+    if saa:
+        tiedot += f" data-saa='{html.escape(json.dumps(saa, separators=(',', ':')))}'"
+    if ajo_min is not None:
+        tiedot += f' data-ajo="{ajo_min:.0f}"'
+    perilla = saa_perilla(saa, ajo_min, nyt) if saa and ajo_min is not None else None
+    ilma_linkki = k_("ilma")
+    if t.paikka.sijainti:
+        osoite = YR_SAA.format(lev=t.paikka.sijainti[0], pit=t.paikka.sijainti[1])
+        ilma_linkki = f'<a href="{e(osoite)}" target="_blank" rel="noopener">{ilma_linkki}</a>'
+    ilma = ""
+    if perilla:
+        aika, lampo, koodi = perilla
+        lampo_teksti = f"{lampo:.0f} °C".replace("-", "−")
+        ilma = (f'<span class="saa-aika">{k_("perillä klo")} {_kello(aika, kieli)}: </span>'
+                f'{ilma_linkki} <span class="saa-ilma">{lampo_teksti}</span> '
+                f'<span class="saa-ikoni">{saa_ikoni(koodi)}</span>')
+    osat = ([ilma] if ilma else []) + ([f"{k_('vesi')} {vesi:.1f} °C"] if vesi is not None else [])
+    return f'<span class="saa"{tiedot}>🌡 {" · ".join(osat)}</span>' if osat or tiedot else ""
+
+
+def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_min: float | None = None,
+                 nyt: float | None = None) -> str:
     p = t.paikka
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
     nakyvat = []
@@ -339,13 +458,17 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi") -> str:
     if p.sijainti:
         osoite = "https://www.google.com/maps/dir/?" + urlencode(
             {"api": 1, "destination": f"{p.sijainti[0]},{p.sijainti[1]}", "travelmode": "driving"})
-        reitti = (f' · <a class="reitti" href="{e(osoite)}" target="_blank" rel="noopener">'
+        reitti = (f'<a class="reitti" href="{e(osoite)}" target="_blank" rel="noopener">'
                   f'{k_("🚗 Reitti")}</a>')
+    # kohdelinkin alle: reittilinkki ja sen perään sää perillä
+    lampo = _lampotilat(t, saa, ajo_min, k_, kieli, nyt or time.time())
+    reitti_ja_saa = " · ".join(x for x in (reitti, lampo) if x)
+    reitti_ja_saa = f'\n<div class="pieni matka">{reitti_ja_saa}</div>' if reitti_ja_saa else ""
     return f"""<tr data-paikka="{e(p.nimi)}"{sijainti}>
 <td class="sija">{sija}.</td>
 <td><div class="nimi"><a href="{e(p.url)}">{e(p.nimi)}</a>
-<button type="button" class="suosikki" aria-pressed="false" title="{k_('Lisää suosikkeihin')}">♡</button></div>
-<div class="pieni">{e(k_(p.tyyppi))}{' · ' + km if km else ''}{reitti}</div>
+<button type="button" class="suosikki" aria-pressed="false" title="{k_('Lisää suosikkeihin')}">♡</button></div>{reitti_ja_saa}
+<div class="pieni">{e(k_(p.tyyppi))}{' · ' + km if km else ''}</div>
 <ul class="pieni">{''.join(mittarit)}</ul>
 <ul>{''.join(kohde(k) for k in lyhyet)}{huomiot}</ul>{lisat}</td>
 <td class="pisteet {_pisteluokka(t.pisteet)}">{t.pisteet:.0f}</td>
@@ -380,7 +503,8 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
                  f"<b>{l.arvo:.1f} °C</b>"
                  + (k_(" – kylmää vettä, pukeudu uintia varten!") if l.arvo < 10 else "") + "</div>")
     arvioidut = [t for t in tulokset if t.pisteet is not None]
-    rivit = "".join(_paikan_rivi(i, t, kieli) for i, t in enumerate(arvioidut, 1))
+    rivit = "".join(_paikan_rivi(i, t, kieli, tilanne.saa.get(t.paikka.nimi), tilanne.ajo_min.get(t.paikka.nimi))
+                    for i, t in enumerate(arvioidut, 1))
     ilman = [t for t in tulokset if t.pisteet is None]
     ilman_html = ""
     if ilman:
@@ -424,13 +548,13 @@ placeholder="{k_("esim. Rovaniemi")}"></label></nav>
 </html>"""
 
 
-OSRM_TAULUKKO = "https://router.project-osrm.org/table/v1/driving/{pisteet}?sources=0&annotations=distance"
+OSRM_TAULUKKO = "https://router.project-osrm.org/table/v1/driving/{pisteet}?sources=0&annotations=distance,duration"
 AJOMATKA_CACHE = "public, max-age=86400, s-maxage=604800"
-_ajomatkat: dict[tuple[float, float], dict[str, float]] = {}
+_ajomatkat: dict[tuple[float, float], dict[str, dict[str, float]]] = {}
 
 
 def ajomatkat(lahto: str, hakija: osm.Hakija | None = None) -> tuple[str, dict]:
-    """Ajomatkat (km) lähtöpisteestä 'lev,pit' kaikkiin paikkoihin OSRM:n taulukkokyselyllä
+    """Ajomatkat (km) ja -ajat (min) lähtöpisteestä 'lev,pit' kaikkiin paikkoihin OSRM:n taulukkokyselyllä
     (OpenStreetMap-reititys, tavallinen ajoreitti). Lähtöpiste pyöristetään 0.01°:een, jotta
     tarkka sijainti ei lähde eteenpäin ja tulokset voidaan pitää muistissa."""
     try:
@@ -444,15 +568,19 @@ def ajomatkat(lahto: str, hakija: osm.Hakija | None = None) -> tuple[str, dict]:
         pisteet = ";".join(f"{x[1]},{x[0]}" for x in [(lev, pit)] + [p.sijainti for p in paikat])
         data, virhe = osm.hae_turvallisesti(hakija or osm.Hakija(aikaraja=15), OSRM_TAULUKKO.format(pisteet=pisteet))
         try:
-            matkat = json.loads(data.decode("utf-8"))["distances"][0][1:] if data else None
+            vastaus = json.loads(data.decode("utf-8")) if data else {}
+            matkat = vastaus["distances"][0][1:]
+            ajat = (vastaus.get("durations") or [[None] * (len(matkat) + 1)])[0][1:]
         except (ValueError, KeyError, IndexError, TypeError):
             matkat = None
         if not matkat:
             return "503 Service Unavailable", {"virhe": f"reitityspalvelu ei vastannut: {virhe or 'virheellinen vastaus'}"}
         if len(_ajomatkat) > 2000:
             _ajomatkat.clear()
-        _ajomatkat[(lev, pit)] = {p.nimi: round(m / 1000, 1) for p, m in zip(paikat, matkat) if m is not None}
-    return "200 OK", {"lahto": [lev, pit], "km": _ajomatkat[(lev, pit)]}
+        _ajomatkat[(lev, pit)] = {
+            "km": {p.nimi: round(m / 1000, 1) for p, m in zip(paikat, matkat) if m is not None},
+            "min": {p.nimi: round(s / 60) for p, s in zip(paikat, ajat) if s is not None}}
+    return "200 OK", {"lahto": [lev, pit], **_ajomatkat[(lev, pit)]}
 
 
 def arkistoi(environ) -> tuple[str, dict]:
