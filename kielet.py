@@ -45,6 +45,8 @@ SANAT = {
     "ennuste": "forecast",
     "havainto": "observed",
     "laskettu arvio": "computed estimate",
+    "arvio silloin (arkisto)": "estimate at the time (archive)",
+    "laskettu jälkikäteen": "computed afterwards",
     "keskivirhe": "mean error",
     "arvio tänään": "estimate today",
     "ennusteen 5–95 %": "forecast 5–95 %",

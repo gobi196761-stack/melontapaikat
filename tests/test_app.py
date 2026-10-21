@@ -232,11 +232,13 @@ def ajot(tmp_path):
 
 def test_arviomallin_kaavio(ajot, monkeypatch):
     monkeypatch.setattr(app, "_tilanne", None)
+    monkeypatch.setattr(app, "arkistoidut_arviot", lambda asema: {dt.date(2026, 10, 17): 400.0})
     kuva = app.arvio_kaavio_svg("61/q6101750y", ajot)
     ET.fromstring(kuva)
     assert "Hawa&#x27;Ii (Iijoki, Maalismaa) – mittari" in kuva
     assert "arvio Pudasjärvi + Siurua" in kuva and "ennuste tehty 18.10." in kuva
-    assert "arvio tänään" in kuva and "ennusteen 5–95 %" in kuva and "laskettu arvio (keskivirhe" in kuva
+    assert "arvio tänään" in kuva and "ennusteen 5–95 %" in kuva and "arvio silloin (arkisto) (keskivirhe 1" in kuva
+    assert "laskettu jälkikäteen (keskivirhe" in kuva   # päivät ennen arkiston alkua
     # vain mitatut historia-arvot: ei mallin jälkilaskennan viivaa
     assert "malli (ennuste" not in kuva
     # mitatut päivät 8.–17.10. (tämän päivän havaintoa ei vielä ole) vinoneliöinä + selitteen kaksi
@@ -258,16 +260,17 @@ def test_arviomallin_ennuste_jatkuu_arviosta(ajot):
     monkey = kaavio_svg.piirra
     try:
         kaavio_svg.piirra = lambda *a, **k: tallentaja.update(k) or ""
-        kaavio_svg.arvio_svg(lukema, luetut, "61/q6101750y", "testi")
+        kaavio_svg.arvio_svg(lukema, luetut, "61/q6101750y", "testi", arkisto={dt.date(2026, 10, 16): 390.0})
     finally:
         kaavio_svg.piirra = monkey
     tanaan = dt.date(2026, 10, 18)
     assert tallentaja["arvio"] == pytest.approx(lukema.arvo)
     assert tanaan not in tallentaja["havainnot"]
-    # menneiden päivien arviot lasketaan kuten silloin olisi laskettu, havaintojen rinnalle
-    aiemmat = tallentaja["aiemmat_arviot"]
-    assert aiemmat and max(aiemmat) < tanaan
-    assert aiemmat[dt.date(2026, 10, 17)] == pytest.approx(
+    # menneet arviot: silloin näytetty arvo arkistosta, muut päivät laskettuna jälkikäteen
+    assert tallentaja["aiemmat_arviot"] == {dt.date(2026, 10, 16): 390.0}
+    jalkikateen = tallentaja["jalkikateen_arviot"]
+    assert dt.date(2026, 10, 16) not in jalkikateen and max(jalkikateen) < tanaan
+    assert jalkikateen[dt.date(2026, 10, 17)] == pytest.approx(
         syke_data.arvioi_paiva("61/q6101750y", luetut, dt.date(2026, 10, 17)))
     eka = tallentaja["ennuste"][tanaan + dt.timedelta(days=1)]
     assert eka == pytest.approx(lukema.arvo + lukema.ennuste[1] - lukema.malli)
@@ -403,3 +406,19 @@ def test_kaukaiset_ja_tulvaindeksirajat():
     t, pa = alueet["Retkimelonta Alaniemi – Simo (kesävesi)"]
     assert t == pytest.approx((10.2, 11.4)) and pa == pytest.approx((10.4, 11.2))
     assert all(n != "Retkimelonta Alaniemi – Simo (kesävesi)" for n, _, _ in app._alueet(simo, "paa"))
+
+
+def test_arkistoidut_arviot(monkeypatch):
+    class Kanta:
+        def listaa(self, kokoelma):
+            assert kokoelma == "ennusteet"
+            return {"2026-10-19": {"arviot": {"61/q6101750y": {"ennustepvm_www": "2026-10-19", "tanaan": 401.5}}},
+                    "2026-10-20": {"arviot": {"61/q6101750y": {"ennustepvm_www": "2026-10-20", "tanaan": None}}},
+                    "2026-10-21": {"asemat": {}}}
+    monkeypatch.setattr(app, "_arkisto", None)
+    monkeypatch.setattr(app.firestore.Firestore, "ymparistosta", classmethod(lambda cls: Kanta()))
+    assert app.arkistoidut_arviot("61/q6101750y") == {dt.date(2026, 10, 19): 401.5}
+    # ilman tunnuksia arkisto on tyhjä eikä kaavio kaadu
+    monkeypatch.setattr(app, "_arkisto", None)
+    monkeypatch.setattr(app.firestore.Firestore, "ymparistosta", classmethod(lambda cls: None))
+    assert app.arkistoidut_arviot("61/q6101750y") == {}

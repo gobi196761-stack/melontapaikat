@@ -559,7 +559,32 @@ def _arvio_kaavio(paikka, avain, mittari, asema: str, hakija: osm.Hakija, otsikk
             if vanha.url == lukema.url:
                 lukema.tunnusluvut = dict(vanha.tunnusluvut)
     return kaavio_svg.arvio_svg(lukema, ajot, asema, otsikko,
-                                _alueet(paikka, avain, lukema.tunnusluvut), kieli)
+                                _alueet(paikka, avain, lukema.tunnusluvut), kieli, arkistoidut_arviot(asema))
+
+
+_arkisto: tuple[float, dict[str, dict]] | None = None
+
+
+def arkistoidut_arviot(asema: str) -> dict[dt.date, float]:
+    """Sovelluksen kunakin päivänä näyttämä arviomallin arvo ennustearkistosta (Firestore,
+    ennustearkisto.py): ennusteen alkupäivä -> arvo. Tyhjä, jos arkistoon ei päästä."""
+    global _arkisto
+    if not _arkisto or time.monotonic() - _arkisto[0] > VALIMUISTI_S:
+        try:
+            kanta = firestore.Firestore.ymparistosta()
+            dokumentit = kanta.listaa(ennustearkisto.KOKOELMA) if kanta else {}
+        except (firestore.FirestoreVirhe, OSError, ValueError, KeyError, ImportError):
+            dokumentit = {}   # arkisto ei saatavilla: menneet arviot lasketaan jälkikäteen
+        _arkisto = (time.monotonic(), dokumentit)
+    tulos = {}
+    for doc in _arkisto[1].values():
+        arvio = (doc.get("arviot") or {}).get(asema) or {}
+        try:
+            if arvio.get("tanaan") is not None:
+                tulos[dt.date.fromisoformat(arvio["ennustepvm_www"])] = float(arvio["tanaan"])
+        except (KeyError, TypeError, ValueError):
+            continue
+    return tulos
 
 
 def arvio_kaavio_svg(asema: str, hakija: osm.Hakija | None = None) -> str | None:

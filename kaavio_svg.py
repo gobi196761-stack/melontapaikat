@@ -68,6 +68,7 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
            havainto_viiva: bool = False,
            arvio: float | None = None,
            aiemmat_arviot: dict[dt.date, float] | None = None,
+           jalkikateen_arviot: dict[dt.date, float] | None = None,
            paivan_arvo: tuple[float, str] | None = None,
            tunnus: list[tuple[str, float, str]] | None = None,
            alueet: list[Alue] | None = None,
@@ -82,6 +83,7 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     malli, ennuste, ennuste_vali = malli or {}, ennuste or {}, ennuste_vali or {}
     tausta, havainnot, tunnus = tausta or {}, havainnot or {}, tunnus or []
     aiemmat_arviot, alueet = aiemmat_arviot or {}, alueet or []
+    jalkikateen_arviot = jalkikateen_arviot or {}
     metreja = yksikko == "m"
 
     def luku(v: float) -> str:
@@ -97,11 +99,13 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     malli = {p: v for p, v in malli.items() if p >= alku}
     havainnot = {ms: v for ms, v in havainnot.items() if ms >= _ms(alku)}
     aiemmat_arviot = {p: v for p, v in aiemmat_arviot.items() if p >= alku}
+    jalkikateen_arviot = {p: v for p, v in jalkikateen_arviot.items() if p >= alku}
     tausta = {p: t for p, t in tausta.items() if alku <= p <= loppu}
 
     arvot = list(malli.values()) + list(ennuste.values()) + list(havainnot.values()) \
         + [v for t in tausta.values() for v in t] + [v for t in ennuste_vali.values() for v in t] \
-        + list(aiemmat_arviot.values()) + ([arvio] if arvio is not None else []) \
+        + list(aiemmat_arviot.values()) + list(jalkikateen_arviot.values()) \
+        + ([arvio] if arvio is not None else []) \
         + ([paivan_arvo[0]] if paivan_arvo else [])
     if not arvot:
         arvot = [0.0, 1.0]
@@ -216,12 +220,17 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         if arvio is not None:
             pisteet.append((x(tanaan), y(arvio)))
         ryhma.append(f'<path d="{polku(pisteet)}" fill="none" stroke="#000" stroke-width="1.2"/>')
-    if aiemmat_arviot:   # menneiden päivien arviot: näkee, miten hyvin malli osui havaintoihin
-        sarja = dict(aiemmat_arviot)
+    if aiemmat_arviot or jalkikateen_arviot:
+        # menneiden päivien arviot: näkee, miten hyvin malli osui havaintoihin
+        # (aiemmat = silloin näytetty arvo ennustearkistosta, jälkikäteen = laskettu nyt)
+        sarja = {**jalkikateen_arviot, **aiemmat_arviot}
         if arvio is not None:
             sarja[tanaan] = arvio
         ryhma.append(f'<path d="{polku([(x(p), y(v)) for p, v in sorted(sarja.items())])}" fill="none" '
                      f'stroke="#ef6c00" stroke-width="1.2" stroke-dasharray="3 3"/>')
+        for p, v in sorted(jalkikateen_arviot.items()):
+            if p not in aiemmat_arviot:
+                ryhma.append(vinonelio(x(p), y(v), 4.5, "#f4b183", ontto=True))
         for p, v in sorted(aiemmat_arviot.items()):
             ryhma.append(vinonelio(x(p), y(v), 5.5, "#ef6c00", ontto=True))
     for ms, v in sorted(havainnot.items()):
@@ -276,11 +285,16 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         selite.append(("katko", "#1565c0", _t("ennuste")))
     if havainnot:
         selite.append(("vino" if havainto_viiva else "piste", "#000", _t("havainto")))
-    if aiemmat_arviot:
-        virheet = [abs(v - havainnot[_ms(p) + PAIVA_MS // 2]) for p, v in aiemmat_arviot.items()
+    def keskivirhe(arviot: dict[dt.date, float]) -> str:
+        virheet = [abs(v - havainnot[_ms(p) + PAIVA_MS // 2]) for p, v in arviot.items()
                    if _ms(p) + PAIVA_MS // 2 in havainnot]
-        teksti = _t("laskettu arvio") + (f" ({_t('keskivirhe')} {luku(sum(virheet) / len(virheet))})" if virheet else "")
-        selite.append(("onttovino", "#ef6c00", teksti))
+        return f" ({_t('keskivirhe')} {luku(sum(virheet) / len(virheet))})" if virheet else ""
+
+    if aiemmat_arviot:
+        selite.append(("onttovino", "#ef6c00", _t("arvio silloin (arkisto)") + keskivirhe(aiemmat_arviot)))
+    jalkikateen = {p: v for p, v in jalkikateen_arviot.items() if p not in aiemmat_arviot}
+    if jalkikateen:
+        selite.append(("onttovino_vaalea", "#f4b183", _t("laskettu jälkikäteen") + keskivirhe(jalkikateen)))
     if arvio is not None:
         selite.append(("vino", "#ef6c00", _t("arvio tänään")))
     elif paivan_arvo:
@@ -304,8 +318,8 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
             osat.append(f'<line x1="{sx}" x2="{sx + 18}" y1="{sy - 4}" y2="{sy - 4}" stroke="{vari}" stroke-width="2" stroke-dasharray="5 3"/>')
         elif laji == "piste":
             osat.append(f'<circle cx="{sx + 9}" cy="{sy - 4}" r="3" fill="{vari}"/>')
-        elif laji in ("vino", "onttovino"):
-            osat.append(vinonelio(sx + 9, sy - 4, 5, vari, ontto=laji == "onttovino"))
+        elif laji in ("vino", "onttovino", "onttovino_vaalea"):
+            osat.append(vinonelio(sx + 9, sy - 4, 5, vari, ontto=laji != "vino"))
         else:
             osat.append(f'<rect x="{sx}" y="{sy - 10}" width="18" height="12" fill="{vari}"/>')
         osat.append(f'<text x="{sx + 23}" y="{sy}" fill="#1b1f24">{e(teksti)}</text>')
@@ -424,20 +438,25 @@ def kuva_svg(sarjat, tanaan: dt.date, otsikko: str, yksikko: str, alueet: list[A
 
 
 def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: list[Alue] | None = None,
-              kieli: str = "fi") -> str:
-    """Arviomallin aseman kaavio: mitatut päiväarvot, samojen päivien lasketut arviot,
-    tämän päivän arvio ja siitä jatkuva ennuste.
+              kieli: str = "fi", arkisto: dict[dt.date, float] | None = None) -> str:
+    """Arviomallin aseman kaavio: mitatut päiväarvot, samojen päivien arviot, tämän päivän
+    arvio ja siitä jatkuva ennuste.
 
     `lukema` on syke_data.taydenna- ja arvioi_tanaan-funktioilla täydennetty Kaaviolukema,
-    `ajot` ajo.json-avain -> luettu ajo.json (aseman oma ja arviomallin syöteasemat).
+    `ajot` ajo.json-avain -> luettu ajo.json (aseman oma ja arviomallin syöteasemat),
+    `arkisto` päivä -> sovelluksen silloin näyttämä arvo ennustearkistosta. Päivät, joilta
+    arkistoa ei ole, lasketaan jälkikäteen (syke_data.arvioi_paiva) ja merkitään eri tavalla.
     """
     ajo = ajot[f"{asema}/ajo.json"]
     tanaan = dt.date.fromisoformat(ajo["ennustepvm_www"])
     havainnot = {_ms(p) + PAIVA_MS // 2: v for p, v in
                  _paivasarja(ajo.get("qhav"), tanaan - dt.timedelta(days=HISTORIA_PAIVIA),
                              tanaan - dt.timedelta(days=1)).items()}
-    aiemmat = {p: v for p in (smhi_data._paiva(ms) for ms in havainnot)
-               if (v := syke_data.arvioi_paiva(asema, ajot, p)) is not None}
+    arkisto = arkisto or {}
+    menneet = [tanaan - dt.timedelta(days=n) for n in range(HISTORIA_PAIVIA, 0, -1)]
+    aiemmat = {p: arkisto[p] for p in menneet if p in arkisto}
+    jalkikateen = {p: v for p in menneet
+                   if p not in aiemmat and (v := syke_data.arvioi_paiva(asema, ajot, p)) is not None}
     arvio = lukema.arvo
     ennuste = {tanaan + dt.timedelta(days=n): v for n in lukema.ennuste
                if (v := lukema.ennuste_korjattu(n)) is not None}
@@ -454,5 +473,6 @@ def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: l
     alaotsikko = (f"{_t('Virtaama m³/s')} · {_t('havainnot ja ennuste SYKE, tämän päivän arvo')}: "
                   f"{_t('(' + lukema.lahde)[1:]} · {_t('ennuste tehty')} {tanaan.day}.{tanaan.month}.")
     return piirra(otsikko, alaotsikko, tanaan, ennuste=ennuste, ennuste_vali=vali, havainnot=havainnot,
-                  havainto_viiva=True, arvio=arvio, aiemmat_arviot=aiemmat, tunnus=tunnus, alueet=alueet,
+                  havainto_viiva=True, arvio=arvio, aiemmat_arviot=aiemmat, jalkikateen_arviot=jalkikateen,
+                  tunnus=tunnus, alueet=alueet,
                   kieli=kieli)
