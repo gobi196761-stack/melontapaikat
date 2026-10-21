@@ -385,6 +385,8 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
 .reitti { white-space:nowrap; }
 .saa { color:var(--heikko); }
 .matka, .lampotilat { margin:1px 0; }
+.kajakit { white-space:nowrap; }
+.kajakki { width:26px; height:13px; vertical-align:-2px; margin-left:3px; color:var(--linkki); }
 .ukkonen { color:var(--huono) !important; font-weight:700; }
 .tyyppi { font-weight:400; font-size:.85rem; color:var(--heikko); margin-left:2px; }
 nav button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; background:none;
@@ -642,6 +644,29 @@ LIPUT = {
 }
 
 
+# Kajakkityyppien kuvakkeet (omat sivuprofiilit: meloja + runko; tyypit erottuvat rungon pituudesta
+# ja muodosta). viewBox 0 0 40 20, väri tekstin mukaan.
+KAJAKKI_MELOJA = ('<circle cx="20" cy="5.2" r="2.1"/><path d="M18 7.6h4l.8 6.4h-5.6Z"/>'
+                  '<path d="M11.5 15.5 28.5 2.5" stroke="currentColor" stroke-width="1.1" fill="none"/>'
+                  '<path d="M10.2 16.8l2.6-2.2.9 1.2-2.4 1.9ZM29.8 1.2l-2.6 2.2-.9-1.2 2.4-1.9Z"/>')
+KAJAKKI_KUVAKKEET = {
+    "freestyle": ("freestyle-kajakki", "M9 15.2C10.5 17.6 15 18.3 20 18.3S29.5 17.6 31 15.2C28.5 14.6 24.5 13.8 20 13.8S11.5 14.6 9 15.2Z"),
+    "slice": ("slice-kajakki (half / full slice)", "M3.5 15.6C7 17.6 13 18.1 20 18.1S33 17.6 36.5 15.4C32 14.6 26 13.9 20 13.9S8 14.7 3.5 15.6Z"),
+    "slalom": ("slalomkajakki", "M.8 15.9C6 17.2 13 17.6 20 17.6S34 17.2 39.2 15.8C33 15 26 14.4 20 14.4S7 15 .8 15.9Z"),
+    "riverrunner": ("river runner -kajakki", "M4.5 13.4C5 17 11 18.6 20 18.6S35 17 35.5 13.4C33 14.2 27 13.6 20 13.6S7 14.2 4.5 13.4Z"),
+}
+
+
+def _kajakit(kohde, k_) -> str:
+    """Kohteelle suositeltujen kajakkityyppien kuvakkeet kohteen nimen perään (nimi vihjeenä)."""
+    kuvat = []
+    for tyyppi in kohde.kajakit:
+        nimi, runko = KAJAKKI_KUVAKKEET[tyyppi]
+        kuvat.append(f'<svg class="kajakki" viewBox="0 0 40 20" role="img" aria-label="{e(k_(nimi))}">'
+                     f'<title>{e(k_(nimi))}</title><g fill="currentColor"><path d="{runko}"/>{KAJAKKI_MELOJA}</g></svg>')
+    return f' <span class="kajakit">{"".join(kuvat)}</span>' if kuvat else ""
+
+
 def _pisteluokka(p: float) -> str:
     return "p-hyva" if p >= 60 else "p-keski" if p >= 30 else "p-huono"
 
@@ -730,7 +755,8 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
         return "".join(rivit)
 
     def kohde(k) -> str:
-        return f"<li>{melonta._tila_merkki(k.tila)} <b>{e(k.kohde.nimi)}</b>: {e(k_(k.selitys))}</li>"
+        return (f"<li>{melonta._tila_merkki(k.tila)} <b>{e(k.kohde.nimi)}</b>{_kajakit(k.kohde, k_)}: "
+                f"{e(k_(k.selitys))}</li>")
 
     def kohteet(lista: list, huomiot: str) -> str:
         jarjestetty = sorted(lista, key=lambda k: k.pisteet, reverse=True)

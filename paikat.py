@@ -31,6 +31,10 @@ from dataclasses import dataclass, field
 AVOIN = None  # avoin raja: ei ala- tai ylärajaa
 
 
+# Kajakkityypit kohteiden suosituksiin (sivulla kuvakkeina, ks. app.KAJAKKI_KUVAKKEET)
+KAJAKKITYYPIT = ("freestyle", "slice", "slalom", "riverrunner")
+
+
 @dataclass(frozen=True)
 class Kohde:
     nimi: str
@@ -42,6 +46,7 @@ class Kohde:
     huom: str = ""
     lahde: str = "sivu"           # "sivu" = luku suoraan kuvauksesta, "meloja" = paikallisen
                                   # melojan kertoma, "arvio" = tulkinta
+    kajakit: tuple[str, ...] = ()  # suositellut kajakkityypit (KAJAKKITYYPIT), paikallisen melojan mukaan
 
 
 @dataclass(frozen=True)
@@ -172,13 +177,16 @@ PAIKAT: tuple[Paikka, ...] = (
         (
             Kohde("Keskimmäisen silta-aukon hontto", (107.65, 108.2), (107.75, 108.0), 1.0,
                   huom="paras pelipaikka; yli 107.85 m ulkoreunaan surffattava aalto-osa "
-                       "(Pilari 107.65–108.20 m, mpahkala.kapsi.fi)", lahde="meloja"),
+                       "(Pilari 107.65–108.20 m, mpahkala.kapsi.fi)", lahde="meloja",
+                  kajakit=("freestyle",)),
             Kohde("Oikean silta-aukon surffiaalto", (108.15, 108.8), (108.15, 108.6), 0.8,
                   huom="hidas surffiaalto, ei akanvirtaa (kanto 2–20 m); Sillanalus 108.25–108.60 m, "
-                       "108.59 m optimin ylärajoilla (mpahkala.kapsi.fi)", lahde="meloja"),
+                       "108.59 m optimin ylärajoilla (mpahkala.kapsi.fi)", lahde="meloja",
+                  kajakit=("freestyle",)),
             Kohde("Ala-aallot (ykkös- ja kakkosaalto)", (106.7, 107.4), (106.7, 107.2), 0.85,
-                  huom="parhaimmillaan 106.7–107.2 m (mpahkala.kapsi.fi); sopii myös koskisuppailuun",
-                  lahde="meloja"),
+                  huom="parhaimmillaan 106.7–107.2 m (mpahkala.kapsi.fi); sopii myös koskisuppailuun; "
+                       "nopea kajakki: half/full slice, Jackson Funin tapainen tai slalom – nykyaikainen "
+                       "freestyle on hidas", lahde="meloja", kajakit=("slice", "slalom")),
         ),
     ),
     Paikka(
@@ -189,16 +197,18 @@ PAIKAT: tuple[Paikka, ...] = (
         (
             Kohde("Helmihontto", (10.3, 10.75), (10.65, 10.75), 1.0,
                   huom="parhaimmillaan 10.7 m; kärrynpyörät, voltit; 10.37–10.45 m vähän pitoa "
-                       "(mpahkala.kapsi.fi)", lahde="meloja"),
+                       "(mpahkala.kapsi.fi)", lahde="meloja", kajakit=("freestyle",)),
             Kohde("Etuaalto", (10.3, 10.75), (10.35, 10.75), 0.9,
                   huom="10.4 m:stä alkaen kärryttely ja voltti onnistuvat; 10.37 m ihan hyvä "
-                       "(mpahkala.kapsi.fi)", lahde="meloja"),
+                       "(mpahkala.kapsi.fi)", lahde="meloja", kajakit=("riverrunner", "slice")),
             Kohde("Takaköngäs", (10.5, 11.05), (10.8, 11.05), 0.8,
-                  huom="hyvä n. 11.0 m ja sen alle; 10.5 m:llä reunoilla kolisee", lahde="arvio"),
+                  huom="hyvä n. 11.0 m ja sen alle; 10.5 m:llä reunoilla kolisee", lahde="arvio",
+                  kajakit=("riverrunner", "slice")),
             Kohde("Tukkirännin surffiaalto", (10.4, 10.6), (10.45, 10.55), 0.7,
-                  huom="koskeen keskelle n. 10.5 m vedellä", lahde="arvio"),
+                  huom="koskeen keskelle n. 10.5 m vedellä", lahde="arvio", kajakit=("riverrunner", "slice")),
             Kohde("Tulikurkku", (10.3, 11.0), (10.65, 10.75), 0.7,
-                  huom="parhaimmillaan 10.7 m; sopii aloittelijoille", lahde="arvio"),
+                  huom="parhaimmillaan 10.7 m; sopii aloittelijoille", lahde="arvio",
+                  kajakit=("slalom", "riverrunner")),
         ),
     ),
     Paikka(
@@ -279,10 +289,11 @@ PAIKAT: tuple[Paikka, ...] = (
         (
             Kohde("Murtuva aalto", (650, 1300), (850, 1300), 1.0,
                   huom="n. 600 m³/s keula kolisee; 850 m³/s tosi hyvä ja paranee; "
-                       "toimii 650–1300 m³/s, 645 m³/s matala (mpahkala.kapsi.fi)", lahde="meloja"),
+                       "toimii 650–1300 m³/s, 645 m³/s matala (mpahkala.kapsi.fi)", lahde="meloja",
+                  kajakit=("freestyle",)),
             Kohde("Kitula", (650, 1300), (650, 1300), 0.8,
                   huom="toimii 650–1300 m³/s (mpahkala.kapsi.fi); 607 m³/s keskiaallosta loppui pito, "
-                       "645–649 m³/s matala", lahde="meloja"),
+                       "645–649 m³/s matala", lahde="meloja", kajakit=("freestyle",)),
         ),
     ),
     Paikka(

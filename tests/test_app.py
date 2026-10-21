@@ -686,3 +686,18 @@ def test_mittarin_tuntikaavio(ajot, monkeypatch):
     assert kuva.startswith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 820">')   # 440 + 380
     assert "Kipinä (Iijoki) – Pudasjärvi, mitattu tunneittain" in kuva and "SYKE päiväarvo" in kuva
     assert "päivän keskiarvo-ennuste 108.58" in kuva   # 108.60 − 0.002 · 11.5 (lasku jatkuu)
+
+
+def test_kajakkikuvakkeet(palvelin):
+    from paikat import KAJAKKITYYPIT
+    assert set(app.KAJAKKI_KUVAKKEET) == set(KAJAKKITYYPIT)
+    for p in PAIKAT:
+        for k in p.kohteet:
+            assert set(k.kajakit) <= set(KAJAKKITYYPIT), (p.nimi, k.nimi)
+    kipina = next(p for p in PAIKAT if p.nimi == "Kipinä (Iijoki)")
+    assert {k.nimi: k.kajakit for k in kipina.kohteet}["Ala-aallot (ykkös- ja kakkosaalto)"] == ("slice", "slalom")
+    runko = pyynto("/")[2]
+    # Kipinän oikean silta-aukon surffiaalto: freestyle-kuvake nimen perässä
+    assert ('<b>Oikean silta-aukon surffiaalto</b> <span class="kajakit"><svg class="kajakki" viewBox="0 0 40 20" '
+            'role="img" aria-label="freestyle-kajakki"><title>freestyle-kajakki</title>') in runko
+    assert 'aria-label="freestyle kayak"' in pyynto("/", "kieli=en")[2]
