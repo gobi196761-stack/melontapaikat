@@ -101,13 +101,13 @@ OULU = "65.01,25.47"          # oletuslähtöpaikka ajoajoille (Oulun keskusta)
 LISAAIKA_MIN = 30             # ajoajan päälle: pakkaus, tauot – sää katsotaan perillä tähän aikaan
 
 
-def saaennusteet(hakija: osm.Hakija, tunteja: int = 72) -> dict[str, dict]:
+def saaennusteet(hakija: osm.Hakija, tunteja: int = 120) -> dict[str, dict]:
     """Tuntiennuste (lämpötila, WMO-sääkoodi) paikkojen sijainneissa Open-Meteosta yhdellä
     kyselyllä: nimi -> {"aika": [unix s], "t": [...], "k": [...]}. Tyhjä, jos palvelu ei vastaa."""
     paikat = [p for p in PAIKAT if p.sijainti]
     kysely = urlencode({"latitude": ",".join(str(p.sijainti[0]) for p in paikat),
                         "longitude": ",".join(str(p.sijainti[1]) for p in paikat),
-                        "hourly": "temperature_2m,weather_code", "forecast_days": 3,
+                        "hourly": "temperature_2m,weather_code", "forecast_days": 5,
                         "timeformat": "unixtime"})
     data, _ = osm.hae_turvallisesti(hakija, OPEN_METEO.format(kysely=kysely))
     try:
@@ -446,10 +446,12 @@ SKRIPTI = """
   const kello = s => new Date(s * 1000).toLocaleTimeString(T.kieli, {hour: "2-digit", minute: "2-digit", timeZone: "Europe/Helsinki"});
   const lahtoKentta = document.getElementById("lahtoaika");
   const paikallinen = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  if (lahtoKentta) {   // oletuksena nykyhetki; valittavissa ennusteen ajalle (72 h)
+  if (lahtoKentta) {   // oletuksena nykyhetki
     const nyt = new Date();
     lahtoKentta.value = lahtoKentta.min = paikallinen(nyt);
-    lahtoKentta.max = paikallinen(new Date(nyt.getTime() + 66 * 3600000));
+    // lähtö viimeistään vesiennusteen viimeisenä päivänä (+3 pv); sääennuste ulottuu 5 päivään
+    const viimeinen = new Date(nyt.getFullYear(), nyt.getMonth(), nyt.getDate() + 3, 23, 45);
+    lahtoKentta.max = paikallinen(viimeinen);
   }
   const lahto = () => {
     const v = lahtoKentta && lahtoKentta.value ? new Date(lahtoKentta.value).getTime() : NaN;

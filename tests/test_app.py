@@ -639,3 +639,13 @@ def test_yr_linkki_saapumispaivalle():
     assert app.yr_osoite(65.1, 25.8, nyt + 3600, nyt).endswith("/65.1,25.8")          # tänään
     assert app.yr_osoite(65.1, 25.8, nyt + 12 * 3600, nyt).endswith("?i=1")         # huomenna 01.00
     assert app.yr_osoite(65.1, 25.8, nyt + 2 * 86400, nyt).endswith("?i=2")
+
+
+def test_saaennuste_kattaa_lahtopaivat(monkeypatch):
+    """Lähtöajan voi valita kolmannen päivän loppuun; sääennusteen on ulotuttava sen yli."""
+    kyselyt = []
+    monkeypatch.setattr(app.osm, "hae_turvallisesti", lambda h, url: (kyselyt.append(url), (None, "x"))[1])
+    app.saaennusteet(None)
+    assert "forecast_days=5" in kyselyt[0]
+    import inspect
+    assert inspect.signature(app.saaennusteet).parameters["tunteja"].default >= 4 * 24 + 6
