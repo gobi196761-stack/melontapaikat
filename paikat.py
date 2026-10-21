@@ -296,8 +296,9 @@ PAIKAT: tuple[Paikka, ...] = (
     Paikka(
         "Siikajoki (Pöyryn pato)", "https://www.osm.fi/melontapaikat/siikajoki/", "peli", 70,
         "Pöyryn padon alla monipuolinen koskialue: Vaahtokylpy ja Kalliosaaren "
-        "paikat. Mittarina Länkelän virtaama.",
-        {"paa": Mittari("57/q5700700y/qinlyhyt.png", marginaali=40)},
+        "paikat. Mittarina Länkelän virtaama; vedenkorkeus rinnalla (kuten Neitikoskella).",
+        {"paa": Mittari("57/q5700700y/qinlyhyt.png", marginaali=40),
+         "korkeus": Mittari("57/q5700700y/w3lyhyt.png")},
         (
             Kohde("Vaahtokylpy (murtuva aalto)", (250, AVOIN), (300, 400), 1.0,
                   huom="loistava akanvirta, sopii vähemmän meloneillekin"),

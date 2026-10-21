@@ -480,17 +480,20 @@ def kuva_svg(sarjat, tanaan: dt.date, otsikko: str, yksikko: str, alueet: list[A
 
 
 def tunti_svg(otsikko: str, paiva: dt.date, tunnit: dict, vertailu: list[tuple[str, float, str]],
-              kieli: str = "fi") -> str:
+              kieli: str = "fi", yksikko: str = "m3/s", alaotsikko: str | None = None,
+              mitattu: str = "arvio mitatuista syötteistä") -> str:
     """Päivän tuntikaavio arviomallin asemalle (syke_data.tuntiarviot): toisen arvion tuntiarvot
     syötteiden mittauksista (yhtenäinen), loppupäivän ennuste (katkoviiva) ja vaakaviivoina
     päivän keskiarvo-ennuste sekä vertailuarvot (nimi, arvo, väri)."""
     _t = lambda s: kielet.kaanna(s, kieli)   # noqa: E731
+    metreja = yksikko == "m"
+    luku = lambda v: _luku(v, metreja)   # noqa: E731
     lev, kork, vasen, oikea, yla, ala = 900, 380, 64, 20, 58, 70
     pl, pk = lev - vasen - oikea, kork - yla - ala
     kaikki = list(tunnit["arviot"].values()) + list(tunnit["ennuste"].values()) + [tunnit["keskiarvo"]] \
         + [v for _, v, _ in vertailu]
     a_, y_ = min(kaikki), max(kaikki)
-    vara = max((y_ - a_) * 0.15, 3.0)
+    vara = max((y_ - a_) * 0.15, 0.03 if metreja else 3.0)
     tikit = _asteikko(a_ - vara, y_ + vara)
     alin, ylin = min(tikit[0], a_ - vara), max(tikit[-1], y_ + vara)
     x = lambda t: vasen + t / 24 * pl   # noqa: E731   (tunnin keskikohta: t + 0.5)
@@ -500,23 +503,23 @@ def tunti_svg(otsikko: str, paiva: dt.date, tunnit: dict, vertailu: list[tuple[s
             f'font-family="system-ui, Segoe UI, sans-serif" font-size="12">',
             f'<rect width="{lev}" height="{kork}" fill="#fff"/>',
             f'<text x="{vasen}" y="22" font-size="16" font-weight="600" fill="#1b1f24">{e(otsikko)}</text>',
-            f'<text x="{vasen}" y="40" fill="#5c6670">{e(_t("Virtaama m³/s"))} · '
-            f'{e(_t("toinen arvio tunneittain SYKE:n reaaliaikamittauksista"))} {paiva.day}.{paiva.month}.</text>']
+            f'<text x="{vasen}" y="40" fill="#5c6670">{e(_t("Vedenkorkeus m" if metreja else "Virtaama m³/s"))} · '
+            f'{e(_t(alaotsikko or "toinen arvio tunneittain SYKE:n reaaliaikamittauksista"))} {paiva.day}.{paiva.month}.</text>']
     for t in tikit:
         if alin <= t <= ylin:
             osat.append(f'<line x1="{vasen}" x2="{vasen + pl}" y1="{y(t):.1f}" y2="{y(t):.1f}" stroke="#e3e7eb"/>'
-                        f'<text x="{vasen - 6}" y="{y(t) + 4:.1f}" text-anchor="end" fill="#5c6670">{_luku(t)}</text>')
+                        f'<text x="{vasen - 6}" y="{y(t) + 4:.1f}" text-anchor="end" fill="#5c6670">{luku(t)}</text>')
     for h in range(0, 25, 3):
         osat.append(f'<line x1="{x(h):.1f}" x2="{x(h):.1f}" y1="{yla}" y2="{yla + pk}" stroke="#f0f2f4"/>'
                     f'<text x="{x(h):.1f}" y="{yla + pk + 16}" text-anchor="middle" fill="#5c6670">{h:02d}</text>')
     for nimi, arvo, vari in vertailu:
         osat.append(f'<line x1="{vasen}" x2="{vasen + pl}" y1="{y(arvo):.1f}" y2="{y(arvo):.1f}" stroke="{vari}" '
                     f'stroke-dasharray="2 4" stroke-width="1.5"/><text x="{vasen + pl - 4}" y="{y(arvo) - 4:.1f}" '
-                    f'text-anchor="end" fill="{vari}">{e(nimi)} {_luku(arvo)}</text>')
+                    f'text-anchor="end" fill="{vari}">{e(nimi)} {luku(arvo)}</text>')
     ka = tunnit["keskiarvo"]
     osat.append(f'<line x1="{vasen}" x2="{vasen + pl}" y1="{y(ka):.1f}" y2="{y(ka):.1f}" stroke="#6a1b9a" '
                 f'stroke-width="1.5"/><text x="{vasen + 6}" y="{y(ka) - 5:.1f}" fill="#6a1b9a" font-weight="600" '
-                f'stroke="#fff" stroke-width="3" paint-order="stroke">{e(_t("päivän keskiarvo-ennuste"))} {_luku(ka)}</text>')
+                f'stroke="#fff" stroke-width="3" paint-order="stroke">{e(_t("päivän keskiarvo-ennuste"))} {luku(ka)}</text>')
     if tunnit["arviot"]:
         osat.append(f'<path d="{polku([(x(t + 0.5), y(v)) for t, v in sorted(tunnit["arviot"].items())])}" '
                     f'fill="none" stroke="#6a1b9a" stroke-width="2.5"/>')
@@ -529,7 +532,7 @@ def tunti_svg(otsikko: str, paiva: dt.date, tunnit: dict, vertailu: list[tuple[s
     osat.append(f'<line x1="{nx:.1f}" x2="{nx:.1f}" y1="{yla}" y2="{yla + pk}" stroke="#00bcd4" stroke-width="2" '
                 f'stroke-dasharray="6 4"/>')
     osat.append(f'<rect x="{vasen}" y="{yla}" width="{pl}" height="{pk}" fill="none" stroke="#9aa4ae"/>')
-    selite = [("viiva", "#6a1b9a", _t("arvio mitatuista syötteistä")), ("katko", "#6a1b9a", _t("ennuste päivän loppuun")),
+    selite = [("viiva", "#6a1b9a", _t(mitattu)), ("katko", "#6a1b9a", _t("ennuste päivän loppuun")),
               ("katko", "#00bcd4", _t("viimeisin mittaus"))]
     sx, sy = vasen, yla + pk + 40
     for laji, vari, teksti in selite:

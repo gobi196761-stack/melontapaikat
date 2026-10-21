@@ -1038,12 +1038,13 @@ def syke_kaavio_svg(polku: str, hakija: osm.Hakija | None = None, paikan_nimi: s
     asema = _arvioasema(mittari.kaavio)
     if asema:
         return _arvio_kaavio(paikka, avain, mittari, asema, hakija, otsikko, kieli)
+    ajo = None
     if not kuvasta:
         ajo = _hae_json(hakija, osm.kaavio_url(syke_data.ajo_avain(mittari.kaavio)))
         alueet = _syke_alueet(paikka, avain, mittari, hakija)
         kuva = kaavio_svg.syke_svg(ajo, mittari.kaavio, otsikko, alueet, kieli) if ajo else None
         if kuva:
-            return kuva
+            return _lisaa_tuntikaavio(kuva, paikka, mittari, ajo, hakija, kieli, nyt)
     # ajo.jsonissa ei ole kaavion suuretta (tai luvut eivät täsmää kuvaan): sarjat SYKE:n kuvasta
     data, _ = osm.hae_turvallisesti(hakija, osm.kaavio_url(mittari.kaavio))
     if not data:
@@ -1053,8 +1054,36 @@ def syke_kaavio_svg(polku: str, hakija: osm.Hakija | None = None, paikan_nimi: s
     except syke_kaavio.KaavioVirhe:
         return None
     _, yksikko = syke_kaavio.suure_urlista(mittari.kaavio)
-    return kaavio_svg.kuva_svg(sarjat, _kuvan_paiva(sarjat.tanaan_paiva, nyt), otsikko, yksikko,
+    kuva = kaavio_svg.kuva_svg(sarjat, _kuvan_paiva(sarjat.tanaan_paiva, nyt), otsikko, yksikko,
                                _syke_alueet(paikka, avain, mittari, hakija), kieli)
+    return _lisaa_tuntikaavio(kuva, paikka, mittari, ajo, hakija, kieli, nyt)
+
+
+def _lisaa_tuntikaavio(kuva: str, paikka, mittari, ajo: dict | None, hakija: osm.Hakija, kieli: str,
+                       nyt: dt.datetime | None = None) -> str:
+    """Kaavion alle mittarin oma päivä tunneittain SYKE:n reaaliaikamittauksista ja ennuste
+    päivän loppuun (syke_data.REAALIAIKA_MITTARIT); ilman reaaliaikadataa kaavio sellaisenaan."""
+    tiedosto = syke_data.REAALIAIKA_MITTARIT.get(mittari.kaavio)
+    if not tiedosto:
+        return kuva
+    data, _ = osm.hae_turvallisesti(hakija, syke_data.REAALIAIKA_URL.format(tiedosto=tiedosto))
+    tanaan = (nyt or suomen_aika()).date()
+    tunnit = syke_data.mittarin_tunnit(syke_data.lue_reaaliaika_tunnit(data), tanaan) if data else None
+    if not tunnit:
+        return kuva
+    _, yksikko = syke_kaavio.suure_urlista(mittari.kaavio)
+    vertailu = []
+    if ajo:   # SYKE:n tämän päivän päiväarvo ja eilinen havainto vertailuksi
+        hav = "whav" if yksikko == "m" else "qhav"
+        for nimi, p, vari in (("SYKE päiväarvo", tanaan, "#ef6c00"),
+                              ("eilen mitattu", tanaan - dt.timedelta(days=1), "#1b1f24")):
+            v = syke_data._arvo(ajo.get(hav) or {}, p)
+            if v is not None:
+                vertailu.append((kielet.kaanna(nimi, kieli), v, vari))
+    nimi = f"{paikka.nimi} – {aseman_nimi(mittari.kaavio)}, {kielet.kaanna('mitattu tunneittain', kieli)}"
+    return kaavio_svg.pinoa(kuva, kaavio_svg.tunti_svg(
+        nimi, tanaan, tunnit, vertailu, kieli, yksikko=yksikko,
+        alaotsikko="mittaukset tunneittain SYKE:n reaaliaikasivulta", mitattu="mitattu tunneittain"))
 
 
 def _kuvan_paiva(paiva: int | None, nyt: dt.datetime | None = None) -> dt.date:

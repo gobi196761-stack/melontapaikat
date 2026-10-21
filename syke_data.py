@@ -322,6 +322,34 @@ def arvioi_paiva2(asema: str, ajot: dict[str, dict], paiva: dt.date, _syvyys: in
     return sum(xi * bi for xi, bi in zip(x, b))
 
 
+# Paikkojen mittarit, joiden omat mittaukset ovat SYKE:n reaaliaikasivuilla (samat yksiköt ja
+# korkeusjärjestelmä kuin ajo.jsonissa): kaavio -> reaaliaikatiedosto. Tuntikaavio kaavion alle.
+REAALIAIKA_MITTARIT = {
+    "60/q6000410y/wlyhyt.png": "W6000410_NN",      # Haukipudas (Koiteli)
+    "61/l611331001y/w3lyhyt.png": "W6100710_N43",  # Pudasjärvi (Kipinä)
+    "59/q5904400y/qin3lyhyt.png": "Q5904400",      # Sanginjoki
+    "63/q6300210y/wlyhyt.png": "W6300210_N60",     # Ravaska (Kuivajoki, Olhavajoki)
+    "57/q5700700y/qinlyhyt.png": "Q5700702",       # Länkelä, Digital Matter (Siikajoki)
+    "57/q5700700y/w3lyhyt.png": "W5700702_NN",     # Länkelän vedenkorkeus (Siikajoki)
+    "67/q6702110y/wlyhyt.png": "W6702110_N60",     # Matkakoski (myös Kukkolan- ja Vuentokoski)
+}
+
+
+def mittarin_tunnit(tunnit: dict[str, float], paiva: dt.date) -> dict | None:
+    """Mittarin oma päivä tunneittain reaaliaikamittauksista: {"arviot": mitatut tuntiarvot,
+    "ennuste": loppupäivä viimeisen TUNTITRENDI tunnin muutosta jatkaen, "keskiarvo": päivän
+    keskiarvo (mitatut + ennuste), "viim": viimeinen mitattu tunti}. None ilman päivän mittauksia."""
+    sarja = _tuntisarja(tunnit, paiva)
+    if sarja is None:
+        return None
+    mitatut = {int(t[11:13]): v for t, v in tunnit.items() if t[:10] == paiva.isoformat()}
+    viim = max(mitatut)
+    ennuste = {t: v for t, v in sarja.items() if t >= viim}
+    return {"arviot": mitatut, "ennuste": ennuste,
+            "keskiarvo": (sum(mitatut.values()) + sum(v for t, v in ennuste.items() if t > viim))
+            / (len(mitatut) + len([t for t in ennuste if t > viim])), "viim": viim}
+
+
 TUNTITRENDI = 6   # loppupäivän ennuste: syötteen muutos viimeisen 6 tunnin aikana jatkuu suoraan
 
 

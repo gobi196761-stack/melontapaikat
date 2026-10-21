@@ -665,3 +665,24 @@ def test_ennuste_jatkuu_viimeisesta_havainnosta():
     # ilman havaintoja: mallin ennuste tästä päivästä
     ennuste, _, lukema = kaavio_svg._jatka_havainnosta({}, malli, d(0))
     assert min(ennuste) == d(0) and lukema == (100.0, "malli")
+
+
+def test_mittarin_tuntikaavio(ajot, monkeypatch):
+    """Koiteli ym.: mittarin omat tuntimittaukset ja ennuste päivän loppuun kaavion alle."""
+    tunnit = {f"2026-10-18T{t:02d}": 10.50 - 0.005 * t for t in range(0, 15)}
+    tulos = syke_data.mittarin_tunnit(tunnit, dt.date(2026, 10, 18))
+    assert tulos["viim"] == 14 and len(tulos["arviot"]) == 15 and max(tulos["ennuste"]) == 23
+    assert tulos["ennuste"][23] == pytest.approx(10.50 - 0.005 * 23)   # trendi jatkuu
+    assert tulos["keskiarvo"] == pytest.approx(sum(10.50 - 0.005 * t for t in range(24)) / 24)
+    assert syke_data.mittarin_tunnit({}, dt.date(2026, 10, 18)) is None
+    arvo = lambda t: f"{108.60 - 0.002 * t:.3f}".replace(".", ",")   # noqa: E731
+    data = "".join(f"18.10.2026;{t:02d}:00;{arvo(t)};\n" for t in range(10)).encode("latin-1")
+    alkuperainen = app.osm.hae_turvallisesti
+    monkeypatch.setattr(app.osm, "hae_turvallisesti", lambda h, url: (
+        (data, None) if "RealTime/data/W6100710_N43" in url else alkuperainen(h, url)))
+    kuva = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)",
+                               nyt=dt.datetime(2026, 10, 18, 12))
+    ET.fromstring(kuva)
+    assert kuva.startswith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 820">')   # 440 + 380
+    assert "Kipinä (Iijoki) – Pudasjärvi, mitattu tunneittain" in kuva and "SYKE päiväarvo" in kuva
+    assert "päivän keskiarvo-ennuste 108.58" in kuva   # 108.60 − 0.002 · 11.5 (lasku jatkuu)
