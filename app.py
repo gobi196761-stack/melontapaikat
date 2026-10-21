@@ -129,30 +129,35 @@ def saaennusteet(hakija: osm.Hakija, tunteja: int = 72) -> dict[str, dict]:
 
 SURFFI = "https://surffiennustaja.vercel.app"
 # spotti -> (nimi, ennusteen rajapinta); Yppärin ennuste on oletusreitissä /api/forecast
+# spotti -> (nimi, ennusteen rajapinta, sijainti); Yppärin ennuste on oletusreitissä /api/forecast.
+# Sijainnit OpenStreetMapista / Wikipediasta; Pumppari likimain Yyterin rannalta.
 SURFFISPOTIT = {
-    "yppari": ("Yppäri", "/api/forecast"),
-    "tauvo": ("Tauvo", "/api/forecast/tauvo"),
-    "ohtakari": ("Ohtakari", "/api/forecast/ohtakari"),
-    "marjaniemi": ("Marjaniemi", "/api/forecast/marjaniemi"),
-    "ohtakari-vattaja": ("Ohtakari Vattaja", "/api/forecast/ohtakari-vattaja"),
-    "olkijoki": ("Olkijoki", "/api/forecast/olkijoki"),
-    "pumppari": ("Pumppari", "/api/forecast/pumppari"),
+    "yppari": ("Yppäri", "/api/forecast", (64.4056, 24.1)),
+    "tauvo": ("Tauvo", "/api/forecast/tauvo", (64.814, 24.5438)),
+    "ohtakari": ("Ohtakari", "/api/forecast/ohtakari", (64.0909, 23.4046)),
+    "marjaniemi": ("Marjaniemi", "/api/forecast/marjaniemi", (65.04, 24.5615)),
+    "ohtakari-vattaja": ("Ohtakari Vattaja", "/api/forecast/ohtakari-vattaja", (64.0814, 23.4136)),
+    "olkijoki": ("Olkijoki", "/api/forecast/olkijoki", (64.7332, 24.6131)),
+    "pumppari": ("Pumppari", "/api/forecast/pumppari", (61.5642, 21.5225)),
 }
+OPEN_METEO_MERI = "https://marine-api.open-meteo.com/v1/marine?{kysely}"
 
 
-def surffitilanne(hakija: osm.Hakija, nyt: dt.datetime | None = None) -> dict[str, list[str]]:
+def surffitilanne(hakija: osm.Hakija, nyt: dt.datetime | None = None) -> dict:
     """Surffiennustajan spotit, joissa surffattavaa (rating > 0) nyt ja seuraavan 48 h ennusteessa:
-    {"nyt": [spotti], "ennuste": [spotti]} (ennusteessa vain ne, jotka eivät toimi jo nyt)."""
+    {"nyt": [spotti], "ennuste": [spotti], "ajat": {spotti: surffihetki unix s}, "saa": {...}}.
+    Ennusteessa vain ne, jotka eivät toimi jo nyt; surffihetki on nyt tai ennusteen ensimmäinen
+    surffattava tunti, ja sille hetkelle haetaan sää ja meriveden lämpötila (surffisaa)."""
     from concurrent.futures import ThreadPoolExecutor
     nyt = nyt or dt.datetime.now(dt.timezone.utc)
 
-    def tila(spotti: str) -> tuple[bool, bool]:
+    def tila(spotti: str) -> tuple[bool, float | None]:
         data, _ = osm.hae_turvallisesti(hakija, SURFFI + SURFFISPOTIT[spotti][1])
         try:
             tunnit = json.loads(data.decode("utf-8"))["hours"] if data else []
         except (ValueError, KeyError, TypeError):
-            return False, False
-        heti, myohemmin = False, False
+            return False, None
+        heti, ensimmainen = False, None
         for h in tunnit:
             try:
                 alku = dt.datetime.fromisoformat(h["timestamp"].replace("Z", "+00:00"))
@@ -162,28 +167,109 @@ def surffitilanne(hakija: osm.Hakija, nyt: dt.datetime | None = None) -> dict[st
                 continue
             if alku <= nyt < alku + dt.timedelta(hours=1):
                 heti = True
-            elif alku > nyt:
-                myohemmin = True
-        return heti, myohemmin
+            elif alku > nyt and (ensimmainen is None or alku.timestamp() < ensimmainen):
+                ensimmainen = alku.timestamp()
+        return heti, ensimmainen
 
     with ThreadPoolExecutor(max_workers=len(SURFFISPOTIT)) as pool:
         tilat = dict(zip(SURFFISPOTIT, pool.map(tila, SURFFISPOTIT)))
-    return {"nyt": [s for s, (heti, _) in tilat.items() if heti],
-            "ennuste": [s for s, (heti, myoh) in tilat.items() if myoh and not heti]}
+    tulos = {"nyt": [s for s, (heti, _) in tilat.items() if heti],
+             "ennuste": [s for s, (heti, ens) in tilat.items() if ens and not heti]}
+    tulos["ajat"] = {**{s: nyt.timestamp() for s in tulos["nyt"]}, **{s: tilat[s][1] for s in tulos["ennuste"]}}
+    tulos["saa"] = surffisaa(hakija, tulos["ajat"]) if tulos["ajat"] else {}
+    return tulos
 
 
-def surffilinkki(surffi: dict[str, list[str]], k_) -> str:
-    """Navigaation ensimmäinen kohta: linkki Surffiennustajaan, vihreä jos jossain on surffattavaa nyt;
-    toimivat spotit linkkeinä perässä ja ennusteessa olevat vihreinä sulkeissa."""
-    spotti = lambda s: (f'<a href="{SURFFI}/{s}" target="_blank" rel="noopener">'   # noqa: E731
-                        f'{e(SURFFISPOTIT[s][0])}</a>')
+def _tunnin_arvo(ajat: list, arvot: list, hetki: float):
+    i = max((i for i, a in enumerate(ajat) if a <= hetki), default=None)
+    return arvot[i] if i is not None and i < len(arvot) else None
+
+
+def surffisaa(hakija: osm.Hakija, ajat: dict[str, float]) -> dict[str, dict]:
+    """Ilman lämpötila, sääkoodi, ukkonen ja meriveden lämpötila spottien surffihetkellä
+    (Open-Meteo: sää ja Marine-rajapinta): spotti -> {"t", "k", "ukkonen", "meri"}."""
+    spotit = list(ajat)
+    sijainnit = [SURFFISPOTIT[s][2] for s in spotit]
+    kysely = {"latitude": ",".join(str(p[0]) for p in sijainnit),
+              "longitude": ",".join(str(p[1]) for p in sijainnit), "forecast_days": 3, "timeformat": "unixtime"}
+
+    def hae(osoite: str, sarjat: str) -> list:
+        data, _ = osm.hae_turvallisesti(hakija, osoite.format(kysely=urlencode({**kysely, "hourly": sarjat})))
+        try:
+            vastaus = json.loads(data.decode("utf-8")) if data else []
+        except ValueError:
+            return []
+        return vastaus if isinstance(vastaus, list) else [vastaus]
+
+    saa, meri = hae(OPEN_METEO, "temperature_2m,weather_code"), hae(OPEN_METEO_MERI, "sea_surface_temperature")
+    tulos = {}
+    for i, spotti in enumerate(spotit):
+        hetki, tiedot = ajat[spotti], {}
+        try:
+            h = saa[i]["hourly"]
+            tiedot["t"] = _tunnin_arvo(h["time"], h["temperature_2m"], hetki)
+            tiedot["k"] = _tunnin_arvo(h["time"], h["weather_code"], hetki)
+            alku = max((a for a in h["time"] if a <= hetki), default=hetki)
+            tiedot["ukkonen"] = any(k in UKKOSKOODIT for a, k in zip(h["time"], h["weather_code"])
+                                    if alku <= a < alku + UKKOS_TUNNIT * 3600)
+        except (IndexError, KeyError, TypeError):
+            pass
+        try:
+            m = meri[i]["hourly"]
+            tiedot["meri"] = _tunnin_arvo(m["time"], m["sea_surface_temperature"], hetki)
+        except (IndexError, KeyError, TypeError):
+            pass
+        tulos[spotti] = tiedot
+    return tulos
+
+
+VIIKONPAIVAT = {"fi": ("ma", "ti", "ke", "to", "pe", "la", "su"), "en": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")}
+
+
+def _ajankohta(aika: float, kieli: str) -> str:
+    """'ke 14.00' Suomen aikaa."""
+    try:
+        from zoneinfo import ZoneInfo
+        hetki = dt.datetime.fromtimestamp(aika, ZoneInfo("Europe/Helsinki"))
+    except Exception:  # aikavyöhyketietokanta puuttuu
+        hetki = dt.datetime.fromtimestamp(aika, dt.timezone(dt.timedelta(hours=2)))
+    return f"{VIIKONPAIVAT[kieli][hetki.weekday()]} {_kello(aika, kieli)}"
+
+
+def surffilinkki(surffi: dict, k_, kieli: str = "fi") -> str:
+    """Otsikon alla: linkki Surffiennustajaan, vihreä jos jossain on surffattavaa nyt; toimivat spotit
+    linkkeinä perässä ja ennusteessa olevat vihreinä sulkeissa. Spotin perässä surffihetken sää
+    (ilma-linkki yr.no:hon, punainen ukkosella) ja meriveden lämpötila."""
+    saat = surffi.get("saa") or {}
+
+    def spotti(s: str, ajankohta: str) -> str:
+        nimi, _, (lev, pit) = SURFFISPOTIT[s]
+        teksti = f'<a href="{SURFFI}/{s}" target="_blank" rel="noopener">{e(nimi)}</a>'
+        tiedot = saat.get(s) or {}
+        osat = []
+        if tiedot.get("t") is not None:
+            ukkonen = tiedot.get("ukkonen")
+            luokka = ' class="ukkonen"' if ukkonen else ""
+            vihje = f' title="{e(k_("ukkosta ennustettu"))}"' if ukkonen else ""
+            ikoni = f" {saa_ikoni(tiedot['k'])}" if tiedot.get("k") is not None else ""
+            lampo = f'{tiedot["t"]:.0f} °C'.replace("-", "−")
+            osat.append(f'<a{luokka}{vihje} href="{e(YR_SAA.format(lev=lev, pit=pit))}" target="_blank" '
+                        f'rel="noopener">{k_("ilma")}</a> {lampo}{ikoni}')
+        if tiedot.get("meri") is not None:
+            osat.append(f'{k_("meri")} {tiedot["meri"]:.1f} °C')
+        if osat:
+            teksti += f' <span class="surffi-saa">{ajankohta}: {" · ".join(osat)}</span>'
+        return teksti
+
+    ajat = surffi.get("ajat") or {}
     nyt, ennuste = surffi.get("nyt") or [], surffi.get("ennuste") or []
     osat = [f'<a class="surffi-paa" href="{SURFFI}/" target="_blank" rel="noopener">'
             f'🏄 {k_("Merelle Surffaamaan")}</a>']
     if nyt:
-        osat.append(": " + ", ".join(spotti(s) for s in nyt))
+        osat.append(": " + "; ".join(spotti(s, k_("nyt")) for s in nyt))
     if ennuste:
-        osat.append(f' <span class="ok">({k_("ennusteessa")}: {", ".join(spotti(s) for s in ennuste)})</span>')
+        lista = "; ".join(spotti(s, _ajankohta(ajat[s], kieli) if s in ajat else "") for s in ennuste)
+        osat.append(f' <span class="ok">({k_("ennusteessa")}: {lista})</span>')
     return f'<span class="surffi{" ok" if nyt else ""}">{"".join(osat)}</span>'
 
 
@@ -253,6 +339,9 @@ nav > a, .surffi { padding:4px 10px; border:1px solid var(--viiva); border-radiu
 .surffi { display:inline-block; }
 .surffi a { color:inherit; }
 .surffi .surffi-paa { text-decoration:none; }
+.surffi-saa { font-weight:400; color:var(--heikko); }
+.surffi .surffi-saa a { color:var(--linkki); }
+.surffi .surffi-saa a.ukkonen { color:var(--huono); }
 .surffi.ok { border-color:var(--hyva); }
 .surffi.ok, .surffi .ok { color:var(--hyva); font-weight:600; }
 nav a.valittu { background:var(--teksti); color:var(--tausta); border-color:var(--teksti); }
@@ -657,7 +746,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 </head>
 <body><main>
 <div class="otsake"><h1>{k_("Melontapaikkojen tilanne")} {tilanne.paivitetty:%d.%m.%Y}</h1>{vaihto}</div>
-<div class="surffirivi">{surffilinkki(tilanne.surffi, k_)}</div>
+<div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div>
 <div class="meta">{k_("osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet")} ·
 {k_("päivitetty klo")} {tilanne.paivitetty:%H.%M}</div>
 <nav>{suodattimet}<button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button>

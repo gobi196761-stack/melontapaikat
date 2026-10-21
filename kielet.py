@@ -45,6 +45,8 @@ SANAT = {
     "lähtöaika": "departure",
     "Merelle Surffaamaan": "Surfing at sea",
     "ennusteessa": "in forecast",
+    "nyt": "now",
+    "meri": "sea",
     "Muut kohteet": "Other features",
     "Ei vesikaaviota – tarkista itse": "No gauge chart – check yourself",
     "Huomautukset": "Notes",

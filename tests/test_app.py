@@ -524,12 +524,31 @@ def test_surffitilanne_ja_linkki(monkeypatch):
 
     monkeypatch.setattr(app.osm, "hae_turvallisesti", hae)
     surffi = app.surffitilanne(None, nyt)
-    assert surffi == {"nyt": ["yppari"], "ennuste": ["tauvo"]}   # olkijoki: data epävarma
+    assert surffi["nyt"] == ["yppari"] and surffi["ennuste"] == ["tauvo"]   # olkijoki: data epävarma
+    tauvo = dt.datetime(2026, 10, 21, 11, tzinfo=dt.timezone.utc).timestamp()   # ensimmäinen surffitunti
+    assert surffi["ajat"] == {"yppari": nyt.timestamp(), "tauvo": tauvo}
+    # sää ja merivesi surffihetkellä (Open-Meteo: sää + Marine)
+    tunnit = [int(tauvo) - 3600 * 3 + 3600 * i for i in range(8)]
+    saa = [{"hourly": {"time": tunnit, "temperature_2m": [-3.0 + i for i in range(8)],
+                       "weather_code": [2, 2, 2, 3, 3, 95, 3, 3]}}] * 2
+    meri = [{"hourly": {"time": tunnit, "sea_surface_temperature": [7.0 + i / 10 for i in range(8)]}}] * 2
+    monkeypatch.setattr(app.osm, "hae_turvallisesti", lambda h, url: (
+        json.dumps(meri if "marine-api" in url else saa).encode(), None))
+    tiedot = app.surffisaa(None, {"yppari": nyt.timestamp(), "tauvo": tauvo})
+    assert tiedot["tauvo"] == {"t": 0.0, "k": 3, "ukkonen": True, "meri": pytest.approx(7.3)}
+    assert tiedot["yppari"]["t"] == -2.0 and tiedot["yppari"]["ukkonen"] is False
+    surffi["saa"] = tiedot
     k_ = lambda s: s   # noqa: E731
     linkki = app.surffilinkki(surffi, k_)
     assert linkki.startswith('<span class="surffi ok"><a class="surffi-paa" href="https://surffiennustaja.vercel.app/"')
     assert '🏄 Merelle Surffaamaan</a>: <a href="https://surffiennustaja.vercel.app/yppari"' in linkki
+    assert '<span class="surffi-saa">nyt: <a href="https://www.yr.no/en/forecast/hourly-table/64.4056,24.1"' in linkki
+    assert '>ilma</a> −2 °C ⛅ · meri 7.1 °C</span>' in linkki
     assert '<span class="ok">(ennusteessa: <a href="https://surffiennustaja.vercel.app/tauvo"' in linkki
+    assert 'Tauvo</a> <span class="surffi-saa">ke 14.00: <a class="ukkonen" title="ukkosta ennustettu"' in linkki
+    assert '>ilma</a> 0 °C ☁️ · meri 7.3 °C</span>)</span>' in linkki
+    en = app.surffilinkki(surffi, lambda s: app.kielet.kaanna(s, "en"), "en")
+    assert "Wed 14:00: " in en and "sea 7.3 °C" in en and "now: " in en
     tyhja = app.surffilinkki({"nyt": [], "ennuste": []}, k_)
     assert tyhja.startswith('<span class="surffi">') and "ennusteessa" not in tyhja
 
