@@ -569,7 +569,8 @@ def test_ajomatka_ja_kesto_oulusta(palvelin, tilanne):
 def test_lahtoaika_valinta(palvelin):
     runko = pyynto("/")[2]
     assert '<label class="paikkakunta">lähtöaika <input id="lahtoaika" type="datetime-local"' in runko
-    assert 'lahtoKentta.addEventListener("change", () => { paivitaSaat(); naytaPaiva(); })' in runko
+    assert 'sessionStorage.setItem("melonta-lahtoaika", lahtoKentta.value)' in runko
+    assert 'sessionStorage.getItem("melonta-lahtoaika")' in runko
     assert ">departure <input" in pyynto("/", "kieli=en")[2]
 
 

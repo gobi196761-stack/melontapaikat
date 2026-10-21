@@ -452,6 +452,10 @@ SKRIPTI = """
     // lähtö viimeistään vesiennusteen viimeisenä päivänä (+3 pv); sääennuste ulottuu 5 päivään
     const viimeinen = new Date(nyt.getFullYear(), nyt.getMonth(), nyt.getDate() + 3, 23, 45);
     lahtoKentta.max = paikallinen(viimeinen);
+    // asetettu lähtöaika säilyy välilehteä vaihdettaessa (sessionStorage), jos se on vielä tulevaisuudessa
+    let tallessa = null;
+    try { tallessa = sessionStorage.getItem("melonta-lahtoaika"); } catch {}
+    if (tallessa && new Date(tallessa) > nyt && new Date(tallessa) <= viimeinen) lahtoKentta.value = tallessa;
   }
   const lahto = () => {
     const v = lahtoKentta && lahtoKentta.value ? new Date(lahtoKentta.value).getTime() : NaN;
@@ -520,7 +524,13 @@ SKRIPTI = """
     paivaTila.hidden = !n;
   }
   saaOulusta();   // sivu voi olla välimuistista: saapumisaika tämän hetken mukaan
-  if (lahtoKentta) lahtoKentta.addEventListener("change", () => { paivitaSaat(); naytaPaiva(); });
+  if (lahtoKentta) {
+    lahtoKentta.addEventListener("change", () => {
+      try { sessionStorage.setItem("melonta-lahtoaika", lahtoKentta.value); } catch {}
+      paivitaSaat(); naytaPaiva();
+    });
+    naytaPaiva();   // tallessa ollut lähtöpäivä: sen päivän arviot heti
+  }
 
   // Ajomatkat (tavallinen ajoreitti) lähtöpisteestä kaikkiin paikkoihin: /api/ajomatkat
   // laskee ne yhdellä reitityskyselyllä. Lähtöpiste pyöristetään ~1 km:n tarkkuuteen.
