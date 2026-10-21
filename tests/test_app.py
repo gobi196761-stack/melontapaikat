@@ -631,3 +631,11 @@ def test_reissun_pystyviiva(ajot):
 def test_kaaviolinkit_saavat_reissun(palvelin):
     runko = pyynto("/")[2]
     assert 'url.searchParams.set("reissu", Math.round(perilla / 900) * 900)' in runko
+
+
+def test_yr_linkki_saapumispaivalle():
+    nyt = dt.datetime(2026, 10, 21, 10, tzinfo=dt.timezone.utc).timestamp()   # 13.00 Suomen aikaa
+    assert app.yr_osoite(65.1, 25.8) == "https://www.yr.no/en/forecast/hourly-table/65.1,25.8"
+    assert app.yr_osoite(65.1, 25.8, nyt + 3600, nyt).endswith("/65.1,25.8")          # tänään
+    assert app.yr_osoite(65.1, 25.8, nyt + 12 * 3600, nyt).endswith("?i=1")         # huomenna 01.00
+    assert app.yr_osoite(65.1, 25.8, nyt + 2 * 86400, nyt).endswith("?i=2")

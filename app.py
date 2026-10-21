@@ -253,7 +253,8 @@ def surffilinkki(surffi: dict, k_, kieli: str = "fi") -> str:
             vihje = f' title="{e(k_("ukkosta ennustettu"))}"' if ukkonen else ""
             ikoni = f" {saa_ikoni(tiedot['k'])}" if tiedot.get("k") is not None else ""
             lampo = f'{tiedot["t"]:.0f} °C'.replace("-", "−")
-            osat.append(f'<a{luokka}{vihje} href="{e(YR_SAA.format(lev=lev, pit=pit))}" target="_blank" '
+            osoite = yr_osoite(lev, pit, (surffi.get("ajat") or {}).get(s))
+            osat.append(f'<a{luokka}{vihje} href="{e(osoite)}" target="_blank" '
                         f'rel="noopener">{k_("ilma")}</a> {lampo}{ikoni}')
         if tiedot.get("meri") is not None:
             osat.append(f'{k_("meri")} {tiedot["meri"]:.1f} °C')
@@ -477,6 +478,12 @@ SKRIPTI = """
       const ukkonen = !ohi && s.aika.some((a, j) => a >= s.aika[i] && a < s.aika[i] + 4 * 3600 && UKKONEN.includes(s.k[j]));
       linkki.classList.toggle("ukkonen", ukkonen);
       ukkonen ? linkki.title = T.ukkonen : linkki.removeAttribute("title");
+      // yr.no:n tuntiennuste saapumispäivälle (?i = päiviä tästä päivästä, Suomen aikaa)
+      const pvm = s => new Date(s * 1000).toLocaleDateString("sv-SE", {timeZone: "Europe/Helsinki"});
+      const erotus = Math.round((new Date(pvm(perilla)) - new Date(pvm(Date.now() / 1000))) / 86400000);
+      const url = new URL(linkki.href);
+      erotus > 0 ? url.searchParams.set("i", erotus) : url.searchParams.delete("i");
+      linkki.href = url.toString();
     }
   }
   const paiva = s => new Date(s * 1000).toLocaleDateString(T.kieli, {weekday: "short", day: "numeric", month: "numeric", timeZone: "Europe/Helsinki"});
@@ -639,6 +646,21 @@ def _kello(aika: float, kieli: str) -> str:
 YR_SAA = "https://www.yr.no/en/forecast/hourly-table/{lev},{pit}"
 
 
+def yr_osoite(lev: float, pit: float, aika: float | None = None, nyt: float | None = None) -> str:
+    """yr.no:n tuntiennuste paikalle; ?i=N avaa ajankohdan päivän (0 = tänään, Suomen aikaa)."""
+    osoite = YR_SAA.format(lev=lev, pit=pit)
+    if aika is None:
+        return osoite
+    paiva = lambda s: dt.datetime.fromtimestamp(s, dt.timezone(dt.timedelta(hours=3))).date()   # noqa: E731
+    try:
+        from zoneinfo import ZoneInfo
+        paiva = lambda s: dt.datetime.fromtimestamp(s, ZoneInfo("Europe/Helsinki")).date()   # noqa: E731
+    except Exception:  # aikavyöhyketietokanta puuttuu
+        pass
+    erotus = (paiva(aika) - paiva(nyt or time.time())).days
+    return osoite + (f"?i={erotus}" if erotus > 0 else "")
+
+
 def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt: float) -> tuple[str, str]:
     """(saapumisaika, lämpörivi): 'perillä klo 12.40' reittilinkin perään ja omalle rivilleen
     '🌡 ilma −1 °C ⛅ · vesi 4.6 °C'. Ilma ja sää saapumishetkeltä (ajoaika Oulusta + 30 min;
@@ -654,7 +676,7 @@ def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt:
     perilla = saa_perilla(saa, ajo_min, nyt) if saa and ajo_min is not None else None
     ilma_linkki = k_("ilma")
     if t.paikka.sijainti:
-        osoite = YR_SAA.format(lev=t.paikka.sijainti[0], pit=t.paikka.sijainti[1])
+        osoite = yr_osoite(*t.paikka.sijainti, perilla[0] if perilla else None, nyt)
         ukkonen = bool(perilla) and ukkosta(saa, perilla[0])
         luokka = ' class="ilma-linkki ukkonen"' if ukkonen else ' class="ilma-linkki"'
         vihje = f' title="{e(k_("ukkosta ennustettu"))}"' if ukkonen else ""
