@@ -193,6 +193,16 @@ def _kesto(minuutit: float) -> str:
     return f"{m} min" if m < 60 else f"{m // 60} h {m % 60:02d} min"
 
 
+UKKOSKOODIT = (95, 96, 99)   # WMO: ukkonen, ukkonen ja raekuuroja
+UKKOS_TUNNIT = 4              # ukkonen "tiedossa": saapumistunnista näin monen tunnin päähän (melonta-aika)
+
+
+def ukkosta(saa: dict, perilla: float) -> bool:
+    """Onko ukkosta ennustettu saapumistunnista UKKOS_TUNNIT tunnin päähän?"""
+    alku = max((a for a in saa["aika"] if a <= perilla), default=perilla)
+    return any(k in UKKOSKOODIT for a, k in zip(saa["aika"], saa["k"]) if alku <= a < alku + UKKOS_TUNNIT * 3600)
+
+
 def saa_ikoni(koodi: int) -> str:
     """WMO-sääkoodi -> aurinko, puolipilvi, pilvi tai sadepilvi."""
     if koodi <= 1:
@@ -201,7 +211,9 @@ def saa_ikoni(koodi: int) -> str:
         return "⛅"
     if koodi in (3, 45, 48):
         return "☁️"
-    return "🌧️"   # tihku, sade, lumi, kuurot, ukkonen
+    if koodi in UKKOSKOODIT:
+        return "⛈️"
+    return "🌧️"   # tihku, sade, lumi, kuurot
 
 
 def suodata(tulokset: list, kysely: dict[str, list[str]]) -> list:
@@ -277,6 +289,7 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
 .reitti { white-space:nowrap; }
 .saa { color:var(--heikko); }
 .matka, .lampotilat { margin:1px 0; }
+.ukkonen { color:var(--huono) !important; font-weight:700; }
 .tyyppi { font-weight:400; font-size:.85rem; color:var(--heikko); margin-left:2px; }
 nav button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; background:none;
              color:var(--linkki); font:inherit; font-size:.9rem; cursor:pointer; }
@@ -289,7 +302,7 @@ SKRIPTI = """
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
   const T = document.documentElement.lang === "en" ? {
     lisaa: "Add to favourites", poista: "Remove from favourites", km: "",
-    kieli: "en-GB", perilla: "on arrival", lahto: "from", oma: "your location",
+    kieli: "en-GB", perilla: "on arrival", ukkonen: "thunderstorm forecast", lahto: "from", oma: "your location",
     tila: "Driving distances from your location (OpenStreetMap routing).", lasketaan: "Calculating driving distances…",
     eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
     eiTukea: "Your browser does not support location.", haetaan: "Getting location…",
@@ -298,7 +311,7 @@ SKRIPTI = """
     tuntematon: n => "Unknown municipality: " + n + ". Pick one from the list.",
   } : {
     lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "",
-    kieli: "fi-FI", perilla: "perillä klo", lahto: "lähtö", oma: "oma sijainti",
+    kieli: "fi-FI", perilla: "perillä klo", ukkonen: "ukkosta ennustettu", lahto: "lähtö", oma: "oma sijainti",
     tila: "Ajomatkat omasta sijainnistasi (OpenStreetMap-reititys).", lasketaan: "Lasketaan ajomatkoja…",
     eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
     eiTukea: "Selain ei tue sijaintia.", haetaan: "Haetaan sijaintia…",
@@ -338,7 +351,8 @@ SKRIPTI = """
   paivita();
 
   // Sää perillä: tuntiennuste rivillä (data-saa), saapuminen = lähtöaika (oletus nyt) + ajoaika + 30 min
-  const ikoni = k => k <= 1 ? "☀️" : k === 2 ? "⛅" : (k === 3 || k === 45 || k === 48) ? "☁️" : "🌧️";
+  const UKKONEN = [95, 96, 99];
+  const ikoni = k => k <= 1 ? "☀️" : k === 2 ? "⛅" : (k === 3 || k === 45 || k === 48) ? "☁️" : UKKONEN.includes(k) ? "⛈️" : "🌧️";
   const kello = s => new Date(s * 1000).toLocaleTimeString(T.kieli, {hour: "2-digit", minute: "2-digit", timeZone: "Europe/Helsinki"});
   const lahtoKentta = document.getElementById("lahtoaika");
   const paikallinen = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -362,6 +376,13 @@ SKRIPTI = """
     if (aika) aika.textContent = T.perilla + " " + kello(perilla) + (lahto() > Date.now() / 1000 + 43200 ? " " + paiva(perilla) : "");
     if (ilma) ilma.textContent = ohi ? "–" : Math.round(s.t[i]).toString().replace("-", "−") + " °C";
     if (kuva) kuva.textContent = ohi ? "" : ikoni(s.k[i]);
+    // ukkonen tiedossa saapumisesta 4 h eteenpäin: ilma-linkki punaiseksi
+    const linkki = el.querySelector(".ilma-linkki");
+    if (linkki) {
+      const ukkonen = !ohi && s.aika.some((a, j) => a >= s.aika[i] && a < s.aika[i] + 4 * 3600 && UKKONEN.includes(s.k[j]));
+      linkki.classList.toggle("ukkonen", ukkonen);
+      ukkonen ? linkki.title = T.ukkonen : linkki.removeAttribute("title");
+    }
   }
   const paiva = s => new Date(s * 1000).toLocaleDateString(T.kieli, {weekday: "short", day: "numeric", month: "numeric", timeZone: "Europe/Helsinki"});
   let ajoajat = null;   // null = Oulusta (rivin data-ajo), muuten valitun lähtöpaikan ajoajat
@@ -515,7 +536,10 @@ def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt:
     ilma_linkki = k_("ilma")
     if t.paikka.sijainti:
         osoite = YR_SAA.format(lev=t.paikka.sijainti[0], pit=t.paikka.sijainti[1])
-        ilma_linkki = f'<a href="{e(osoite)}" target="_blank" rel="noopener">{ilma_linkki}</a>'
+        ukkonen = bool(perilla) and ukkosta(saa, perilla[0])
+        luokka = ' class="ilma-linkki ukkonen"' if ukkonen else ' class="ilma-linkki"'
+        vihje = f' title="{e(k_("ukkosta ennustettu"))}"' if ukkonen else ""
+        ilma_linkki = f'<a{luokka}{vihje} href="{e(osoite)}" target="_blank" rel="noopener">{ilma_linkki}</a>'
     ilma, saapuminen = "", ""
     if perilla:
         aika, lampo, koodi = perilla

@@ -472,7 +472,7 @@ def test_saa_perilla_ja_veden_lampotila(monkeypatch, palvelin, tilanne):
     ajo = {"ennustepvm_www": "2026-10-18", "tw_ka": {"ensim_pvm": "2026-10-17", "lst": [5.2, 4.64, 4.1]}}
     assert syke_data.veden_lampotila(ajo) == pytest.approx(4.64)
     assert syke_data.veden_lampotila({"ennustepvm_www": "2026-10-18"}) is None
-    assert [app.saa_ikoni(k) for k in (0, 1, 2, 3, 45, 61, 71, 95)] == ["☀️", "☀️", "⛅", "☁️", "☁️", "🌧️", "🌧️", "🌧️"]
+    assert [app.saa_ikoni(k) for k in (0, 1, 2, 3, 45, 61, 71, 95)] == ["☀️", "☀️", "⛅", "☁️", "☁️", "🌧️", "🌧️", "⛈️"]
     # tuntiennuste Open-Meteosta: menneet tunnit (yli tunti sitten) jätetään pois
     nyt = 1_792_540_800
     monkeypatch.setattr(app.time, "time", lambda: nyt)
@@ -505,7 +505,8 @@ def test_saa_perilla_ja_veden_lampotila(monkeypatch, palvelin, tilanne):
             f'<span class="saa-aika">perillä klo ') in runko
     assert '</span> · <span class="km">~180 km Oulusta</span></div>\n<div class="pieni lampotilat"><span class="saa"' in runko
     assert "ajomatka" not in runko.split("<script>")[0] and "\" ajomatka\"" not in runko
-    assert f'<a href="https://www.yr.no/en/forecast/hourly-table/{lev},{pit}" target="_blank" rel="noopener">ilma</a>' in runko
+    assert (f'<a class="ilma-linkki" href="https://www.yr.no/en/forecast/hourly-table/{lev},{pit}" '
+            f'target="_blank" rel="noopener">ilma</a>') in runko
     tilanne.saa, tilanne.ajo_min = {}, {}
 
 
@@ -551,3 +552,23 @@ def test_lahtoaika_valinta(palvelin):
     assert '<label class="paikkakunta">lähtöaika <input id="lahtoaika" type="datetime-local"' in runko
     assert "lahtoKentta.addEventListener(\"change\", paivitaSaat)" in runko
     assert ">departure <input" in pyynto("/", "kieli=en")[2]
+
+
+def test_ukkonen(palvelin, tilanne):
+    nyt = 1_792_540_800
+    saa = {"aika": [nyt + 3600 * i for i in range(8)], "t": [10.0] * 8, "k": [2, 2, 2, 2, 95, 2, 2, 2]}
+    assert not app.ukkosta(saa, nyt + 1800)          # ukkonen 4 h päästä saapumistunnista: ei vielä
+    assert app.ukkosta(saa, nyt + 3600 * 1.5)
+    assert not app.ukkosta(saa, nyt + 3600 * 5.5)    # ukkonen jo ohi
+    assert not app.ukkosta({**saa, "k": [2] * 8}, nyt)
+    t = tilanne.tulokset[0]
+    tilanne.saa, tilanne.ajo_min = {t.paikka.nimi: saa}, {t.paikka.nimi: 0}
+    monkey = app.time.time
+    try:
+        app.time.time = lambda: nyt + 3600   # saapuminen klo nyt+1.5 h -> ukkonen 2.5 h päästä
+        runko = pyynto("/")[2]
+    finally:
+        app.time.time = monkey
+    assert '<a class="ilma-linkki ukkonen" title="ukkosta ennustettu" href="https://www.yr.no/' in runko
+    assert 'UKKONEN.includes(k) ? "⛈️"' in runko
+    tilanne.saa, tilanne.ajo_min = {}, {}

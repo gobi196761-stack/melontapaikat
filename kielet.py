@@ -30,6 +30,7 @@ SANAT = {
     "🚗 Reitti": "🚗 Route",
     "ilma": "air",
     "perillä klo": "on arrival",
+    "ukkosta ennustettu": "thunderstorm forecast",
     "vesi": "water",
     "Veden lämpötila": "Water temperature",
     " – kylmää vettä, pukeudu uintia varten!": " – cold water, dress for a swim!",
