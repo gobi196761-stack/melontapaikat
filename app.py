@@ -41,6 +41,7 @@ import smhi_data
 import syke_data
 import syke_kaavio
 from paikat import PAIKAT, aseman_nimi, nakyy
+from paikkakunnat import PAIKKAKUNNAT
 
 VALIMUISTI_S = 15 * 60
 CACHE_CONTROL = "public, max-age=300, s-maxage=1800, stale-while-revalidate=3600, stale-if-error=86400"
@@ -143,6 +144,10 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
 .kieli { display:inline-flex; align-items:center; gap:6px; font-size:.85rem; color:var(--heikko);
          text-decoration:none; margin-top:4px; white-space:nowrap; }
 .kieli svg { border:1px solid var(--viiva); border-radius:2px; display:block; }
+.paikkakunta { display:inline-flex; align-items:center; gap:6px; font-size:.9rem; color:var(--heikko); }
+.paikkakunta input { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; font:inherit;
+                     font-size:.9rem; width:11em; background:var(--tausta); color:var(--teksti); }
+.reitti { white-space:nowrap; }
 nav button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; background:none;
              color:var(--linkki); font:inherit; font-size:.9rem; cursor:pointer; }
 """
@@ -157,11 +162,15 @@ SKRIPTI = """
     tila: "Distances as the crow flies from your location (driving distance is usually longer).",
     eiTukea: "Your browser does not support location.", haetaan: "Getting location…",
     eiSaatu: m => "Location not available (" + m + "). Distances are from Oulu city centre.",
+    paikkakunnalta: n => "Distances as the crow flies from " + n + " (driving distance is usually longer).",
+    tuntematon: n => "Unknown municipality: " + n + ". Pick one from the list.",
   } : {
     lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: " km linnuntietä",
     tila: "Etäisyydet linnuntietä omasta sijainnistasi (ajomatka on yleensä pidempi).",
     eiTukea: "Selain ei tue sijaintia.", haetaan: "Haetaan sijaintia…",
     eiSaatu: m => "Sijaintia ei saatu (" + m + "). Etäisyydet ovat Oulun keskustasta.",
+    paikkakunnalta: n => "Etäisyydet linnuntietä paikkakunnalta " + n + " (ajomatka on yleensä pidempi).",
+    tuntematon: n => "Tuntematon paikkakunta: " + n + ". Valitse listasta.",
   };
   const lue = (k, oletus) => { try { return JSON.parse(localStorage.getItem(k)) ?? oletus; } catch { return oletus; } };
   const kirjoita = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
@@ -201,30 +210,60 @@ SKRIPTI = """
     const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2;
     return 2 * 6371 * Math.asin(Math.sqrt(h));
   }
-  function nayta(oma) {
+  // oma = [lev, pit] tai null (takaisin Oulun keskustaan); lahto = reittilinkkien lähtöpiste
+  function nayta(oma, teksti, lahto) {
     for (const r of rivit) {
       const km = r.querySelector(".km");
-      if (!km || !r.dataset.sijainti) continue;
-      const d = etaisyys(oma, r.dataset.sijainti.split(",").map(Number));
-      km.textContent = "~" + (d < 10 ? d.toFixed(1) : Math.round(d)) + T.km;
+      if (km && r.dataset.sijainti) {
+        km.dataset.oulu ??= km.textContent;
+        const d = oma && etaisyys(oma, r.dataset.sijainti.split(",").map(Number));
+        km.textContent = oma ? "~" + (d < 10 ? d.toFixed(1) : Math.round(d)) + T.km : km.dataset.oulu;
+      }
+      const reitti = r.querySelector(".reitti");
+      if (reitti) {
+        const url = new URL(reitti.href);
+        lahto ? url.searchParams.set("origin", lahto) : url.searchParams.delete("origin");
+        reitti.href = url.toString();
+      }
     }
-    tila.textContent = T.tila;
-    tila.hidden = false;
+    tila.textContent = teksti || "";
+    tila.hidden = !teksti;
   }
   function hae() {
     if (!navigator.geolocation) { tila.textContent = T.eiTukea; tila.hidden = false; return; }
     tila.textContent = T.haetaan; tila.hidden = false;
     navigator.geolocation.getCurrentPosition(
-      p => { kirjoita(SIJ, true); nayta([p.coords.latitude, p.coords.longitude]); },
+      p => { kirjoita(SIJ, true); kentta && (kentta.value = "");
+             nayta([p.coords.latitude, p.coords.longitude], T.tila, null); },
       v => { kirjoita(SIJ, false); tila.textContent = T.eiSaatu(v.message); },
       { maximumAge: 10 * 60 * 1000, timeout: 15000 });
   }
+  // Paikkakunta sijainnin sijaan: koordinaatit sivulla (paikkakunnat.py), ei lähde mihinkään
+  const kentta = document.getElementById("paikkakunta");
+  const kunnat = JSON.parse(document.getElementById("paikkakunnat")?.textContent || "{}");
+  const avain = n => n.trim().toLocaleLowerCase("fi");
+  const haku = Object.fromEntries(Object.keys(kunnat).map(n => [avain(n), n]));
+  function valitse(arvo, muista) {
+    if (!arvo.trim()) { kirjoita(SIJ, false); nayta(null, "", null); return; }
+    const nimi = haku[avain(arvo)];
+    if (!nimi) { tila.textContent = T.tuntematon(arvo.trim()); tila.hidden = false; return; }
+    const [lev, pit] = kunnat[nimi];
+    if (muista) kirjoita(SIJ, {paikkakunta: nimi});
+    kentta.value = nimi;
+    nayta([lev, pit], T.paikkakunnalta(nimi), lev + "," + pit);
+  }
+  if (kentta) kentta.addEventListener("change", () => valitse(kentta.value, true));
   const nappi = document.getElementById("sijainti");
   if (nappi) nappi.addEventListener("click", hae);
-  if (lue(SIJ, false)) hae();   // lupa annettu aiemmin: päivitä suoraan
+  const muistettu = lue(SIJ, false);
+  if (muistettu && muistettu.paikkakunta && kentta) valitse(muistettu.paikkakunta, false);
+  else if (muistettu === true) hae();   // lupa annettu aiemmin: päivitä suoraan
 })();
 """
 
+
+KUNTALISTA = "".join(f'<option value="{html.escape(n)}">' for n in PAIKKAKUNNAT)
+KUNNAT_JSON = json.dumps(PAIKKAKUNNAT, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 
 EI_SUOSIKKEJA = {
     "fi": "Ei vielä suosikkeja. Lisää paikka suosikiksi sen nimen vieressä olevasta ♡-napista – "
@@ -287,11 +326,18 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi") -> str:
     ennuste = " / ".join(f"{t.ennuste[n]:.0f}" for n in sorted(t.ennuste)) or "–"
     km = f'<span class="km">~{p.km_oulusta} {k_("km Oulusta")}</span>' if p.km_oulusta is not None else ""
     sijainti = f' data-sijainti="{p.sijainti[0]},{p.sijainti[1]}"' if p.sijainti else ""
+    # Google Mapsin ajoreitti; lähtöpiste on oma sijainti (Google) tai valittu paikkakunta (selain lisää)
+    reitti = ""
+    if p.sijainti:
+        osoite = "https://www.google.com/maps/dir/?" + urlencode(
+            {"api": 1, "destination": f"{p.sijainti[0]},{p.sijainti[1]}", "travelmode": "driving"})
+        reitti = (f' · <a class="reitti" href="{e(osoite)}" target="_blank" rel="noopener">'
+                  f'{k_("🚗 Reitti")}</a>')
     return f"""<tr data-paikka="{e(p.nimi)}"{sijainti}>
 <td class="sija">{sija}.</td>
 <td><div class="nimi"><a href="{e(p.url)}">{e(p.nimi)}</a>
 <button type="button" class="suosikki" aria-pressed="false" title="{k_('Lisää suosikkeihin')}">♡</button></div>
-<div class="pieni">{e(k_(p.tyyppi))}{' · ' + km if km else ''}</div>
+<div class="pieni">{e(k_(p.tyyppi))}{' · ' + km if km else ''}{reitti}</div>
 <ul class="pieni">{''.join(mittarit)}</ul>
 <ul>{''.join(kohde(k) for k in lyhyet)}{huomiot}</ul>{lisat}</td>
 <td class="pisteet {_pisteluokka(t.pisteet)}">{t.pisteet:.0f}</td>
@@ -350,7 +396,11 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <div class="otsake"><h1>{k_("Melontapaikkojen tilanne")} {tilanne.paivitetty:%d.%m.%Y}</h1>{vaihto}</div>
 <div class="meta">{k_("osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet")} ·
 {k_("päivitetty klo")} {tilanne.paivitetty:%H.%M} · <a href="{api}">JSON</a></div>
-<nav>{suodattimet}<button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button></nav>
+<nav>{suodattimet}<button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button>
+<label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
+placeholder="{k_("esim. Rovaniemi")}"></label></nav>
+<datalist id="kunnat">{KUNTALISTA}</datalist>
+<script type="application/json" id="paikkakunnat">{KUNNAT_JSON}</script>
 <p id="sijainti-tila" class="pieni" hidden></p>
 {lampo}
 <p id="ei-suosikkeja" hidden>{EI_SUOSIKKEJA[kieli]}</p>

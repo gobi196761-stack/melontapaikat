@@ -422,3 +422,18 @@ def test_arkistoidut_arviot(monkeypatch):
     monkeypatch.setattr(app, "_arkisto", None)
     monkeypatch.setattr(app.firestore.Firestore, "ymparistosta", classmethod(lambda cls: None))
     assert app.arkistoidut_arviot("61/q6101750y") == {}
+
+
+def test_paikkakunta_ja_reittilinkit(palvelin):
+    from paikkakunnat import PAIKKAKUNNAT
+    assert len(PAIKKAKUNNAT) == 308 + 14
+    assert PAIKKAKUNNAT["Oulu"] == pytest.approx((65.01, 25.47), abs=0.05)
+    assert all(59.5 < lat < 70.2 and 17 < lon < 31.7 for lat, lon in PAIKKAKUNNAT.values())
+    runko = pyynto("/")[2]
+    assert 'id="paikkakunta" list="kunnat"' in runko and '<option value="Rovaniemi">' in runko
+    kunnat = json.loads(runko.split('<script type="application/json" id="paikkakunnat">')[1].split("</script>")[0])
+    assert kunnat["Rovaniemi"] == list(PAIKKAKUNNAT["Rovaniemi"])
+    assert ('href="https://www.google.com/maps/dir/?api=1&amp;destination=65.2838%2C26.5408&amp;travelmode=driving"'
+            in runko) and "🚗 Reitti" in runko
+    en = pyynto("/", "kieli=en")[2]
+    assert "or municipality" in en and "🚗 Route" in en and "e.g. Rovaniemi" in en
