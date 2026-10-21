@@ -538,7 +538,12 @@ SKRIPTI = """
   saaOulusta();   // sivu voi olla välimuistista: saapumisaika tämän hetken mukaan
   if (lahtoKentta) {
     lahtoKentta.addEventListener("change", () => {
-      try { sessionStorage.setItem("melonta-lahtoaika", lahtoKentta.value); } catch {}
+      if (!lahtoKentta.value) {   // tyhjennä-nappi: takaisin nykyhetkeen
+        lahtoKentta.value = paikallinen(new Date());
+        try { sessionStorage.removeItem("melonta-lahtoaika"); } catch {}
+      } else {
+        try { sessionStorage.setItem("melonta-lahtoaika", lahtoKentta.value); } catch {}
+      }
       paivitaSaat(); naytaPaiva();
     });
     naytaPaiva();   // tallessa ollut lähtöpäivä: sen päivän arviot heti
