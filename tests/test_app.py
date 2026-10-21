@@ -295,7 +295,8 @@ def test_syke_kaavio(ajot):
     kuva = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
     ET.fromstring(kuva)
     assert "Kipinä (Iijoki) – mittari" in kuva and "Vedenkorkeus m" in kuva
-    assert "malli (ennuste katkoviivana)" in kuva and "havainto" in kuva
+    # ennuste jatkuu viimeisestä havainnosta, mallin menneitä arvoja ei piirretä
+    assert "ennuste (jatkuu viimeisestä havainnosta)" in kuva and "malli (ennuste" not in kuva and "havainto" in kuva
     # kohteiden alueet nimettyinä
     assert "Oikean silta-aukon surffiaalto 108.15–108.8 (paras 108.15–108.6)" in kuva
     assert "kohde parhaimmillaan" in kuva
@@ -643,10 +644,24 @@ def test_yr_linkki_saapumispaivalle():
 
 
 def test_saaennuste_kattaa_lahtopaivat(monkeypatch):
-    """Lähtöajan voi valita kolmannen päivän loppuun; sääennusteen on ulotuttava sen yli."""
+    """Lähtöajan voi valita seitsemännen päivän loppuun; sääennusteen on ulotuttava sen yli."""
     kyselyt = []
     monkeypatch.setattr(app.osm, "hae_turvallisesti", lambda h, url: (kyselyt.append(url), (None, "x"))[1])
     app.saaennusteet(None)
-    assert "forecast_days=5" in kyselyt[0]
+    assert "forecast_days=10" in kyselyt[0]
     import inspect
-    assert inspect.signature(app.saaennusteet).parameters["tunteja"].default >= 4 * 24 + 6
+    assert inspect.signature(app.saaennusteet).parameters["tunteja"].default >= 8 * 24 + 6
+
+
+def test_ennuste_jatkuu_viimeisesta_havainnosta():
+    d = lambda n: dt.date(2026, 10, 21) + dt.timedelta(days=n)   # noqa: E731
+    malli = {d(n): 100.0 + n for n in range(-3, 5)}
+    havaitut = {d(-2): 90.0, d(-1): 95.0}   # tämän päivän havainto puuttuu
+    ennuste, vali, lukema = kaavio_svg._jatka_havainnosta(havaitut, malli, d(0), {d(1): (98.0, 105.0)})
+    # alkaa viimeisestä havainnosta (95), sitten mallin muutos lisättynä (siirto 95 − 99 = −4)
+    assert ennuste[d(-1)] == 95.0 and ennuste[d(0)] == 96.0 and ennuste[d(3)] == 99.0
+    assert d(-2) not in ennuste   # mallin menneitä arvoja ei näytetä
+    assert vali == {d(1): (94.0, 101.0)} and lukema == (96.0, "ennuste")
+    # ilman havaintoja: mallin ennuste tästä päivästä
+    ennuste, _, lukema = kaavio_svg._jatka_havainnosta({}, malli, d(0))
+    assert min(ennuste) == d(0) and lukema == (100.0, "malli")

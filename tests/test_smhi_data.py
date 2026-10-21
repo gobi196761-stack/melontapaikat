@@ -102,14 +102,14 @@ def test_ruotsin_paikat_jarjestyksessa(ruotsi, capsys):
     assert pahakurkkio.pisteet == pytest.approx(82)
     assert pahakurkkio.paras_kohde.kohde.nimi == "Koskisarja 1–7"
     assert {k.kohde.nimi: k.tila for k in pahakurkkio.kohteet}["Åretsvågen (ykköskönkään surffiaalto)"] == "ei toimi"
-    assert set(trollforsarna.ennuste) == set(pahakurkkio.ennuste) == {1, 2, 3}
+    assert set(trollforsarna.ennuste) == set(pahakurkkio.ennuste) == set(range(1, 8))   # HydroNu 10 pv
     assert not any("ei ole tältä päivältä" in h for t in tulokset for h in t.huomiot)
 
     melonta.tulosta(tulokset, [], NYT.date(), laaja=False)
     tuloste = capsys.readouterr().out
     assert "Gransel (Piteälven) virtaama 119 m³/s (havainto, SMHI), 3 pv: ↘" in tuloste
     assert "Männikkö (Kalixälven) virtaama 83 m³/s (havainto, SMHI)" in tuloste
-    assert "pisteet lähipäivinä (+1/+2/+3 pv)" in tuloste
+    assert "pisteet lähipäivinä (+1…+7 pv)" in tuloste
 
     data = melonta.json_tulos(tulokset, [], NYT.date())
     mittari = next(p for p in data["paikat"] if p["nimi"].startswith("Trollforsarna"))["mittarit"]["paa"]

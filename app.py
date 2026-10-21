@@ -101,13 +101,13 @@ OULU = "65.01,25.47"          # oletuslähtöpaikka ajoajoille (Oulun keskusta)
 LISAAIKA_MIN = 30             # ajoajan päälle: pakkaus, tauot – sää katsotaan perillä tähän aikaan
 
 
-def saaennusteet(hakija: osm.Hakija, tunteja: int = 120) -> dict[str, dict]:
+def saaennusteet(hakija: osm.Hakija, tunteja: int = 8 * 24 + 12) -> dict[str, dict]:
     """Tuntiennuste (lämpötila, WMO-sääkoodi) paikkojen sijainneissa Open-Meteosta yhdellä
     kyselyllä: nimi -> {"aika": [unix s], "t": [...], "k": [...]}. Tyhjä, jos palvelu ei vastaa."""
     paikat = [p for p in PAIKAT if p.sijainti]
     kysely = urlencode({"latitude": ",".join(str(p.sijainti[0]) for p in paikat),
                         "longitude": ",".join(str(p.sijainti[1]) for p in paikat),
-                        "hourly": "temperature_2m,weather_code", "forecast_days": 5,
+                        "hourly": "temperature_2m,weather_code", "forecast_days": 10,
                         "timeformat": "unixtime"})
     data, _ = osm.hae_turvallisesti(hakija, OPEN_METEO.format(kysely=kysely))
     try:
@@ -117,8 +117,14 @@ def saaennusteet(hakija: osm.Hakija, tunteja: int = 120) -> dict[str, dict]:
         tulos = {}
         for p, v in zip(paikat, vastaus):
             h = v["hourly"]
-            rivit = [(a, t, k) for a, t, k in zip(h["time"], h["temperature_2m"], h["weather_code"])
-                     if a >= alku and isinstance(t, (int, float)) and isinstance(k, int)][:tunteja]
+            # peräkkäiset tunnit (sivulle pakataan alku + 3600 s välein): ensimmäinen puuttuva katkaisee
+            rivit = []
+            for a, t, k in zip(h["time"], h["temperature_2m"], h["weather_code"]):
+                if a < alku:
+                    continue
+                if not (isinstance(t, (int, float)) and isinstance(k, int)) or len(rivit) == tunteja:
+                    break
+                rivit.append((a, t, k))
             if rivit:
                 tulos[p.nimi] = {"aika": [r[0] for r in rivit], "t": [round(r[1], 1) for r in rivit],
                                  "k": [r[2] for r in rivit]}
@@ -449,8 +455,8 @@ SKRIPTI = """
   if (lahtoKentta) {   // oletuksena nykyhetki
     const nyt = new Date();
     lahtoKentta.value = lahtoKentta.min = paikallinen(nyt);
-    // lähtö viimeistään vesiennusteen viimeisenä päivänä (+3 pv); sääennuste ulottuu 5 päivään
-    const viimeinen = new Date(nyt.getFullYear(), nyt.getMonth(), nyt.getDate() + 3, 23, 45);
+    // lähtö viimeistään vesiennusteen viimeisenä päivänä (+7 pv); sääennuste ulottuu 10 päivään
+    const viimeinen = new Date(nyt.getFullYear(), nyt.getMonth(), nyt.getDate() + 7, 23, 45);
     lahtoKentta.max = paikallinen(viimeinen);
     // asetettu lähtöaika säilyy välilehteä vaihdettaessa (sessionStorage), jos se on vielä tulevaisuudessa
     let tallessa = null;
@@ -465,6 +471,7 @@ SKRIPTI = """
     const el = r.querySelector(".saa[data-saa]");
     if (!el || ajoMin == null) return;
     const s = JSON.parse(el.dataset.saa), perilla = lahto() + (ajoMin + 30) * 60;
+    s.aika = s.aika || s.t.map((_, j) => s.a0 + 3600 * j);
     let i = -1;
     s.aika.forEach((a, j) => { if (a <= perilla) i = j; });
     const ohi = i < 0 || perilla >= s.aika[s.aika.length - 1] + 3600;   // ennuste ei ulotu
@@ -508,7 +515,7 @@ SKRIPTI = """
     if (!taulukko || !lahtoKentta) return;
     const alku = new Date(taulukko.dataset.paiva0 + "T00:00");
     const lahtoPv = lahtoKentta.value ? new Date(lahtoKentta.value.slice(0, 10) + "T00:00") : alku;
-    const n = Math.max(0, Math.min(3, Math.round((lahtoPv - alku) / 86400000)));
+    const n = Math.max(0, Math.min(7, Math.round((lahtoPv - alku) / 86400000)));
     for (const r of rivit) {
       const p = JSON.parse(r.dataset.pisteet || "{}"), nn = (n in p) ? n : 0;
       r.querySelectorAll(".paiva").forEach(d => d.hidden = Number(d.dataset.paiva) !== nn);
@@ -682,7 +689,8 @@ def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt:
                  if (l := t.lukemat.get(avain)) is not None and l.veden_lampotila is not None), None)
     tiedot = ""
     if saa:
-        tiedot += f" data-saa='{html.escape(json.dumps(saa, separators=(',', ':')))}'"
+        pakattu = {"a0": saa["aika"][0], "t": saa["t"], "k": saa["k"]}   # tunnit peräkkäin
+        tiedot += f" data-saa='{html.escape(json.dumps(pakattu, separators=(',', ':')))}'"
     if ajo_min is not None:
         tiedot += f' data-ajo="{ajo_min:.0f}"'
     perilla = saa_perilla(saa, ajo_min, nyt) if saa and ajo_min is not None else None
@@ -837,7 +845,7 @@ placeholder="{k_("esim. Rovaniemi")}"></label>
 <p id="ei-suosikkeja" hidden>{EI_SUOSIKKEJA[kieli]}</p>
 <p id="paiva-tila" class="pieni" hidden></p>
 <table data-valilehti="{e(valittu)}" data-paiva0="{tilanne.paivitetty:%Y-%m-%d}">
-<thead><tr><th></th><th>{k_("Paikka")}</th><th>{k_("Pisteet")}</th><th class="piilo">{k_("+1 / +2 / +3 pv")}</th></tr></thead>
+<thead><tr><th></th><th>{k_("Paikka")}</th><th>{k_("Pisteet")}</th><th class="piilo">{k_("+1 … +7 pv")}</th></tr></thead>
 <tbody>{rivit}</tbody>
 </table>
 {ilman_html}

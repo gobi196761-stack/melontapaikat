@@ -255,7 +255,7 @@ def tulosta(tulokset, varoitukset, paiva: dt.date, laaja: bool) -> None:
                 lisa = " [lisäkaavio]" if p.mittarit[avain].lisakaavio else ""
                 print(f"      {kuvaa_lukema(l)}{lisa}")
         if ennuste:
-            print(f"      pisteet lähipäivinä (+1/+2/+3 pv): {ennuste}")
+            print(f"      pisteet lähipäivinä (+1…+{arviointi.ENNUSTEPAIVAT[-1]} pv): {ennuste}")
         kohteet = sorted(t.kohteet, key=lambda k: k.pisteet, reverse=True)
         if not laaja:
             toimivat = [k for k in kohteet if k.tila != "ei toimi"]

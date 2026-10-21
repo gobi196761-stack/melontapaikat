@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from paikat import Kohde, Paikka
 from syke_kaavio import Kaaviolukema
 
-ENNUSTEPAIVAT = (1, 2, 3)
+ENNUSTEPAIVAT = tuple(range(1, 8))   # +1…+7 pv
 REUNAPISTEET = 45      # pisteet heti toimivan alueen ulkopuolella
 LISA_PER_KOHDE = 2     # lisäpisteet jokaisesta muusta toimivasta kohteesta
 LISA_MAX = 6
