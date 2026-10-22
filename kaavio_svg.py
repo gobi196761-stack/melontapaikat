@@ -172,7 +172,8 @@ _REISSU_JS = """(function () {
     try { sessionStorage.setItem("melonta-lahtoaika", arvo); } catch (e) {}
     try { localStorage.setItem("melonta-lahtoaika", JSON.stringify({arvo: arvo, aika: Date.now()})); } catch (e) {}
   }
-  function aseta(t, kayttaja) {
+  var valittu = null;   // viimeksi asetettu aika; tallennetaan lähtöajaksi vasta vedon lopussa
+  function aseta(t) {
     t = Math.max(D.a, Math.min(D.b, Math.round(t / 9e5) * 9e5));
     var px = x(t), v = arvoAikaan(t), oikea = px > D.x0 + D.w * 0.55;
     [viiva, osuma].forEach(function (l) { l.setAttribute("x1", px); l.setAttribute("x2", px); });
@@ -181,7 +182,7 @@ _REISSU_JS = """(function () {
     aika.setAttribute("text-anchor", oikea ? "end" : "start");
     aika.textContent = D.nimi + " " + muoto.format(new Date(t))
       + (D.matka != null ? " (" + D.lahto + " " + kello.format(new Date(lahtoAika(t))) + ")" : "");
-    if (kayttaja) tallennaLahto(t);
+    valittu = t;
     if (v === null) { piste.setAttribute("visibility", "hidden"); arvo.textContent = ""; return; }
     var py = Math.max(D.y0 + 24, Math.min(D.y0 + D.h - 30, y(v)));   // ei ajankohdan päälle
     piste.setAttribute("visibility", "visible"); piste.setAttribute("cx", px); piste.setAttribute("cy", y(v));
@@ -196,13 +197,13 @@ _REISSU_JS = """(function () {
   var veto = false;
   [osuma, kahva, nuoli].forEach(function (el) {
     el.addEventListener("pointerdown", function (e) {
-      veto = true; el.setPointerCapture(e.pointerId); e.preventDefault(); aseta(kohta(e), true);
+      veto = true; el.setPointerCapture(e.pointerId); e.preventDefault(); aseta(kohta(e));
     });
-    el.addEventListener("pointermove", function (e) { if (veto) aseta(kohta(e), true); });
-    el.addEventListener("pointerup", function () { veto = false; });
-    el.addEventListener("pointercancel", function () { veto = false; });
+    el.addEventListener("pointermove", function (e) { if (veto) aseta(kohta(e)); });
+    el.addEventListener("pointerup", function () { if (veto) tallennaLahto(valittu); veto = false; });
+    el.addEventListener("pointercancel", function () { if (veto) tallennaLahto(valittu); veto = false; });
   });
-  alue.addEventListener("click", function (e) { aseta(kohta(e), true); });
+  alue.addEventListener("click", function (e) { aseta(kohta(e)); tallennaLahto(valittu); });
   aseta(D.t0);
 })();"""
 

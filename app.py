@@ -558,8 +558,14 @@ SKRIPTI = """
       paivitaSaat(); naytaPaiva();
     };
     addEventListener("pageshow", () => { try { otaLahto(sessionStorage.getItem("melonta-lahtoaika")); } catch {} });
+    // toisen välilehden muutokset: jonossa olleet ilmoitukset kootaan, ja vain viimeisin arvo otetaan käyttöön
+    let odotus = null;
     addEventListener("storage", e => {
-      if (e.key === "melonta-lahtoaika" && e.newValue) try { otaLahto(JSON.parse(e.newValue).arvo); } catch {}
+      if (e.key !== "melonta-lahtoaika") return;
+      clearTimeout(odotus);
+      odotus = setTimeout(() => {
+        try { otaLahto(JSON.parse(localStorage.getItem("melonta-lahtoaika")).arvo); } catch {}
+      }, 300);
     });
   }
 

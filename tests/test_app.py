@@ -673,7 +673,7 @@ def test_kaaviolinkit_saavat_reissun(palvelin):
     assert 'url.searchParams.set("reissu", Math.round(perilla / 900) * 900)' in runko
     # matka-aika kaavioon ja osoittimella valittu lähtöaika takaisin sivulle
     assert 'url.searchParams.set("matka", Math.round(ajoMin + 30))' in runko
-    assert 'addEventListener("pageshow"' in runko and 'e.key === "melonta-lahtoaika"' in runko
+    assert 'addEventListener("pageshow"' in runko and 'e.key !== "melonta-lahtoaika"' in runko
 
 
 def test_yr_linkki_saapumispaivalle():
