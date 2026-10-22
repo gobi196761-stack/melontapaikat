@@ -16,9 +16,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from paikat import Kohde, Paikka
+from syke_data import ENNUSTE_PAIVIA
 from syke_kaavio import Kaaviolukema
 
-ENNUSTEPAIVAT = tuple(range(1, 8))   # +1…+7 pv
+ENNUSTEPAIVAT = tuple(range(1, ENNUSTE_PAIVIA + 1))   # +1…+14 pv, kuten kaavioiden ennuste
 REUNAPISTEET = 45      # pisteet heti toimivan alueen ulkopuolella
 LISA_PER_KOHDE = 2     # lisäpisteet jokaisesta muusta toimivasta kohteesta
 LISA_MAX = 6

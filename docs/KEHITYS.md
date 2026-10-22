@@ -12,7 +12,7 @@ pisteytystä, ennusteita, arviomalleja tai kaavioita. Käyttöohje on README.md:
 | `syke_kaavio.py` | `KaavioLukija` lukee SYKE:n PNG-kaavioista pikseleistä havainnon, mallin, ennusteen ja välin. `Kaaviolukema` on yhden mittarin tila. |
 | `syke_data.py` | SYKE:n ajo.json (`taydenna` korvaa kuvasta luetut arvot datalla), reaaliaikamittaukset, Hawa'Ii-arviomallit ja tuntiarviot. |
 | `smhi_data.py` | SMHI:n hydroobs- ja HydroNu-data (Ruotsi). |
-| `arviointi.py` | Pisteytys: kohteet → paikka, sekä päivät +1…+7. |
+| `arviointi.py` | Pisteytys: kohteet → paikka, sekä päivät +1…+14. |
 | `melonta.py` | `kerää_tilanne` hakee kaiken rinnakkain. Sisältää myös CLI:n. |
 | `kaavio_svg.py` | Omat SVG-kaaviot (SYKE, SMHI, kuvasta luettu, Hawa'Ii-arvio ja tuntikaavio). |
 | `app.py` | WSGI-sivu ja API, sää, ajomatkat, surffi sekä sivun JS (`SKRIPTI`). |
@@ -42,12 +42,12 @@ Testit ovat `tests/`-hakemistossa, ja ne ajetaan komennolla `uv run pytest`. Tes
 - `_yhdista` laskee paikan pisteet: paras kohde + 2 pistettä jokaisesta muusta toimivasta kohteesta. Lisä on enintään 6 ja kokonaisuus enintään 100.
 - Tulvaindeksi = (arvo − MNQ/MNW) / (MHQ/MHW − MNQ/MNW). Tunnusluvut tulevat aseman sivulta.
 
-## Ennustepäivät (+1…+7)
+## Ennustepäivät (+1…+14)
 
-- `ENNUSTEPAIVAT = 1..7`. Päivän n arvo on `Kaaviolukema.ennuste_korjattu(n) = arvo + (ennuste[n] − malli)`.
+- `ENNUSTEPAIVAT = 1..14` (`syke_data.ENNUSTE_PAIVIA`, kaavioiden ennusteen pituus). Päivän n arvo on `Kaaviolukema.ennuste_korjattu(n) = arvo + (ennuste[n] − malli)`.
   - Ennustetta ei siis käytetä sellaisenaan. Siitä otetaan vain muutos, joka ankkuroidaan tämän päivän havaintoon.
   - Syy: SYKE:n malli voi olla harhainen, mutta sen muutos on luotettava.
-- Sivulla on jokaisesta päivästä 0..7 oma versio (`data-paiva`). JS valitsee version lähtöajan perusteella. Lähtöaika tallennetaan sessionStorageen, ja tyhjennys palauttaa nykyhetken.
+- Sivulla on jokaisesta päivästä 0..14 oma versio (`data-paiva`). JS valitsee version lähtöajan perusteella; jos paikan ennuste on lyhyempi (SMHI 10 pv), käytetään sen viimeistä päivää ennen lähtöpäivää. Lähtöaika tallennetaan sessionStorageen, ja tyhjennys palauttaa nykyhetken.
 - Kaavioissa (`kaavio_svg._jatka_havainnosta`) on sama periaate:
   - Ennusteviiva alkaa viimeisestä havainnosta, ja sitä siirretään erotuksella (havainto − malli). Myös 5–95 %:n väli siirretään samalla erotuksella.
   - Mallin menneitä arvoja ei piirretä.
@@ -120,7 +120,7 @@ Maalismaa on PVO:n voimala, joten aseman oma päivän arvo julkaistaan vasta seu
 - Reissu-osoitin (`kaavio_svg._reissu_osoitin`) näkyy aina, ja sitä voi vetää sormella tai hiirellä. Kaavion SVG:ssä on oma skripti, joten tämä toimii, kun kaavio avataan omana sivunaan.
   - Osoitin alkaa parametrin `?reissu=` ajasta (perilläoloaika 15 minuutin tarkkuudella), muuten nykyhetkestä.
   - Se näyttää ajankohdan ja arvon, joka interpoloidaan havainnoista ja niistä jatkuvasta ennusteesta.
-  - `?matka=` on matka-aika minuutteina (ajo + 30 min). Kun osoitinta vedetään, lähtöaika = osoittimen aika − matka-aika tallennetaan sessionStorageen ja localStorageen avaimella `melonta-lahtoaika`. Pääsivu ottaa sen käyttöön `pageshow`- ja `storage`-tapahtumissa.
+  - `?matka=` on matka-aika minuutteina (ajo + 30 min). Kun osoitinta vedetään, lähtöaika = osoittimen aika − matka-aika tallennetaan sessionStorageen ja localStorageen avaimella `melonta-lahtoaika`. Pääsivu ottaa sen käyttöön `pageshow`- ja `storage`-tapahtumissa. Lähtöaika rajataan samaan ylärajaan kuin sivun lähtöaikakenttä (+14 pv klo 23.45, `syke_data.ENNUSTE_PAIVIA`, kaavioiden ennusteen pituus), joten osoitinta voi vetää enintään siihen + matka-aika. Pääsivu tuo rajan ylittävän arvon rajalle.
 
 ## Kohteiden rajojen lähteet
 

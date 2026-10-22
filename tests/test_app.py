@@ -666,6 +666,8 @@ def test_reissun_pystyviiva(ajot):
     finally:
         kaavio_svg.matka.reset(m)
     assert '&quot;matka&quot;:56.0' in kolmas and 'sessionStorage.setItem("melonta-lahtoaika"' in kolmas
+    # lähtö enintään sivun lähtöaikakentän rajalla (+14 pv), osoitin enintään siihen + matka-aika
+    assert '&quot;pv&quot;:14' in kolmas and "getDate() + D.pv, 23, 45" in kolmas and "viimeinenLahto + D.matka * 60000" in kolmas
 
 
 def test_kaaviolinkit_saavat_reissun(palvelin):
@@ -685,13 +687,13 @@ def test_yr_linkki_saapumispaivalle():
 
 
 def test_saaennuste_kattaa_lahtopaivat(monkeypatch):
-    """Lähtöajan voi valita seitsemännen päivän loppuun; sääennusteen on ulotuttava sen yli."""
+    """Lähtöajan voi valita 14. päivän loppuun; sääennusteen on ulotuttava sen yli."""
     kyselyt = []
     monkeypatch.setattr(app.osm, "hae_turvallisesti", lambda h, url: (kyselyt.append(url), (None, "x"))[1])
     app.saaennusteet(None)
-    assert "forecast_days=10" in kyselyt[0]
+    assert "forecast_days=16" in kyselyt[0]
     import inspect
-    assert inspect.signature(app.saaennusteet).parameters["tunteja"].default >= 8 * 24 + 6
+    assert inspect.signature(app.saaennusteet).parameters["tunteja"].default >= (app.LAHTO_PAIVIA + 1) * 24 + 6
 
 
 def test_ennuste_jatkuu_viimeisesta_havainnosta():
