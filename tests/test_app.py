@@ -731,6 +731,6 @@ def test_kajakkikuvakkeet(palvelin):
     assert ISOT_SURFFIT <= {k.nimi for p in PAIKAT for k in p.kohteet}   # nimet ajan tasalla
     runko = pyynto("/")[2]
     # Kipinän oikean silta-aukon surffiaalto: freestyle-kuvake nimen perässä
-    assert ('<b>Oikean silta-aukon surffiaalto</b> <span class="kajakit"><svg class="kajakki" viewBox="0 0 40 20" '
+    assert ('<b>Oikean silta-aukon surffiaalto</b> <span class="kajakit"><svg class="kajakki" viewBox="0 -8 40 32" '
             'style="color:#e03131" role="img" aria-label="freestyle-kajakki"><title>freestyle-kajakki</title>') in runko
     assert 'aria-label="freestyle kayak"' in pyynto("/", "kieli=en")[2]

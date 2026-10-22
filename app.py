@@ -389,7 +389,7 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
 .selitykset { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
 .selitykset ul { display:flex; flex-wrap:wrap; gap:4px 16px; list-style:none; padding:0; margin:6px 0; }
 .selitykset p { margin:4px 0 0; }
-.kajakki { width:26px; height:13px; vertical-align:-2px; margin-left:3px; color:var(--linkki); }
+.kajakki { width:26px; height:20.8px; vertical-align:-6px; margin-left:3px; color:var(--linkki); }
 .ukkonen { color:var(--huono) !important; font-weight:700; }
 .tyyppi { font-weight:400; font-size:.85rem; color:var(--heikko); margin-left:2px; }
 nav button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; background:none;
@@ -686,7 +686,8 @@ LIPUT = {
 
 # Kajakkityyppien kuvakkeet (omat sivuprofiilit: meloja + runko + vesiviiva). Tyypit erottuvat värin ja
 # asennon mukaan (liikennevalovärit): freestyle punainen ja ylösalaisin ilmassa veden yllä (voltti), slice
-# keltainen 70 asteen kulmassa keula pystyssä (peräupotus), river runner vihreä oikein päin. viewBox 0 0 40 20.
+# keltainen 70 asteen kulmassa keula pystyssä (peräupotus), river runner vihreä oikein päin;
+# kaikissa sama mittakaava. viewBox 0 -8 40 32.
 KAJAKKI_MELOJA = ('<circle cx="20" cy="5.2" r="2.1"/><path d="M18 7.6h4l.8 6.4h-5.6Z"/>'
                   '<path d="M11.5 15.5 28.5 2.5" stroke="currentColor" stroke-width="1.1" fill="none"/>'
                   '<path d="M10.2 16.8l2.6-2.2.9 1.2-2.4 1.9ZM29.8 1.2l-2.6 2.2-.9-1.2 2.4-1.9Z"/>')
@@ -694,10 +695,11 @@ KAJAKKI_MELOJA = ('<circle cx="20" cy="5.2" r="2.1"/><path d="M18 7.6h4l.8 6.4h-
 KAJAKKI_KUVAKKEET = {
     "freestyle": ("freestyle-kajakki",
                   "M9 15.2C10.5 17.6 15 18.3 20 18.3S29.5 17.6 31 15.2C28.5 14.6 24.5 13.8 20 13.8S11.5 14.6 9 15.2Z",
-                  "#e03131", "translate(4 .3) scale(.8) matrix(1 0 0 -1 0 20)", 18.6),   # voltissa ilmassa
-    "slice": ("slice-kajakki (half / full slice)",
-              "M3.5 15.6C7 17.6 13 18.1 20 18.1S33 17.6 36.5 15.4C32 14.6 26 13.9 20 13.9S8 14.7 3.5 15.6Z",
-              "#f08c00", "translate(21 9) rotate(-70) scale(.52) translate(-20 -14)", 9.4),
+                  "#e03131", "translate(0 -6) matrix(1 0 0 -1 0 20)", 17),   # voltissa ilmassa
+    "slice": ("slice-kajakki (half / full slice)",   # Dagger Rewindin tapaan: täyteläinen keula, ohut perä, river runneria lyhyempi
+              "M6.4 16.4C10.4 17.2 15.2 17.8 20 18.2C25.6 18.6 30.4 18.2 33.2 16.2C34.4 15.2 34.2 13 32.8 12.4"
+              "C28.8 11.4 24 12.6 20 13.4C15.2 14.4 10.4 15.6 6.4 16.4Z",
+              "#f08c00", "translate(21 7) rotate(-70) translate(-20 -14)", 7.7),
     "riverrunner": ("river runner -kajakki",
                     "M4.5 13.4C5 17 11 18.6 20 18.6S35 17 35.5 13.4C33 14.2 27 13.6 20 13.6S7 14.2 4.5 13.4Z",
                     "#2f9e44", "", 16.5),
@@ -711,8 +713,8 @@ def _kajakki_svg(tyyppi: str, k_, selite: bool = False) -> str:
     kuva = (f'<path d="M0 {vesi}q2.5-1.3 5 0{aallot}" fill="none" stroke="#339af0" stroke-width="1.1"/><g fill="currentColor"{f" transform={chr(34)}{asento}{chr(34)}" if asento else ""}>'
             f'<path d="{runko}"/>{KAJAKKI_MELOJA}</g>')
     if selite:
-        return f'<svg class="kajakki" viewBox="0 0 40 20" style="color:{vari}" aria-hidden="true">{kuva}</svg>'
-    return (f'<svg class="kajakki" viewBox="0 0 40 20" style="color:{vari}" role="img" aria-label="{e(k_(nimi))}">'
+        return f'<svg class="kajakki" viewBox="0 -8 40 32" style="color:{vari}" aria-hidden="true">{kuva}</svg>'
+    return (f'<svg class="kajakki" viewBox="0 -8 40 32" style="color:{vari}" role="img" aria-label="{e(k_(nimi))}">'
             f'<title>{e(k_(nimi))}</title>{kuva}</svg>')
 
 
