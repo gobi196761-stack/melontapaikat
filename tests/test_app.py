@@ -666,6 +666,8 @@ def test_reissun_pystyviiva(ajot):
     finally:
         kaavio_svg.matka.reset(m)
     assert '&quot;matka&quot;:56.0' in kolmas and 'sessionStorage.setItem("melonta-lahtoaika"' in kolmas
+    # lähtö enintään sivun lähtöaikakentän rajalla (+7 pv), osoitin enintään siihen + matka-aika
+    assert "getDate() + 7, 23, 45" in kolmas and "viimeinenLahto + D.matka * 60000" in kolmas
 
 
 def test_kaaviolinkit_saavat_reissun(palvelin):

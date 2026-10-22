@@ -120,7 +120,7 @@ Maalismaa on PVO:n voimala, joten aseman oma päivän arvo julkaistaan vasta seu
 - Reissu-osoitin (`kaavio_svg._reissu_osoitin`) näkyy aina, ja sitä voi vetää sormella tai hiirellä. Kaavion SVG:ssä on oma skripti, joten tämä toimii, kun kaavio avataan omana sivunaan.
   - Osoitin alkaa parametrin `?reissu=` ajasta (perilläoloaika 15 minuutin tarkkuudella), muuten nykyhetkestä.
   - Se näyttää ajankohdan ja arvon, joka interpoloidaan havainnoista ja niistä jatkuvasta ennusteesta.
-  - `?matka=` on matka-aika minuutteina (ajo + 30 min). Kun osoitinta vedetään, lähtöaika = osoittimen aika − matka-aika tallennetaan sessionStorageen ja localStorageen avaimella `melonta-lahtoaika`. Pääsivu ottaa sen käyttöön `pageshow`- ja `storage`-tapahtumissa.
+  - `?matka=` on matka-aika minuutteina (ajo + 30 min). Kun osoitinta vedetään, lähtöaika = osoittimen aika − matka-aika tallennetaan sessionStorageen ja localStorageen avaimella `melonta-lahtoaika`. Pääsivu ottaa sen käyttöön `pageshow`- ja `storage`-tapahtumissa. Lähtöaika rajataan samaan ylärajaan kuin sivun lähtöaikakenttä (+7 pv klo 23.45, vesiennusteen viimeinen päivä), joten osoitinta voi vetää enintään siihen + matka-aika. Pääsivu tuo rajan ylittävän arvon rajalle.
 
 ## Kohteiden rajojen lähteet
 

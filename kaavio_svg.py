@@ -165,7 +165,11 @@ _REISSU_JS = """(function () {
   var kello = new Intl.DateTimeFormat(D.kieli === "en" ? "en-GB" : "fi-FI",
       {timeZone: "Europe/Helsinki", hour: "2-digit", minute: "2-digit"});
   function paikallinen(d) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
-  function lahtoAika(t) { return Math.max(Date.now(), Math.round((t - D.matka * 60000) / 9e5) * 9e5); }
+  // lähtö viimeistään sivun lähtöaikakentän rajalla (vesiennusteen viimeinen päivä, +7 pv klo 23.45)
+  var nyt = new Date(), viimeinenLahto = new Date(nyt.getFullYear(), nyt.getMonth(), nyt.getDate() + 7, 23, 45).getTime();
+  function lahtoAika(t) {
+    return Math.min(viimeinenLahto, Math.max(Date.now(), Math.round((t - D.matka * 60000) / 9e5) * 9e5));
+  }
   function tallennaLahto(t) {   // sivun lähtöaikakenttään: sama välilehti (takaisin) ja muut välilehdet
     if (D.matka == null) return;
     var arvo = paikallinen(new Date(lahtoAika(t)));
@@ -174,7 +178,9 @@ _REISSU_JS = """(function () {
   }
   var valittu = null;   // viimeksi asetettu aika; tallennetaan lähtöajaksi vasta vedon lopussa
   function aseta(t) {
-    t = Math.max(D.a, Math.min(D.b, Math.round(t / 9e5) * 9e5));
+    // matka-ajan kanssa osoitin ulottuu vain viimeisellä mahdollisella lähdöllä perille ehtimiseen
+    var yla = D.matka != null ? Math.min(D.b, viimeinenLahto + D.matka * 60000) : D.b;
+    t = Math.max(D.a, Math.min(yla, Math.round(t / 9e5) * 9e5));
     var px = x(t), v = arvoAikaan(t), oikea = px > D.x0 + D.w * 0.55;
     [viiva, osuma].forEach(function (l) { l.setAttribute("x1", px); l.setAttribute("x2", px); });
     kahva.setAttribute("cx", px); nuoli.setAttribute("x", px);

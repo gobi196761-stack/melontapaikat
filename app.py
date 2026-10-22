@@ -551,8 +551,8 @@ SKRIPTI = """
     naytaPaiva();   // tallessa ollut lähtöpäivä: sen päivän arviot heti
     // kaavion reissu-osoittimella valittu lähtöaika: takaisin-napilla (sivu välimuistista) tai toisesta välilehdestä
     const otaLahto = arvo => {
-      if (!arvo || arvo === lahtoKentta.value || new Date(arvo) < new Date(lahtoKentta.min)
-          || new Date(arvo) > new Date(lahtoKentta.max)) return;
+      if (arvo && new Date(arvo) > new Date(lahtoKentta.max)) arvo = lahtoKentta.max;   // ennusteen rajalle
+      if (!arvo || arvo === lahtoKentta.value || new Date(arvo) < new Date(lahtoKentta.min)) return;
       lahtoKentta.value = arvo;
       try { sessionStorage.setItem("melonta-lahtoaika", arvo); } catch {}
       paivitaSaat(); naytaPaiva();
