@@ -165,8 +165,8 @@ _REISSU_JS = """(function () {
   var kello = new Intl.DateTimeFormat(D.kieli === "en" ? "en-GB" : "fi-FI",
       {timeZone: "Europe/Helsinki", hour: "2-digit", minute: "2-digit"});
   function paikallinen(d) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
-  // lähtö viimeistään sivun lähtöaikakentän rajalla (vesiennusteen viimeinen päivä, +7 pv klo 23.45)
-  var nyt = new Date(), viimeinenLahto = new Date(nyt.getFullYear(), nyt.getMonth(), nyt.getDate() + 7, 23, 45).getTime();
+  // lähtö viimeistään sivun lähtöaikakentän rajalla (ennusteen viimeinen päivä, +D.pv pv klo 23.45)
+  var nyt = new Date(), viimeinenLahto = new Date(nyt.getFullYear(), nyt.getMonth(), nyt.getDate() + D.pv, 23, 45).getTime();
   function lahtoAika(t) {
     return Math.min(viimeinenLahto, Math.max(Date.now(), Math.round((t - D.matka * 60000) / 9e5) * 9e5));
   }
@@ -228,7 +228,7 @@ def _reissu_osoitin(sarja: dict[int, float], ala_ms: float, yla_ms: float, x0: f
     tiedot = {"id": tunnus, "a": ala_ms, "b": yla_ms, "x0": x0, "w": leveys, "y0": y0, "h": korkeus,
               "alin": alin, "ylin": ylin, "m": metreja, "yks": "m" if metreja else "m³/s", "kieli": kieli,
               "nimi": _t("reissu"), "t0": alku, "s": [[ms, round(v, 3)] for ms, v in sorted(sarja.items())],
-              "matka": matka.get(), "lahto": "departure" if kieli == "en" else "lähtö"}
+              "matka": matka.get(), "pv": syke_data.ENNUSTE_PAIVIA, "lahto": "departure" if kieli == "en" else "lähtö"}
     ala = y0 + korkeus
     halo = 'stroke="#fff" stroke-width="3" paint-order="stroke"'
     return [

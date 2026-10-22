@@ -40,7 +40,7 @@ SANAT = {
     " – kylmää vettä, pukeudu uintia varten!": " – cold water, dress for a swim!",
     "Paikka": "Spot",
     "Pisteet": "Score",
-    "+1 … +7 pv": "+1 … +7 d",
+    "+1 … +14 pv": "+1 … +14 d",
     "peli": "play spot",
     "retki": "river run",
     "km Oulusta": "km from Oulu",

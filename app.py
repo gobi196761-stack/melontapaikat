@@ -99,15 +99,16 @@ OPEN_METEO = "https://api.open-meteo.com/v1/forecast?{kysely}"
 
 OULU = "65.01,25.47"          # oletuslähtöpaikka ajoajoille (Oulun keskusta)
 LISAAIKA_MIN = 30             # ajoajan päälle: pakkaus, tauot – sää katsotaan perillä tähän aikaan
+LAHTO_PAIVIA = syke_data.ENNUSTE_PAIVIA   # lähtöaika enintään näin monen päivän päähän (kaavioiden ennuste)
 
 
-def saaennusteet(hakija: osm.Hakija, tunteja: int = 8 * 24 + 12) -> dict[str, dict]:
+def saaennusteet(hakija: osm.Hakija, tunteja: int = (LAHTO_PAIVIA + 1) * 24 + 12) -> dict[str, dict]:
     """Tuntiennuste (lämpötila, WMO-sääkoodi) paikkojen sijainneissa Open-Meteosta yhdellä
     kyselyllä: nimi -> {"aika": [unix s], "t": [...], "k": [...]}. Tyhjä, jos palvelu ei vastaa."""
     paikat = [p for p in PAIKAT if p.sijainti]
     kysely = urlencode({"latitude": ",".join(str(p.sijainti[0]) for p in paikat),
                         "longitude": ",".join(str(p.sijainti[1]) for p in paikat),
-                        "hourly": "temperature_2m,weather_code", "forecast_days": 10,
+                        "hourly": "temperature_2m,weather_code", "forecast_days": 16,
                         "timeformat": "unixtime"})
     data, _ = osm.hae_turvallisesti(hakija, OPEN_METEO.format(kysely=kysely))
     try:
@@ -460,8 +461,8 @@ SKRIPTI = """
   if (lahtoKentta) {   // oletuksena nykyhetki
     const nyt = new Date();
     lahtoKentta.value = lahtoKentta.min = paikallinen(nyt);
-    // lähtö viimeistään vesiennusteen viimeisenä päivänä (+7 pv); sääennuste ulottuu 10 päivään
-    const viimeinen = new Date(nyt.getFullYear(), nyt.getMonth(), nyt.getDate() + 7, 23, 45);
+    // lähtö viimeistään kaavioiden ennusteen viimeisenä päivänä (data-paivia, +14 pv); sääennuste 16 päivää
+    const viimeinen = new Date(nyt.getFullYear(), nyt.getMonth(), nyt.getDate() + Number(lahtoKentta.dataset.paivia), 23, 45);
     lahtoKentta.max = paikallinen(viimeinen);
     // asetettu lähtöaika säilyy välilehteä vaihdettaessa (sessionStorage), jos se on vielä tulevaisuudessa
     let tallessa = null;
@@ -522,9 +523,10 @@ SKRIPTI = """
     if (!taulukko || !lahtoKentta) return;
     const alku = new Date(taulukko.dataset.paiva0 + "T00:00");
     const lahtoPv = lahtoKentta.value ? new Date(lahtoKentta.value.slice(0, 10) + "T00:00") : alku;
-    const n = Math.max(0, Math.min(7, Math.round((lahtoPv - alku) / 86400000)));
+    const n = Math.max(0, Math.round((lahtoPv - alku) / 86400000));
     for (const r of rivit) {
-      const p = JSON.parse(r.dataset.pisteet || "{}"), nn = (n in p) ? n : 0;
+      // lyhyempi ennuste (esim. SMHI 10 pv): sen viimeinen päivä ennen lähtöpäivää
+      const p = JSON.parse(r.dataset.pisteet || "{}"), nn = Math.max(0, ...Object.keys(p).map(Number).filter(k => k <= n));
       r.querySelectorAll(".paiva").forEach(d => d.hidden = Number(d.dataset.paiva) !== nn);
       const solu = r.querySelector("td.pisteet");
       if (solu && p[nn] != null) { solu.textContent = p[nn]; solu.className = "pisteet " + luokka(p[nn]); }
@@ -847,7 +849,7 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
                      + "".join(kohde(k) for k in muut) + "</ul></details>")
         return f"<ul>{''.join(kohde(k) for k in lyhyet)}{huomiot}</ul>{lisat}"
 
-    # Päivä 0 = tänään; 1–3 = ennuste (selain näyttää lähtöpäivän version, kaavioita ei muuteta)
+    # Päivä 0 = tänään; 1–14 = ennuste (selain näyttää lähtöpäivän version, kaavioita ei muuteta)
     huomiot = "".join(f'<li class="huom">! {e(k_(h))}</li>' for h in t.huomiot)
     paivat = {0: (t.kohteet, t.pisteet, huomiot)}
     paivat.update({n: (t.ennusteen_kohteet[n], t.ennuste[n], "") for n in sorted(t.ennuste)
@@ -932,7 +934,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <nav>{suodattimet}<button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button>
 <label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
 placeholder="{k_("esim. Rovaniemi")}"></label>
-<label class="paikkakunta">{k_("lähtöaika")} <input id="lahtoaika" type="datetime-local" step="900"></label></nav>
+<label class="paikkakunta">{k_("lähtöaika")} <input id="lahtoaika" type="datetime-local" step="900" data-paivia="{LAHTO_PAIVIA}"></label></nav>
 <datalist id="kunnat">{KUNTALISTA}</datalist>
 <script type="application/json" id="paikkakunnat">{KUNNAT_JSON}</script>
 <p id="sijainti-tila" class="pieni" hidden></p>
@@ -940,7 +942,7 @@ placeholder="{k_("esim. Rovaniemi")}"></label>
 <p id="ei-suosikkeja" hidden>{EI_SUOSIKKEJA[kieli]}</p>
 <p id="paiva-tila" class="pieni" hidden></p>
 <table data-valilehti="{e(valittu)}" data-paiva0="{tilanne.paivitetty:%Y-%m-%d}">
-<thead><tr><th></th><th>{k_("Paikka")}</th><th>{k_("Pisteet")}</th><th class="piilo">{k_("+1 … +7 pv")}</th></tr></thead>
+<thead><tr><th></th><th>{k_("Paikka")}</th><th>{k_("Pisteet")}</th><th class="piilo">{k_("+1 … +14 pv")}</th></tr></thead>
 <tbody>{rivit}</tbody>
 </table>
 {ilman_html}
