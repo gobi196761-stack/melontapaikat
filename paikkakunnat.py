@@ -329,3 +329,5 @@ PAIKKAKUNNAT: dict[str, tuple[float, float]] = {
     "Överkalix": (66.3233, 22.8481),
     "Övertorneå (Ruotsi)": (66.3881, 23.6436),
 }
+RUOTSI = ("Arjeplog", "Arvidsjaur", "Boden", "Gällivare", "Haparanda", "Jokkmokk", "Kalix", "Kiruna",
+          "Luleå", "Pajala", "Piteå", "Älvsbyn", "Överkalix", "Övertorneå (Ruotsi)")
