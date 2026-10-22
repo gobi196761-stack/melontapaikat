@@ -12,6 +12,7 @@ Reitit:
     /api/halytys   hälytyksen tilaus (POST) ja peruutus (DELETE), ks. halytykset.py
     /api/halyta    aamun hälytysten lähetys (Vercel Cron, kuten /api/arkistoi)
     /sw.js         push-ilmoitusten service worker
+    /manifest.webmanifest, /kuvake-<koko>.png  sivu asennettavaksi sovellukseksi (sovellus.py)
 Suodattimet kummallekin: ?tyyppi=peli|retki|ruotsi ja ?max_km=N
 (ilman tyyppiä vain Suomen paikat; Ruotsin paikat näkyvät vain tyyppi=ruotsi)
 
@@ -43,6 +44,7 @@ import melonta
 import osm_sivut as osm
 import kaavio_svg
 import kielet
+import sovellus
 import smhi_data
 import syke_data
 import syke_kaavio
@@ -1071,6 +1073,12 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{k_("Melontatilanne")}</title>
+<link rel="manifest" href="/manifest.webmanifest{"?kieli=en" if kieli == "en" else ""}">
+<meta name="theme-color" content="{sovellus.TEEMA}">
+<link rel="icon" type="image/png" href="/kuvake-192.png">
+<link rel="apple-touch-icon" href="/kuvake-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="{k_("Melonta")}">
 <style>{TYYLI}</style>
 </head>
 <body><main>
@@ -1200,10 +1208,14 @@ def halyta(environ) -> tuple[str, dict]:
 
 
 def halytys_api(environ, metodi: str) -> tuple[str, dict]:
-    """Selaimen hälytystilaus: POST {tilaus, paikat, raja, kieli} tallentaa (ja lähettää
-    vahvistusilmoituksen), DELETE {endpoint} poistaa."""
+    """Selaimen hälytystilaus: POST {tilaus, ehdot, paivia, kieli} tallentaa (ja lähettää
+    vahvistusilmoituksen), DELETE {endpoint} poistaa. GET kertoo, ovatko hälytykset käytössä
+    ja miksi eivät (sivun hälytysosio näkyy vain, kun ne ovat)."""
+    if metodi in ("GET", "HEAD"):
+        kaytossa = halytykset.avaimet(uudelleen=True) is not None
+        return "200 OK", {"kaytossa": kaytossa, "avaimet": halytykset.avainten_tila}
     if metodi not in ("POST", "DELETE"):
-        return "405 Method Not Allowed", {"virhe": "vain POST tai DELETE"}
+        return "405 Method Not Allowed", {"virhe": "vain GET, POST tai DELETE"}
     try:
         pituus = int(environ.get("CONTENT_LENGTH") or 0)
         if not 0 < pituus <= 8192:
@@ -1508,8 +1520,8 @@ def app(environ, start_response):
     kysely = {k: v for k, v in parse_qs(environ.get("QUERY_STRING", "")).items()
               if k in ("tyyppi", "max_km", "kieli")}
 
-    def vastaa(status: str, tyyppi: str, runko: str, valimuisti: str = "no-store"):
-        data = runko.encode("utf-8")
+    def vastaa(status: str, tyyppi: str, runko: str | bytes, valimuisti: str = "no-store"):
+        data = runko if isinstance(runko, bytes) else runko.encode("utf-8")
         start_response(status, [("Content-Type", tyyppi), ("Content-Length", str(len(data))),
                                 ("Cache-Control", valimuisti)])
         return [b"" if metodi == "HEAD" else data]
@@ -1519,6 +1531,14 @@ def app(environ, start_response):
         return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False))
     if metodi not in ("GET", "HEAD"):
         return vastaa("405 Method Not Allowed", "text/plain; charset=utf-8", "Vain GET.\n")
+    if polku == "/manifest.webmanifest":
+        return vastaa("200 OK", "application/manifest+json; charset=utf-8",
+                      sovellus.manifest(kielet.kieli(kysely)), "public, max-age=86400")
+    if polku.startswith("/kuvake-") and polku.endswith(".png"):
+        koko = polku.removeprefix("/kuvake-").removesuffix(".png")
+        if koko.isdigit() and int(koko) in sovellus.KOOT:
+            return vastaa("200 OK", "image/png", sovellus.kuvake(int(koko)), "public, max-age=604800")
+        return vastaa("404 Not Found", "text/plain; charset=utf-8", "Ei löydy.\n")
     if polku == "/sw.js":
         return vastaa("200 OK", "application/javascript; charset=utf-8", halytykset.SERVICE_WORKER, "no-cache")
     if polku == "/api/halyta":
