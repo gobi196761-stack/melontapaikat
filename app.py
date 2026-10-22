@@ -26,11 +26,12 @@ import datetime as dt
 import hmac
 import html
 import json
+import math
 import os
 import threading
 import time
 from dataclasses import dataclass, field
-from urllib.parse import parse_qs, urlencode
+from urllib.parse import parse_qs, quote, urlencode
 
 import ennustearkisto
 import firestore
@@ -42,7 +43,7 @@ import smhi_data
 import syke_data
 import syke_kaavio
 from paikat import PAIKAT, aseman_nimi, kohteen_kajakit, nakyy
-from paikkakunnat import PAIKKAKUNNAT
+from paikkakunnat import PAIKKAKUNNAT, RUOTSI
 
 VALIMUISTI_S = 15 * 60
 CACHE_CONTROL = "public, max-age=300, s-maxage=1800, stale-while-revalidate=3600, stale-if-error=86400"
@@ -404,7 +405,7 @@ SKRIPTI = """
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
   const T = document.documentElement.lang === "en" ? {
     lisaa: "Add to favourites", poista: "Remove from favourites", km: "",
-    kieli: "en-GB", perilla: "on arrival", paivaTila: "Water levels and ratings from the forecast for", ukkonen: "thunderstorm forecast", yrRaja: "yr.no forecasts only 9 days ahead: its last day", lahto: "from", oma: "your location",
+    kieli: "en-GB", perilla: "on arrival", paivaTila: "Water levels and ratings from the forecast for", ukkonen: "thunderstorm forecast", foreca: "Foreca 15-day forecast (yr.no covers only 9 days)", lahto: "from", oma: "your location",
     tila: "Driving distances from your location (OpenStreetMap routing).", lasketaan: "Calculating driving distances…",
     eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
     eiTukea: "Your browser does not support location.", haetaan: "Getting location…",
@@ -413,7 +414,7 @@ SKRIPTI = """
     tuntematon: n => "Unknown municipality: " + n + ". Pick one from the list.",
   } : {
     lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "",
-    kieli: "fi-FI", perilla: "perillä klo", paivaTila: "Vesitilanne ja arviot ennusteen mukaan:", ukkonen: "ukkosta ennustettu", yrRaja: "yr.no ennustaa vain 9 päivän päähän: sen viimeinen päivä", lahto: "lähtö", oma: "oma sijainti",
+    kieli: "fi-FI", perilla: "perillä klo", paivaTila: "Vesitilanne ja arviot ennusteen mukaan:", ukkonen: "ukkosta ennustettu", foreca: "Forecan 15 vrk ennuste (yr.no ennustaa vain 9 päivää)", lahto: "lähtö", oma: "oma sijainti",
     tila: "Ajomatkat omasta sijainnistasi (OpenStreetMap-reititys).", lasketaan: "Lasketaan ajomatkoja…",
     eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
     eiTukea: "Selain ei tue sijaintia.", haetaan: "Haetaan sijaintia…",
@@ -499,15 +500,17 @@ SKRIPTI = """
       const ukkonen = !ohi && s.aika.some((a, j) => a >= s.aika[i] && a < s.aika[i] + 4 * 3600 && UKKONEN.includes(s.k[j]));
       linkki.classList.toggle("ukkonen", ukkonen);
       // yr.no:n tuntiennuste saapumispäivälle (?i = päiviä tästä päivästä, Suomen aikaa);
-      // yr.no ennustaa vain YR_PAIVIA päivää, joten myöhemmästä saapumisesta sen viimeinen päivä
+      // yr.no ennustaa vain YR_PAIVIA päivää, joten myöhemmästä saapumisesta Forecan 15 vrk ennuste
       const YR_PAIVIA = 9;   // app.YR_PAIVIA
       const pvm = s => new Date(s * 1000).toLocaleDateString("sv-SE", {timeZone: "Europe/Helsinki"});
       const erotus = Math.round((new Date(pvm(perilla)) - new Date(pvm(Date.now() / 1000))) / 86400000);
-      const otsikko = ukkonen ? T.ukkonen : erotus > YR_PAIVIA ? T.yrRaja : "";
+      const foreca = erotus > YR_PAIVIA && linkki.dataset.foreca;
+      const otsikko = ukkonen ? T.ukkonen : foreca ? T.foreca : "";
       otsikko ? linkki.title = otsikko : linkki.removeAttribute("title");
-      const url = new URL(linkki.href);
+      linkki.dataset.yr = linkki.dataset.yr || linkki.href;   // alkuperäinen yr.no-osoite talteen
+      const url = new URL(linkki.dataset.yr);
       erotus > 0 ? url.searchParams.set("i", Math.min(erotus, YR_PAIVIA)) : url.searchParams.delete("i");
-      linkki.href = url.toString();
+      linkki.href = foreca || url.toString();
     }
   }
   const paiva = s => new Date(s * 1000).toLocaleDateString(T.kieli, {weekday: "short", day: "numeric", month: "numeric", timeZone: "Europe/Helsinki"});
@@ -789,6 +792,21 @@ def yr_osoite(lev: float, pit: float, aika: float | None = None, nyt: float | No
     return osoite + (f"?i={min(erotus, YR_PAIVIA)}" if erotus > 0 else "")
 
 
+FORECA_SAA = "https://www.foreca.fi/{maa}/{kunta}/15vrk"
+
+
+def foreca_osoite(paikka) -> str | None:
+    """Forecan 15 vuorokauden ennuste paikkaa lähimmälle saman maan kunnalle (yr.no:n 9 päivän jälkeen)."""
+    if not paikka.sijainti:
+        return None
+    lev, pit = paikka.sijainti
+    kunnat = [n for n in PAIKKAKUNNAT if (n in RUOTSI) == (paikka.maa == "SE")]
+    kunta = min(kunnat, key=lambda n: (PAIKKAKUNNAT[n][0] - lev) ** 2
+                + ((PAIKKAKUNNAT[n][1] - pit) * math.cos(math.radians(lev))) ** 2)
+    return FORECA_SAA.format(maa="Sweden" if paikka.maa == "SE" else "Finland",
+                             kunta=quote(kunta.removesuffix(" (Ruotsi)")))
+
+
 def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt: float) -> tuple[str, str]:
     """(saapumisaika, lämpörivi): 'perillä klo 12.40' reittilinkin perään ja omalle rivilleen
     '🌡 ilma −1 °C ⛅ · vesi 4.6 °C'. Ilma ja sää saapumishetkeltä (ajoaika Oulusta + 30 min;
@@ -809,7 +827,9 @@ def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt:
         ukkonen = bool(perilla) and ukkosta(saa, perilla[0])
         luokka = ' class="ilma-linkki ukkonen"' if ukkonen else ' class="ilma-linkki"'
         vihje = f' title="{e(k_("ukkosta ennustettu"))}"' if ukkonen else ""
-        ilma_linkki = f'<a{luokka}{vihje} href="{e(osoite)}" target="_blank" rel="noopener">{ilma_linkki}</a>'
+        foreca = foreca_osoite(t.paikka)   # selain vaihtaa linkin siihen yr.no:n ennusteen jälkeen
+        ilma_linkki = (f'<a{luokka}{vihje} href="{e(osoite)}" data-foreca="{e(foreca)}" target="_blank" '
+                       f'rel="noopener">{ilma_linkki}</a>')
     ilma, saapuminen = "", ""
     if perilla:
         aika, lampo, koodi = perilla

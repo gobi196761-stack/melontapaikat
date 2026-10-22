@@ -530,7 +530,7 @@ def test_saa_perilla_ja_veden_lampotila(monkeypatch, palvelin, tilanne):
     assert '</span> · <span class="km">~180 km Oulusta</span></div>\n<div class="pieni lampotilat"><span class="saa"' in runko
     assert "ajomatka" not in runko.split("<script>")[0] and "\" ajomatka\"" not in runko
     assert (f'<a class="ilma-linkki" href="https://www.yr.no/en/forecast/hourly-table/{lev},{pit}" '
-            f'target="_blank" rel="noopener">ilma</a>') in runko
+            f'data-foreca="https://www.foreca.fi/Finland/Ylitornio/15vrk" target="_blank" rel="noopener">ilma</a>') in runko
     tilanne.saa, tilanne.ajo_min = {}, {}
 
 
@@ -687,6 +687,15 @@ def test_yr_linkki_saapumispaivalle():
     # yr.no ennustaa vain 9 päivää: myöhempi saapuminen sen viimeiselle päivälle (sama raja selaimessa)
     assert app.yr_osoite(65.1, 25.8, nyt + 13 * 86400, nyt).endswith(f"?i={app.YR_PAIVIA}")
     assert f"const YR_PAIVIA = {app.YR_PAIVIA};" in app.SKRIPTI
+
+
+def test_foreca_linkki_lahimpaan_kuntaan():
+    """yr.no:n 9 päivän jälkeen selain vaihtaa ilma-linkin Forecan 15 vrk ennusteeseen (data-foreca)."""
+    paikka = {p.nimi: p for p in PAIKAT}
+    assert app.foreca_osoite(paikka["Kipinä (Iijoki)"]) == "https://www.foreca.fi/Finland/Pudasj%C3%A4rvi/15vrk"
+    # Ruotsin paikka: lähin Ruotsin kunta, vaikka Suomen puolella olisi lähempi
+    assert app.foreca_osoite(paikka["Pahakurkkio (Kalixälven)"]) == "https://www.foreca.fi/Sweden/Pajala/15vrk"
+    assert "linkki.href = foreca || url.toString();" in app.SKRIPTI
 
 
 def test_saaennuste_kattaa_lahtopaivat(monkeypatch):

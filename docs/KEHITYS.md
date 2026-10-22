@@ -100,7 +100,7 @@ Maalismaa on PVO:n voimala, joten aseman oma päivän arvo julkaistaan vasta seu
   - Valhallan "shortest" hylättiin, koska se ohjaa pikkuteille.
 - Perilläoloaika = lähtö + ajoaika + 30 min (`LISAAIKA_MIN`). Sää perillä otetaan Open-Meteon tuntiennusteesta (10 vrk).
 - Jos ukkoskoodi 95/96/99 osuu 4 tunnin sisään perilläolosta, ilma-linkki muuttuu punaiseksi.
-- yr.no-linkki käyttää parametria `?i=<päiväsiirto>`.
+- yr.no-linkki käyttää parametria `?i=<päiväsiirto>` (enintään `YR_PAIVIA` = 9). Myöhemmästä saapumisesta selain vaihtaa linkin Forecan 15 vrk ennusteeseen (`data-foreca`, `foreca_osoite`: lähin saman maan kunta `paikkakunnat.py`:stä).
 - Surffi tulee Surffiennustajan rajapinnasta (`/api/forecast`). Merivesi tulee Open-Meteo Marinesta.
 
 ## Kaavioiden muoto
