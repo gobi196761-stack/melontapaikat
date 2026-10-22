@@ -606,7 +606,7 @@ PAIKAT: tuple[Paikka, ...] = (
         ),
     ),
     Paikka(
-        "Kutujoki", "https://www.osm.fi/kutujoki/", "retki", 80,
+        "Kutujoki", "https://www.osm.fi/kutujoki/", "retki", 90,
         "Otermajärvestä Oulujokeen (Vaala) n. 17 km, 15 koskea, joista II-luokkaa Myllykoski, "
         "Monisaarikoski ja Petäjäkoski (1 400 m), muut I-luokkaa. Hyvä aloitteleville ja "
         "retkeilijöille, paras alkukesällä. Mittarina Otermajärven lähtövirtaama (luusua), "
