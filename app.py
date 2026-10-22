@@ -1200,10 +1200,14 @@ def halyta(environ) -> tuple[str, dict]:
 
 
 def halytys_api(environ, metodi: str) -> tuple[str, dict]:
-    """Selaimen hälytystilaus: POST {tilaus, paikat, raja, kieli} tallentaa (ja lähettää
-    vahvistusilmoituksen), DELETE {endpoint} poistaa."""
+    """Selaimen hälytystilaus: POST {tilaus, ehdot, paivia, kieli} tallentaa (ja lähettää
+    vahvistusilmoituksen), DELETE {endpoint} poistaa. GET kertoo, ovatko hälytykset käytössä
+    ja miksi eivät (sivun hälytysosio näkyy vain, kun ne ovat)."""
+    if metodi in ("GET", "HEAD"):
+        kaytossa = halytykset.avaimet(uudelleen=True) is not None
+        return "200 OK", {"kaytossa": kaytossa, "avaimet": halytykset.avainten_tila}
     if metodi not in ("POST", "DELETE"):
-        return "405 Method Not Allowed", {"virhe": "vain POST tai DELETE"}
+        return "405 Method Not Allowed", {"virhe": "vain GET, POST tai DELETE"}
     try:
         pituus = int(environ.get("CONTENT_LENGTH") or 0)
         if not 0 < pituus <= 8192:
