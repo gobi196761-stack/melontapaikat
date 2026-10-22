@@ -130,6 +130,23 @@ class Firestore:
         """Luo tai korvaa koko dokumentin."""
         self._api("PATCH", f"{kokoelma}/{urllib.parse.quote(tunniste)}", {"fields": koodaa(data)["mapValue"]["fields"]})
 
+    def luo(self, kokoelma: str, tunniste: str, data: dict) -> bool:
+        """Luo dokumentin vain, jos sitä ei vielä ole; False, jos se oli jo olemassa."""
+        try:
+            self._api("PATCH", f"{kokoelma}/{urllib.parse.quote(tunniste)}?currentDocument.exists=false",
+                      {"fields": koodaa(data)["mapValue"]["fields"]})
+        except FirestoreVirhe as e:
+            if "HTTP 409" in str(e) or "FAILED_PRECONDITION" in str(e) or "ALREADY_EXISTS" in str(e):
+                return False
+            raise
+        return True
+
+    def poista(self, kokoelma: str, tunniste: str) -> None:
+        try:
+            self._api("DELETE", f"{kokoelma}/{urllib.parse.quote(tunniste)}")
+        except FileNotFoundError:
+            pass
+
     def lue(self, kokoelma: str, tunniste: str) -> dict | None:
         try:
             doc = self._api("GET", f"{kokoelma}/{urllib.parse.quote(tunniste)}")

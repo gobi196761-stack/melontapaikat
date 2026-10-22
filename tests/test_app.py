@@ -766,3 +766,15 @@ def test_kajakkikuvakkeet(palvelin):
     assert ('<b>Oikean silta-aukon surffiaalto</b> <span class="kajakit"><svg class="kajakki" viewBox="0 -8 40 32" '
             'style="color:#e03131" role="img" aria-label="freestyle-kajakki"><title>freestyle-kajakki</title>') in runko
     assert 'aria-label="freestyle kayak"' in pyynto("/", "kieli=en")[2]
+
+
+def test_halytysosio(palvelin, monkeypatch):
+    import halytykset
+    monkeypatch.setattr(halytykset, "avaimet", lambda kanta=None: None)
+    assert 'id="halytys"' not in pyynto("/")[2]   # ilman avaimia ei tilausta
+    monkeypatch.setattr(halytykset, "avaimet", lambda kanta=None: ("JULKINEN-avain", "x"))
+    runko = pyynto("/")[2]
+    assert '<details id="halytys" class="halytys" hidden data-vapid="JULKINEN-avain">' in runko
+    assert '<option value="60" selected>60 – hyvä</option>' in runko and 'value="suosikit" checked' in runko
+    assert 'navigator.serviceWorker.register("/sw.js")' in runko and 'fetch("/api/halytys"' in runko
+    assert "Score limit" in pyynto("/", "kieli=en")[2]

@@ -17,6 +17,7 @@ pisteytystä, ennusteita, arviomalleja tai kaavioita. Käyttöohje on README.md:
 | `kaavio_svg.py` | Omat SVG-kaaviot (SYKE, SMHI, kuvasta luettu, Hawa'Ii-arvio ja tuntikaavio). |
 | `app.py` | WSGI-sivu ja API, sää, ajomatkat, surffi sekä sivun JS (`SKRIPTI`). |
 | `ennustearkisto.py` | Päivittäinen arkisto Firestoreen. Vercel Cron kutsuu `/api/arkistoi` klo 18 UTC. |
+| `halytykset.py` | Push-hälytykset: tilauksen tarkistus, RFC 8291 -salaus, VAPID (avainpari Firestoressa tai ympäristömuuttujissa) ja aamun ajo (`/api/halyta`, Vercel Cron klo 5 UTC). Tilaus `/api/halytys`, service worker `/sw.js`. |
 | `kielet.py` | Englanninkielinen käyttöliittymä (sanakirja ja regex). Uusi suomenkielinen teksti tarvitsee käännöksen tänne. |
 | `paikkakunnat.py` | Kuntalista lähtöpaikkakentälle. |
 

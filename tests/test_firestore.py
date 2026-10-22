@@ -38,6 +38,11 @@ class Palvelin:
             return self._vastaus({"access_token": "tunniste-1", "expires_in": 3600})
         assert pyynto.headers["Authorization"] == "Bearer tunniste-1"
         polku = urllib.parse.urlsplit(url).path.split("/documents/", 1)[1]
+        if pyynto.get_method() == "DELETE":
+            self.dokumentit.pop(polku, None)
+            return self._vastaus({})
+        if pyynto.get_method() == "PATCH" and "currentDocument.exists=false" in url and polku in self.dokumentit:
+            raise urllib.error.HTTPError(url, 409, "Conflict", {}, io.BytesIO(b'{"status": "ALREADY_EXISTS"}'))
         if pyynto.get_method() == "PATCH":
             self.dokumentit[polku] = json.loads(pyynto.data)["fields"]
             return self._vastaus({"name": polku, "fields": self.dokumentit[polku]})
@@ -90,6 +95,17 @@ def test_kirjoitus_luku_ja_listaus(avain):
     patch = next(p for p in palvelin.pyynnot if p.get_method() == "PATCH")
     assert patch.full_url == ("https://firestore.googleapis.com/v1/projects/melonta-testi/databases/(default)"
                               "/documents/ennusteet/2026-10-18")
+
+
+def test_luonti_ja_poisto(avain):
+    tunnus, _ = avain
+    kanta = firestore.Firestore(tunnus, avaa=Palvelin())
+    assert kanta.luo("asetukset", "vapid", {"julkinen": "a"}) is True
+    assert kanta.luo("asetukset", "vapid", {"julkinen": "b"}) is False   # ei korvaa olemassa olevaa
+    assert kanta.lue("asetukset", "vapid") == {"julkinen": "a"}
+    kanta.poista("asetukset", "vapid")
+    kanta.poista("asetukset", "vapid")   # puuttuvan poisto ei ole virhe
+    assert kanta.lue("asetukset", "vapid") is None
 
 
 def test_ymparistosta(avain, monkeypatch, tmp_path):
