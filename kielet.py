@@ -58,13 +58,17 @@ SANAT = {
     "Suomeksi": "Suomeksi",
     "In English": "In English",
     "🔔 Hälytys hyvistä oloista": "🔔 Alert for good conditions",
-    "Ilmoitus puhelimeen, kun paikan pisteet nousevat rajaan tänään tai 14 päivän ennusteessa. Tarkistus joka aamu; samasta paikasta uudelleen vasta, kun pisteet ovat välillä laskeneet.":
-        "A notification to your phone when a spot's score reaches the limit today or in the 14-day forecast. Checked every morning; the same spot again only after its score has dropped in between.",
+    "Ilmoitus puhelimeen, kun valitsemasi paikan tai kohteen ehto täyttyy tänään tai ennusteessa. Tarkistus joka aamu; samasta ehdosta uudelleen vasta, kun se on välillä lakannut täyttymästä.":
+        "A notification to your phone when the condition you chose for a spot or feature is met today or in the forecast. Checked every morning; the same condition again only after it has stopped being met in between.",
+    "Kohde": "Feature",
+    "Ehto": "Condition",
+    "+ Lisää": "+ Add",
+    "Ennustetta eteenpäin": "Forecast ahead",
+    "pv": "d",
     "Pisteraja": "Score limit",
     "erinomainen": "excellent",
     "hyvä": "good",
     "kohtalainen": "fair",
-    "Kaikki Suomen paikat": "All spots in Finland",
     "Tilaa hälytys": "Subscribe to alert",
     "Peru tilaus": "Cancel alert",
     # kaaviot

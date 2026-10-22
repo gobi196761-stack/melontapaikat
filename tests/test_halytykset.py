@@ -67,48 +67,96 @@ def test_vain_tunnetut_push_palvelut():
     assert not h.sallittu_osoite("https://169.254.169.254/latest")
 
 
+VALINNAT = {"Kipinä (Iijoki)": {"": h.TASOT, "Hontto": ("toimii", "paras")},
+            "Trollforsarna (Piteälven)": {"": h.TASOT, "Alapätkä": ("paras", "pisteet")}}
+
+
+def test_kohteen_ehdot():
+    paikka = {p.nimi: p for p in PAIKAT}
+    kohteet = {k.nimi: k for k in paikka["Trollforsarna (Piteälven)"].kohteet}
+    # toimii kaikilla vesillä: toimii-ehdon tilalla pisteraja; optimi, koska parhaalla alueella on raja
+    assert h.kohteen_tasot(kohteet["Alapätkä (Nedre Trollforsarna)"]) == ("paras", "pisteet")
+    assert h.kohteen_tasot(kohteet["Satumaa (Sagoland)"]) == ("toimii", "paras")
+    valinnat = h.valittavat(PAIKAT)
+    assert "Taivalkoski" not in valinnat   # ei kohteita
+    assert valinnat["Trollforsarna (Piteälven)"][""] == ("toimii", "paras", "pisteet")
+
+
 def test_tilauksen_tarkistus():
     _, p256dh, auth = vastaanottaja()
-    nimet = {"Kipinä (Iijoki)", "Koiteli (Kiiminkijoki)"}
-    pyynto = {"tilaus": {"endpoint": FCM, "keys": {"p256dh": p256dh, "auth": auth}},
-              "paikat": ["Kipinä (Iijoki)"], "raja": 60, "kieli": "en"}
-    tilaus, virhe = h.tarkista_tilaus(pyynto, nimet)
-    assert not virhe and tilaus["paikat"] == ["Kipinä (Iijoki)"] and tilaus["raja"] == 60 and tilaus["kieli"] == "en"
-    assert tilaus["ilmoitettu"] == []
-    for muutos in ({"raja": 0}, {"raja": "60"}, {"raja": True}, {"paikat": ["Tuntematon"]},
-                   {"tilaus": {"endpoint": "https://example.com/x", "keys": {"p256dh": p256dh, "auth": auth}}},
-                   {"tilaus": {"endpoint": FCM, "keys": {"p256dh": "abc", "auth": auth}}}):
-        assert h.tarkista_tilaus({**pyynto, **muutos}, nimet)[0] is None
-    assert h.tarkista_tilaus("roskaa", nimet)[0] is None
+    pyynto = {"tilaus": {"endpoint": FCM, "keys": {"p256dh": p256dh, "auth": auth}}, "paivia": 3, "kieli": "en",
+              "ehdot": [{"paikka": "Kipinä (Iijoki)", "kohde": "Hontto", "taso": "paras"},
+                        {"paikka": "Kipinä (Iijoki)", "kohde": "", "taso": "pisteet", "raja": 60},
+                        {"paikka": "Kipinä (Iijoki)", "kohde": "Hontto", "taso": "paras"}]}   # kaksoiskappale
+    tilaus, virhe = h.tarkista_tilaus(pyynto, VALINNAT)
+    assert not virhe and tilaus["paivia"] == 3 and tilaus["kieli"] == "en" and tilaus["ilmoitettu"] == []
+    assert tilaus["ehdot"] == [{"paikka": "Kipinä (Iijoki)", "kohde": "Hontto", "taso": "paras"},
+                               {"paikka": "Kipinä (Iijoki)", "kohde": "", "taso": "pisteet", "raja": 60}]
+    vaarat = [{"paivia": 15}, {"paivia": "3"}, {"ehdot": []}, {"ehdot": "x"},
+              {"ehdot": [{"paikka": "Tuntematon", "kohde": "", "taso": "toimii"}]},
+              {"ehdot": [{"paikka": "Kipinä (Iijoki)", "kohde": "Muu", "taso": "toimii"}]},
+              {"ehdot": [{"paikka": "Kipinä (Iijoki)", "kohde": "Hontto", "taso": "pisteet", "raja": 60}]},
+              {"ehdot": [{"paikka": "Trollforsarna (Piteälven)", "kohde": "Alapätkä", "taso": "toimii"}]},
+              {"ehdot": [{"paikka": "Kipinä (Iijoki)", "kohde": "", "taso": "pisteet", "raja": 0}]},
+              {"ehdot": [{"paikka": "Kipinä (Iijoki)", "kohde": "", "taso": "pisteet"}]},
+              {"tilaus": {"endpoint": "https://example.com/x", "keys": {"p256dh": p256dh, "auth": auth}}},
+              {"tilaus": {"endpoint": FCM, "keys": {"p256dh": "abc", "auth": auth}}}]
+    for muutos in vaarat:
+        assert h.tarkista_tilaus({**pyynto, **muutos}, VALINNAT)[0] is None, muutos
+    assert h.tarkista_tilaus("roskaa", VALINNAT)[0] is None
 
 
-def tulos(nimi, pisteet, ennuste=None):
-    return SimpleNamespace(paikka=SimpleNamespace(nimi=nimi, maa="FI"), pisteet=pisteet, ennuste=ennuste or {})
+def kt(nimi, tila, pisteet, laatu=1.0):
+    return SimpleNamespace(kohde=SimpleNamespace(nimi=nimi, laatu=laatu), tila=tila, pisteet=pisteet * laatu)
 
 
-def test_halytys_kerran_kunnes_pisteet_laskevat():
-    tilaus = {"paikat": [], "raja": 60, "ilmoitettu": []}
-    oletus = ["A", "B", "C"]
-    parhaat = h.parhaat([tulos("A", 40, {3: 72, 4: 72}), tulos("B", 65), tulos("C", 20, {1: 30})])
-    assert parhaat == {"A": (72, 3), "B": (65, 0), "C": (30, 1)}   # tasapisteissä aikaisin päivä
-    uudet, yli = h.uudet_halytykset(tilaus, parhaat, oletus)
-    assert uudet == [("A", 72, 3), ("B", 65, 0)] and yli == ["A", "B"]
-    # seuraavana aamuna samat paikat yli rajan: ei uutta ilmoitusta
-    assert h.uudet_halytykset({**tilaus, "ilmoitettu": yli}, parhaat, oletus) == ([], ["A", "B"])
-    # B laskee rajan alle ja nousee taas: ilmoitetaan uudelleen
-    _, yli = h.uudet_halytykset({**tilaus, "ilmoitettu": ["A", "B"]}, {"A": (72, 3), "B": (50, 0)}, oletus)
-    assert yli == ["A"]
-    assert h.uudet_halytykset({**tilaus, "ilmoitettu": yli}, parhaat, oletus)[0] == [("B", 65, 0)]
-    # valitut paikat rajaavat
-    assert h.uudet_halytykset({**tilaus, "paikat": ["B"]}, parhaat, oletus)[0] == [("B", 65, 0)]
+def tulos(kohteet, ennusteen_kohteet=None, pisteet=None, ennuste=None):
+    return SimpleNamespace(kohteet=kohteet, ennusteen_kohteet=ennusteen_kohteet or {},
+                           pisteet=pisteet, ennuste=ennuste or {})
+
+
+def test_ehdon_tayttyminen():
+    t = tulos([kt("A", "toimii", 70), kt("B", "ei toimi", 20, laatu=0.5)],
+              {1: [kt("A", "paras", 100), kt("B", "ei toimi", 30, laatu=0.5)],
+               2: [kt("A", "toimii", 65), kt("B", "toimii", 70, laatu=0.5)]},
+              pisteet=70, ennuste={1: 100, 2: 67})
+    e = lambda kohde, taso, raja=None: {"paikka": "P", "kohde": kohde, "taso": taso,   # noqa: E731
+                                        **({"raja": raja} if raja else {})}
+    assert h.tayttyy(e("", "toimii"), t, 0) == (0, "A")          # mikä tahansa toimiva kohde
+    assert h.tayttyy(e("", "paras"), t, 0) is None                # ei tänään
+    assert h.tayttyy(e("", "paras"), t, 3) == (1, "A")            # ensimmäinen päivä ennusteessa
+    assert h.tayttyy(e("B", "toimii"), t, 1) is None and h.tayttyy(e("B", "toimii"), t, 2) == (2, "B")
+    assert h.tayttyy(e("", "pisteet", 80), t, 14) == (1, "A")
+    # kohteen pisteraja ilman laatukerrointa (B: 70 p, laatu 0.5)
+    assert h.tayttyy(e("B", "pisteet", 70), t, 2) == (2, "B")
+
+
+def test_halytys_kerran_kunnes_ehto_lakkaa():
+    ehto = {"paikka": "P", "kohde": "A", "taso": "paras"}
+    tilaus = {"paivia": 2, "ehdot": [ehto], "ilmoitettu": []}
+    hyva = {"P": tulos([kt("A", "toimii", 70)], {2: [kt("A", "paras", 100)]})}
+    uudet, tayttyvat = h.uudet_halytykset(tilaus, hyva)
+    assert uudet == [(ehto, 2, "A")] and tayttyvat == ["P|A|paras|"]
+    assert h.uudet_halytykset({**tilaus, "ilmoitettu": tayttyvat}, hyva) == ([], tayttyvat)   # ei toistoa
+    huono = {"P": tulos([kt("A", "toimii", 70)])}
+    assert h.uudet_halytykset({**tilaus, "ilmoitettu": tayttyvat}, huono) == ([], [])          # lakkasi
+    assert h.uudet_halytykset({**tilaus, "paivia": 1}, hyva)[0] == []                         # liian kaukana
+    assert h.uudet_halytykset({**tilaus, "ehdot": [{**ehto, "paikka": "Poistunut"}]}, hyva) == ([], [])
 
 
 def test_viesti():
     tanaan = dt.date(2026, 10, 22)   # torstai
-    v = h.viesti([("Kipinä (Iijoki)", 84.6, 0), ("Koiteli", 70, 2)], tanaan)
-    assert v == {"otsikko": "Hyvät melontaolot", "teksti": "Kipinä (Iijoki) 85 p (tänään)\nKoiteli 70 p (la 24.10.)",
-                 "url": "/"}
-    assert h.viesti([("Koiteli", 70, 1)], tanaan, "en")["teksti"] == "Koiteli 70 p (Fri 23.10.)"
+    uudet = [({"paikka": "Kipinä (Iijoki)", "kohde": "Hontto", "taso": "paras"}, 0, "Hontto"),
+             ({"paikka": "Koiteli", "kohde": "", "taso": "toimii"}, 2, "Aalto"),
+             ({"paikka": "Koiteli", "kohde": "", "taso": "pisteet", "raja": 60}, 1, "Aalto")]
+    v = h.viesti(uudet, tanaan)
+    assert v == {"otsikko": "Hyvät melontaolot", "url": "/", "teksti":
+                 "Kipinä (Iijoki) – Hontto: parhaimmillaan, tänään\nKoiteli: toimii (Aalto), la 24.10.\n"
+                 "Koiteli ≥ 60 p, pe 23.10."}
+    assert h.viesti(uudet[1:2], tanaan, "en")["teksti"] == "Koiteli: works (Aalto), Sat 24.10."
+    vahvistus = h.vahvistus({"kieli": "fi", "paivia": 3, "ehdot": [u[0] for u in uudet]})
+    assert vahvistus["teksti"] == ("Ilmoitan aamuisin (3 päivän sisällä): Kipinä (Iijoki) – Hontto: parhaimmillaan; "
+                                   "Koiteli: toimii; Koiteli ≥ 60 p")
 
 
 class Kanta:
@@ -136,20 +184,23 @@ class Kanta:
 
 
 def test_aamun_ajo():
-    perus = {"p256dh": "x", "auth": "y", "raja": 60, "kieli": "fi"}
-    kanta = Kanta({(h.KOKOELMA, "eka"): {**perus, "endpoint": FCM + "1", "paikat": [], "ilmoitettu": []},
-                   (h.KOKOELMA, "vanha"): {**perus, "endpoint": FCM + "2", "paikat": ["A"], "ilmoitettu": []},
-                   (h.KOKOELMA, "ennestaan"): {**perus, "endpoint": FCM + "3", "paikat": ["A"], "ilmoitettu": ["A"]}})
+    perus = {"p256dh": "x", "auth": "y", "paivia": 0, "kieli": "fi",
+             "ehdot": [{"paikka": "P", "kohde": "", "taso": "toimii"}]}
+    kanta = Kanta({(h.KOKOELMA, "eka"): {**perus, "endpoint": FCM + "1", "ilmoitettu": []},
+                   (h.KOKOELMA, "vanha"): {**perus, "endpoint": FCM + "2", "ilmoitettu": []},
+                   (h.KOKOELMA, "ennestaan"): {**perus, "endpoint": FCM + "3", "ilmoitettu": ["P||toimii|"]}})
     lahetetyt = []
 
     def lahetin(tilaus, viesti, avainpari):
         lahetetyt.append((tilaus["endpoint"], viesti["teksti"]))
         return 410 if tilaus["endpoint"].endswith("2") else 201
 
-    tulos_ = h.aja(kanta, [tulos("A", 80)], ["A"], dt.date(2026, 10, 22), ("julk", "yks"), lahetin)
+    paikka = tulos([kt("A", "toimii", 80)])
+    paikka.paikka = SimpleNamespace(nimi="P")
+    tulos_ = h.aja(kanta, [paikka], dt.date(2026, 10, 22), ("julk", "yks"), lahetin)
     assert tulos_ == {"lahetetty": 1, "poistettu": 1, "virheet": []}
-    assert lahetetyt == [(FCM + "1", "A 80 p (tänään)"), (FCM + "2", "A 80 p (tänään)")]
-    assert kanta.lue(h.KOKOELMA, "eka")["ilmoitettu"] == ["A"]
+    assert lahetetyt == [(FCM + "1", "P: toimii (A), tänään"), (FCM + "2", "P: toimii (A), tänään")]
+    assert kanta.lue(h.KOKOELMA, "eka")["ilmoitettu"] == ["P||toimii|"]
     assert kanta.lue(h.KOKOELMA, "vanha") is None   # vanhentunut tilaus poistettu
 
 
@@ -191,14 +242,14 @@ def test_tilaus_ja_peruutus(kanta, monkeypatch):
     lahetetyt = []
     monkeypatch.setattr(h, "laheta", lambda tilaus, viesti, avainpari: (lahetetyt.append(viesti), 201)[1])
     avain, p256dh, auth = vastaanottaja()
-    pyynto = {"tilaus": {"endpoint": FCM, "keys": {"p256dh": p256dh, "auth": auth}},
-              "paikat": [PAIKAT[0].nimi], "raja": 80}
+    ehto = {"paikka": PAIKAT[0].nimi, "kohde": PAIKAT[0].kohteet[0].nimi, "taso": "toimii"}
+    pyynto = {"tilaus": {"endpoint": FCM, "keys": {"p256dh": p256dh, "auth": auth}}, "ehdot": [ehto], "paivia": 5}
     status, _, runko = wsgi("/api/halytys", "POST", pyynto)
     assert status == "200 OK", runko
     tallessa = kanta.lue(h.KOKOELMA, h.tunniste(FCM))
-    assert tallessa["raja"] == 80 and tallessa["paikat"] == [PAIKAT[0].nimi]
-    assert lahetetyt[0]["otsikko"] == "Hälytys tilattu" and "80" in lahetetyt[0]["teksti"]
-    assert wsgi("/api/halytys", "POST", {**pyynto, "raja": 500})[0] == "400 Bad Request"
+    assert tallessa["paivia"] == 5 and tallessa["ehdot"] == [ehto]
+    assert lahetetyt[0]["otsikko"] == "Hälytys tilattu" and "5 päivän sisällä" in lahetetyt[0]["teksti"]
+    assert wsgi("/api/halytys", "POST", {**pyynto, "paivia": 30})[0] == "400 Bad Request"
     assert wsgi("/api/halytys", "GET")[0] == "405 Method Not Allowed"
     assert wsgi("/api/halytys", "DELETE", {"endpoint": FCM})[0] == "200 OK"
     assert kanta.lue(h.KOKOELMA, h.tunniste(FCM)) is None

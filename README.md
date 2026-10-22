@@ -182,11 +182,18 @@ välillä.
 
 ## Hälytys hyvistä oloista (push-ilmoitus)
 
-Sivun kohdasta **🔔 Hälytys hyvistä oloista** voi tilata ilmoituksen puhelimeen,
-kun paikan pisteet nousevat valittuun rajaan (80 / 60 / 30) tänään tai 14 päivän
-ennusteessa. Paikkoina ovat joko omat suosikit tai kaikki Suomen paikat.
-Tilauksen jälkeen tulee heti vahvistusilmoitus. Samasta paikasta ilmoitetaan
-uudelleen vasta, kun sen pisteet ovat välillä laskeneet rajan alle.
+Sivun kohdasta **🔔 Hälytys hyvistä oloista** voi tilata ilmoituksen puhelimeen.
+Tilaukseen lisätään yksi tai useampi ehto:
+
+- **Paikka** ("Mikä tahansa kohde"): *toimii* = jokin kohde toimii, *optimi* =
+  jokin kohde on parhaimmillaan, tai *pisteraja* (80 / 60 / 30) paikan pisteille.
+- **Kohde**: *toimii* tai *optimi*. Jos kohteella ei ole toimintarajaa (se toimii
+  kaikilla vesillä), toimii-ehdon tilalla on pisteraja kohteen omille pisteille.
+
+Lisäksi valitaan, kuinka pitkälle ennustetta katsotaan (tänään … 14 päivää).
+Ilmoitus kertoo ensimmäisen päivän, jona ehto täyttyy. Tilauksen jälkeen tulee
+heti vahvistusilmoitus. Samasta ehdosta ilmoitetaan uudelleen vasta, kun se on
+välillä lakannut täyttymästä.
 
 - Ilmoitukset ovat selaimen Web Push -ilmoituksia (`halytykset.py`, service
   worker `/sw.js`). Ne toimivat Androidin Chromessa ja muissa työpöytäselaimissa.

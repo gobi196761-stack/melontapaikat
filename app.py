@@ -401,10 +401,14 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
 .halytys { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
 .halytys summary { font-size:.95rem; color:var(--teksti); margin:0; }
 .halytys p { margin:8px 0 0; }
-.halytys label { margin-right:12px; white-space:nowrap; }
+.halytys label { margin-right:12px; white-space:nowrap; display:inline-block; margin-top:4px; }
+.halytys select { max-width:100%; }
+.halytys-ehdot { margin:8px 0 0; padding-left:18px; }
 .halytys select, .halytys button { font:inherit; font-size:.9rem; padding:4px 10px; border:1px solid var(--viiva);
                                    border-radius:999px; background:var(--tausta); color:var(--teksti); }
 .halytys button { color:var(--linkki); cursor:pointer; }
+.halytys [hidden] { display:none; }
+.halytys .halytys-ehdot button { border:0; background:none; padding:0 6px; color:var(--huono); }
 nav button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; background:none;
              color:var(--linkki); font:inherit; font-size:.9rem; cursor:pointer; }
 """
@@ -426,7 +430,9 @@ SKRIPTI = """
     tilaa: "Subscribe to alert", paivitaHal: "Update alert", tilataan: "Subscribing…",
     tilattu: "Alert subscribed. You should get a confirmation notification now.", peruttu: "Alert cancelled.",
     eiLupaa: "Notifications are blocked. Allow them in the browser settings for this site.",
-    eiSuosikkeja: "Add favourites first (♡ next to a spot) or choose all spots.", halVirhe: "Subscribing failed: ",
+    eiEhtoja: "Add at least one condition (+ Add).", halVirhe: "Subscribing failed: ",
+    muutettu: "Changes take effect when you press Update alert.", mikaTahansa: "Any feature",
+    tasot: {toimii: "works", paras: "optimum (at its best)", pisteet: "score limit"}, poistaEhto: "Remove",
     iphone: "On iPhone, first add this page to the home screen (Share → Add to Home Screen) and open it from there.",
   } : {
     lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "",
@@ -440,7 +446,9 @@ SKRIPTI = """
     tilaa: "Tilaa hälytys", paivitaHal: "Päivitä hälytys", tilataan: "Tilataan…",
     tilattu: "Hälytys tilattu. Puhelimeen pitäisi tulla nyt vahvistusilmoitus.", peruttu: "Hälytys peruttu.",
     eiLupaa: "Ilmoitukset on estetty. Salli ne selaimen asetuksista tälle sivulle.",
-    eiSuosikkeja: "Lisää ensin suosikkeja (♡ paikan vieressä) tai valitse kaikki paikat.", halVirhe: "Tilaus epäonnistui: ",
+    eiEhtoja: "Lisää vähintään yksi ehto (+ Lisää).", halVirhe: "Tilaus epäonnistui: ",
+    muutettu: "Muutokset tulevat voimaan, kun painat Päivitä hälytys.", mikaTahansa: "Mikä tahansa kohde",
+    tasot: {toimii: "toimii", paras: "optimi (parhaimmillaan)", pisteet: "pisteraja"}, poistaEhto: "Poista",
     iphone: "iPhonessa lisää sivu ensin kotivalikkoon (Jaa → Lisää Koti-valikkoon) ja avaa se sieltä.",
   };
   const lue = (k, oletus) => { try { return JSON.parse(localStorage.getItem(k)) ?? oletus; } catch { return oletus; } };
@@ -664,25 +672,66 @@ SKRIPTI = """
   const muistettu = lue(SIJ, false);
   if (muistettu && muistettu.paikkakunta && kentta) valitse(muistettu.paikkakunta, false);
   else if (muistettu === true) hae();   // lupa annettu aiemmin: päivitä suoraan
-  // Hälytys hyvistä oloista: push-tilaus (service worker /sw.js) ja asetukset palvelimelle (/api/halytys)
+  // Hälytys hyvistä oloista: ehdot (paikka tai kohde; toimii / optimi / pisteraja) ja ennusteen pituus,
+  // push-tilaus (service worker /sw.js) ja asetukset palvelimelle (/api/halytys)
   const halytys = document.getElementById("halytys");
   if (halytys && halytys.dataset.vapid && "serviceWorker" in navigator) {
     halytys.hidden = false;
-    const HAL = "melonta-halytys", tilaa = document.getElementById("halytys-tilaa"),
-          peru = document.getElementById("halytys-peru"), halTila = document.getElementById("halytys-tila"),
-          raja = document.getElementById("halytys-raja");
+    const $ = id => document.getElementById("halytys-" + id);
+    const HAL = "melonta-halytys", tilaa = $("tilaa"), peru = $("peru"), halTila = $("tila"), raja = $("raja"),
+          paikkaV = $("paikka"), kohdeV = $("kohde"), tasoV = $("taso"), lista = $("ehdot"), paivia = $("paivia");
+    const valinnat = JSON.parse($("valinnat").textContent);
     const tuettu = "PushManager" in window && "Notification" in window;
-    const asetukset = lue(HAL, null);   // viimeksi tilattu raja ja paikkavalinta
-    if (asetukset) {
-      raja.value = asetukset.raja;
-      const valinta = halytys.querySelector(`input[name="halytys-paikat"][value="${asetukset.valinta}"]`);
-      if (valinta) valinta.checked = true;
+    const asetukset = lue(HAL, null) || {};   // viimeksi tilatut ehdot ja ennusteen pituus
+    let ehdot = Array.isArray(asetukset.ehdot) ? asetukset.ehdot.filter(e => valinnat[e.paikka]
+      && (valinnat[e.paikka][e.kohde] || []).includes(e.taso)) : [];
+    if (asetukset.paivia != null) paivia.value = asetukset.paivia;
+    const lisaaVaihtoehto = (v, arvo, teksti) => v.add(new Option(teksti, arvo));
+    // suosikit ensin, sitten muut sivun järjestyksessä
+    Object.keys(valinnat).sort((a, b) => suosikit.has(b) - suosikit.has(a))
+      .forEach(p => lisaaVaihtoehto(paikkaV, p, (suosikit.has(p) ? "♥ " : "") + p));
+    function paivitaKohteet() {
+      kohdeV.length = 0;
+      Object.keys(valinnat[paikkaV.value] || {}).forEach(k => lisaaVaihtoehto(kohdeV, k, k || T.mikaTahansa));
+      paivitaTasot();
     }
+    function paivitaTasot() {
+      tasoV.length = 0;
+      ((valinnat[paikkaV.value] || {})[kohdeV.value] || []).forEach(t => lisaaVaihtoehto(tasoV, t, T.tasot[t]));
+      $("raja-kentta").hidden = tasoV.value !== "pisteet";
+    }
+    paikkaV.addEventListener("change", paivitaKohteet);
+    kohdeV.addEventListener("change", paivitaTasot);
+    tasoV.addEventListener("change", () => { $("raja-kentta").hidden = tasoV.value !== "pisteet"; });
+    paivitaKohteet();
+    const kuvaus = e => e.paikka + (e.kohde ? " – " + e.kohde : "") + ": "
+      + (e.taso === "pisteet" ? "≥ " + e.raja + " p" : T.tasot[e.taso]);
+    let tilattu = false;
+    function naytaEhdot() {
+      lista.replaceChildren(...ehdot.map((e, i) => {
+        const li = document.createElement("li"), pois = document.createElement("button");
+        li.textContent = kuvaus(e);
+        pois.type = "button"; pois.textContent = "✕"; pois.title = pois.ariaLabel = T.poistaEhto;
+        pois.addEventListener("click", () => { ehdot.splice(i, 1); naytaEhdot(); muutos(); });
+        li.append(pois);
+        return li;
+      }));
+    }
+    const muutos = () => { if (tilattu) halTila.textContent = T.muutettu; };
+    naytaEhdot();
+    $("lisaa").addEventListener("click", () => {
+      const e = {paikka: paikkaV.value, kohde: kohdeV.value, taso: tasoV.value};
+      if (e.taso === "pisteet") e.raja = Number(raja.value);
+      const avain = JSON.stringify(e);
+      if (!ehdot.some(x => JSON.stringify(x) === avain)) { ehdot.push(e); naytaEhdot(); muutos(); }
+    });
+    paivia.addEventListener("change", muutos);
     const avain = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - s.length % 4) % 4)),
                                        c => c.charCodeAt(0));
     const rekisteri = tuettu ? navigator.serviceWorker.register("/sw.js") : null;
     const naytaTilaus = async () => {
       const tilaus = rekisteri && await (await rekisteri).pushManager.getSubscription();
+      tilattu = !!tilaus;
       peru.hidden = !tilaus;
       tilaa.textContent = tilaus ? T.paivitaHal : T.tilaa;
     };
@@ -692,17 +741,16 @@ SKRIPTI = """
       .then(async v => { if (!v.ok) throw new Error((await v.json().catch(() => ({}))).virhe || "HTTP " + v.status); });
     tilaa.addEventListener("click", async () => {
       if (!tuettu) { halTila.textContent = T.iphone; return; }
-      const valinta = halytys.querySelector('input[name="halytys-paikat"]:checked').value;
-      const paikat = valinta === "suosikit" ? [...suosikit] : [];
-      if (valinta === "suosikit" && !paikat.length) { halTila.textContent = T.eiSuosikkeja; return; }
+      if (!ehdot.length) { halTila.textContent = T.eiEhtoja; return; }
       halTila.textContent = T.tilataan;
       try {
         if (await Notification.requestPermission() !== "granted") { halTila.textContent = T.eiLupaa; return; }
         const r = await rekisteri;
         const tilaus = await r.pushManager.getSubscription()
           || await r.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: avain(halytys.dataset.vapid)});
-        await kutsu("POST", {tilaus: tilaus.toJSON(), paikat, raja: Number(raja.value), kieli: document.documentElement.lang});
-        kirjoita(HAL, {raja: Number(raja.value), valinta});
+        await kutsu("POST", {tilaus: tilaus.toJSON(), ehdot, paivia: Number(paivia.value),
+                             kieli: document.documentElement.lang});
+        kirjoita(HAL, {ehdot, paivia: Number(paivia.value)});
         halTila.textContent = T.tilattu;
       } catch (virhe) { halTila.textContent = T.halVirhe + virhe.message; }
       naytaTilaus().catch(() => {});
@@ -1054,21 +1102,30 @@ placeholder="{k_("esim. Rovaniemi")}"></label>
 
 
 def _halytysosio(k_) -> str:
-    """Hälytyksen tilaus (näkyy, kun selain tukee push-ilmoituksia ja VAPID-avain on saatavilla)."""
+    """Hälytyksen tilaus (näkyy, kun selain tukee push-ilmoituksia ja VAPID-avain on saatavilla).
+    Selain rakentaa valinnat paikoista ja kohteista (#halytys-valinnat: paikka -> kohde -> ehdot)."""
     avainpari = halytykset.avaimet()
     if not avainpari:
         return ""
     rajat = "".join(f'<option value="{r}"{" selected" if r == 60 else ""}>{r} – {k_(nimi)}</option>'
                     for r, nimi in ((80, "erinomainen"), (60, "hyvä"), (30, "kohtalainen")))
+    paivat = "".join(f'<option value="{n}"{" selected" if n == 3 else ""}>'
+                     f'{k_("tänään") if n == 0 else f"{n} " + k_("pv")}</option>' for n in range(LAHTO_PAIVIA + 1))
+    valinnat = json.dumps(halytykset.valittavat(PAIKAT), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     return f"""<details id="halytys" class="halytys" hidden data-vapid="{e(avainpari[0])}">
 <summary>{k_("🔔 Hälytys hyvistä oloista")}</summary>
-<p class="pieni">{k_("Ilmoitus puhelimeen, kun paikan pisteet nousevat rajaan tänään tai 14 päivän ennusteessa. Tarkistus joka aamu; samasta paikasta uudelleen vasta, kun pisteet ovat välillä laskeneet.")}</p>
-<p><label>{k_("Pisteraja")} <select id="halytys-raja">{rajat}</select></label>
-<label><input type="radio" name="halytys-paikat" value="suosikit" checked> {k_("♥ Suosikit")}</label>
-<label><input type="radio" name="halytys-paikat" value="kaikki"> {k_("Kaikki Suomen paikat")}</label></p>
+<p class="pieni">{k_("Ilmoitus puhelimeen, kun valitsemasi paikan tai kohteen ehto täyttyy tänään tai ennusteessa. Tarkistus joka aamu; samasta ehdosta uudelleen vasta, kun se on välillä lakannut täyttymästä.")}</p>
+<p><label>{k_("Paikka")} <select id="halytys-paikka"></select></label>
+<label>{k_("Kohde")} <select id="halytys-kohde"></select></label>
+<label>{k_("Ehto")} <select id="halytys-taso"></select></label>
+<label id="halytys-raja-kentta" hidden>{k_("Pisteraja")} <select id="halytys-raja">{rajat}</select></label>
+<button type="button" id="halytys-lisaa">{k_("+ Lisää")}</button></p>
+<ul id="halytys-ehdot" class="halytys-ehdot"></ul>
+<p><label>{k_("Ennustetta eteenpäin")} <select id="halytys-paivia">{paivat}</select></label></p>
 <p><button type="button" id="halytys-tilaa">{k_("Tilaa hälytys")}</button>
 <button type="button" id="halytys-peru" hidden>{k_("Peru tilaus")}</button></p>
 <p id="halytys-tila" class="pieni" aria-live="polite"></p>
+<script type="application/json" id="halytys-valinnat">{valinnat}</script>
 </details>"""
 
 
@@ -1135,9 +1192,8 @@ def halyta(environ) -> tuple[str, dict]:
     tilanne = hae_tilanne()
     if not tilanne.lukemia:
         return "502 Bad Gateway", {"virhe": "tilannetta ei saatu laskettua", "varoitukset": tilanne.varoitukset}
-    suomi = [t.paikka.nimi for t in tilanne.tulokset if t.paikka.maa == "FI"]
     try:
-        tulos = halytykset.aja(kanta, tilanne.tulokset, suomi, tilanne.paivitetty.date(), avainpari)
+        tulos = halytykset.aja(kanta, tilanne.tulokset, tilanne.paivitetty.date(), avainpari)
     except (firestore.FirestoreVirhe, OSError) as e:
         return "502 Bad Gateway", {"virhe": f"Firestore: {e}"}
     return "200 OK", tulos
@@ -1169,7 +1225,7 @@ def halytys_api(environ, metodi: str) -> tuple[str, dict]:
                 return "400 Bad Request", {"virhe": "endpoint puuttuu"}
             kanta.poista(halytykset.KOKOELMA, halytykset.tunniste(endpoint))
             return "200 OK", {"poistettu": True}
-        tilaus, virhe = halytykset.tarkista_tilaus(data, {p.nimi for p in PAIKAT})
+        tilaus, virhe = halytykset.tarkista_tilaus(data, halytykset.valittavat(PAIKAT))
         if not tilaus:
             return "400 Bad Request", {"virhe": virhe}
         tila = halytykset.laheta(tilaus, halytykset.vahvistus(tilaus), avainpari)

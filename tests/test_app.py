@@ -775,6 +775,7 @@ def test_halytysosio(palvelin, monkeypatch):
     monkeypatch.setattr(halytykset, "avaimet", lambda kanta=None: ("JULKINEN-avain", "x"))
     runko = pyynto("/")[2]
     assert '<details id="halytys" class="halytys" hidden data-vapid="JULKINEN-avain">' in runko
-    assert '<option value="60" selected>60 – hyvä</option>' in runko and 'value="suosikit" checked' in runko
+    assert '<option value="60" selected>60 – hyvä</option>' in runko and '<option value="3" selected>3 pv</option>' in runko
+    assert '<script type="application/json" id="halytys-valinnat">{"Kipinä (Iijoki)":{"":["toimii","paras","pisteet"]' in runko
     assert 'navigator.serviceWorker.register("/sw.js")' in runko and 'fetch("/api/halytys"' in runko
     assert "Score limit" in pyynto("/", "kieli=en")[2]

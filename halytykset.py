@@ -1,12 +1,13 @@
 """Melontahälytykset: Web Push -ilmoitus, kun tilattujen paikkojen pisteet nousevat rajaan.
 
 Selain tilaa push-ilmoitukset (service worker /sw.js) ja lähettää tilauksen
-osoitteeseen /api/halytys: paikat (tyhjä = kaikki Suomen paikat) ja pisteraja.
+osoitteeseen /api/halytys: ehdot ja ennusteen pituus (0–14 pv). Ehto koskee paikkaa
+(mikä tahansa kohde riittää) tai yhtä kohdetta, ja taso on "toimii", "paras" (optimi)
+tai pisteraja; pisteraja kohteelle vain, jos sillä ei ole toimintarajaa.
 Tilaukset ovat Firestoressa (kokoelma KOKOELMA). Vercel Cron kutsuu aamuisin
-/api/halyta, joka laskee päivän tilanteen ja lähettää ilmoituksen paikoista,
-joiden pisteet ovat tänään tai ennusteessa (+1…+14 pv) vähintään rajan verran.
-Samasta paikasta ei ilmoiteta uudelleen ennen kuin pisteet ovat välillä
-laskeneet rajan alle.
+/api/halyta, joka laskee päivän tilanteen ja ilmoittaa ehdoista, jotka täyttyvät
+tänään tai valitun ennusteen aikana. Samasta ehdosta ei ilmoiteta uudelleen ennen
+kuin se on välillä lakannut täyttymästä.
 
 Viestit salataan RFC 8291:n mukaan (aes128gcm) ja palvelin tunnistautuu
 VAPID-avaimella (RFC 8292). Avainpari luetaan ympäristömuuttujista
@@ -166,8 +167,30 @@ def laheta(tilaus: dict, viesti: dict, avainpari: tuple[str, str], avaa=urllib.r
 # Tilaukset ja hälytysten valinta
 # ---------------------------------------------------------------------------
 
-def tarkista_tilaus(data, paikkojen_nimet) -> tuple[dict | None, str]:
-    """Selaimen lähettämä tilaus tallennettavaan muotoon: (tilaus, virhe)."""
+EHTOJA_ENINTAAN = 30
+TASOT = ("toimii", "paras", "pisteet")
+
+
+def kohteen_tasot(kohde) -> tuple[str, ...]:
+    """Kohteelle valittavat ehdot: toimii (jos toimivalla alueella on raja), optimi (jos parhaalla
+    alueella on raja) ja pisteraja, kun toimintarajaa ei ole (kohde toimii kaikilla vesillä)."""
+    rajaton = tuple(kohde.toimii) == (None, None)
+    return (() if rajaton else ("toimii",)) + (("paras",) if tuple(kohde.paras) != (None, None) else ()) \
+        + (("pisteet",) if rajaton else ())
+
+
+def valittavat(paikat) -> dict[str, dict[str, tuple[str, ...]]]:
+    """Paikka -> {kohde -> sallitut ehdot}; "" = paikka kokonaisuutena (mikä tahansa kohde riittää).
+    Paikat ilman kohteita (ei vesikaaviota) jäävät pois."""
+    return {p.nimi: {"": TASOT, **{k.nimi: kohteen_tasot(k) for k in p.kohteet}} for p in paikat if p.kohteet}
+
+
+def ehdon_avain(ehto: dict) -> str:
+    return f"{ehto['paikka']}|{ehto['kohde']}|{ehto['taso']}|{ehto.get('raja', '')}"
+
+
+def tarkista_tilaus(data, valinnat: dict[str, dict[str, tuple[str, ...]]]) -> tuple[dict | None, str]:
+    """Selaimen lähettämä tilaus tallennettavaan muotoon: (tilaus, virhe). valinnat = valittavat(PAIKAT)."""
     if not isinstance(data, dict):
         return None, "virheellinen pyyntö"
     t = data.get("tilaus") or {}
@@ -180,72 +203,128 @@ def tarkista_tilaus(data, paikkojen_nimet) -> tuple[dict | None, str]:
             raise ValueError
     except (TypeError, ValueError):
         return None, "tilauksen avaimet puuttuvat"
-    paikat, raja = data.get("paikat", []), data.get("raja")
-    if not isinstance(paikat, list) or any(p not in paikkojen_nimet for p in paikat):
-        return None, "tuntematon paikka"
-    if isinstance(raja, bool) or not isinstance(raja, int) or not 1 <= raja <= 100:
-        return None, "pisterajan pitää olla 1–100"
-    return {"endpoint": endpoint, "p256dh": p256dh, "auth": auth, "paikat": sorted(set(paikat)), "raja": raja,
+    paivia = data.get("paivia")
+    if isinstance(paivia, bool) or not isinstance(paivia, int) or not 0 <= paivia <= 14:
+        return None, "ennusteen pituuden pitää olla 0–14 päivää"
+    ehdot_ = data.get("ehdot")
+    if not isinstance(ehdot_, list) or not 1 <= len(ehdot_) <= EHTOJA_ENINTAAN:
+        return None, f"valitse 1–{EHTOJA_ENINTAAN} ehtoa"
+    ehdot, avaimet__ = [], set()
+    for e in ehdot_:
+        if not isinstance(e, dict):
+            return None, "virheellinen ehto"
+        paikka, kohde, taso, raja = e.get("paikka"), e.get("kohde") or "", e.get("taso"), e.get("raja")
+        if paikka not in valinnat or kohde not in valinnat[paikka]:
+            return None, "tuntematon paikka tai kohde"
+        if taso not in valinnat[paikka][kohde]:
+            return None, "ehto ei sovi kohteelle"
+        ehto = {"paikka": paikka, "kohde": kohde, "taso": taso}
+        if taso == "pisteet":
+            if isinstance(raja, bool) or not isinstance(raja, int) or not 1 <= raja <= 100:
+                return None, "pisterajan pitää olla 1–100"
+            ehto["raja"] = raja
+        if ehdon_avain(ehto) not in avaimet__:
+            avaimet__.add(ehdon_avain(ehto))
+            ehdot.append(ehto)
+    return {"endpoint": endpoint, "p256dh": p256dh, "auth": auth, "paivia": paivia, "ehdot": ehdot,
             "kieli": "en" if data.get("kieli") == "en" else "fi", "ilmoitettu": [],
             "luotu": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}, ""
 
 
-def parhaat(tulokset) -> dict[str, tuple[float, int]]:
-    """Paikan nimi -> (paras pisteet, päivä 0…14) tältä päivältä ja ennusteesta."""
-    tulos = {}
-    for t in tulokset:
-        paivat = ({0: t.pisteet} if t.pisteet is not None else {}) | dict(t.ennuste)
-        if paivat:
-            n = max(paivat, key=lambda n: (round(paivat[n]), -n))   # tasapisteissä aikaisin päivä
-            tulos[t.paikka.nimi] = (paivat[n], n)
-    return tulos
+def _kohteen_pisteet(k) -> float:
+    """Kohteen omat pisteet 0–100 (ilman laatukerrointa, jolla paikan pisteet painotetaan)."""
+    return k.pisteet / k.kohde.laatu if k.kohde.laatu else k.pisteet
 
 
-def uudet_halytykset(tilaus: dict, parhaat_: dict[str, tuple[float, int]],
-                     oletuspaikat: list[str]) -> tuple[list[tuple[str, float, int]], list[str]]:
-    """(ilmoitettavat (paikka, pisteet, päivä), rajan ylittävät paikat tallennettavaksi)."""
-    paikat = tilaus.get("paikat") or oletuspaikat
-    yli = [p for p in paikat if p in parhaat_ and round(parhaat_[p][0]) >= tilaus["raja"]]
-    ennestaan = set(tilaus.get("ilmoitettu") or [])
-    uudet = sorted(((p, *parhaat_[p]) for p in yli if p not in ennestaan), key=lambda x: (-round(x[1]), x[2]))
-    return uudet, sorted(yli)
+def tayttyy(ehto: dict, tulos, paivia: int) -> tuple[int, str] | None:
+    """Ensimmäinen päivä 0…paivia, jona ehto täyttyy, ja kohteen nimi (paikan ehdolle paras
+    täyttävä kohde); None, jos ei täyty."""
+    for n in range(paivia + 1):
+        kohteet = tulos.kohteet if n == 0 else tulos.ennusteen_kohteet.get(n)
+        if not kohteet:
+            continue
+        if ehto["kohde"]:
+            kohteet = [k for k in kohteet if k.kohde.nimi == ehto["kohde"]]
+        if ehto["taso"] == "pisteet":
+            if ehto["kohde"]:
+                ok = [k for k in kohteet if round(_kohteen_pisteet(k)) >= ehto["raja"]]
+            else:
+                pisteet = tulos.pisteet if n == 0 else tulos.ennuste.get(n)
+                ok = kohteet if pisteet is not None and round(pisteet) >= ehto["raja"] else []
+        else:
+            ok = [k for k in kohteet if k.tila == "paras" or (ehto["taso"] == "toimii" and k.tila == "toimii")]
+        if ok:
+            return n, max(ok, key=lambda k: k.pisteet).kohde.nimi
+    return None
+
+
+def uudet_halytykset(tilaus: dict, tulokset: dict) -> tuple[list[tuple[dict, int, str]], list[str]]:
+    """(ilmoitettavat (ehto, päivä, kohde), täyttyvien ehtojen avaimet tallennettavaksi).
+    tulokset = paikan nimi -> PaikkaTulos. Ilmoitetusta ehdosta uudelleen vasta, kun se on
+    välillä lakannut täyttymästä."""
+    ennestaan, uudet, tayttyvat = set(tilaus.get("ilmoitettu") or []), [], []
+    for ehto in tilaus.get("ehdot") or []:
+        osuma = tayttyy(ehto, tulokset[ehto["paikka"]], tilaus.get("paivia", 0)) \
+            if ehto["paikka"] in tulokset else None
+        if osuma:
+            tayttyvat.append(ehdon_avain(ehto))
+            if ehdon_avain(ehto) not in ennestaan:
+                uudet.append((ehto, *osuma))
+    return sorted(uudet, key=lambda u: u[1]), sorted(tayttyvat)
 
 
 VIIKONPAIVAT = {"fi": ("ma", "ti", "ke", "to", "pe", "la", "su"), "en": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")}
+SANAT = {"fi": {"toimii": "toimii", "paras": "parhaimmillaan", "tanaan": "tänään", "muuta": "muuta",
+                "otsikko": "Hyvät melontaolot"},
+         "en": {"toimii": "works", "paras": "at its best", "tanaan": "today", "muuta": "more",
+                "otsikko": "Good paddling conditions"}}
 
 
-def viesti(uudet: list[tuple[str, float, int]], tanaan: dt.date, kieli: str = "fi") -> dict:
+def _paiva(n: int, tanaan: dt.date, kieli: str) -> str:
+    if n == 0:
+        return SANAT[kieli]["tanaan"]
+    p = tanaan + dt.timedelta(days=n)
+    return f"{VIIKONPAIVAT[kieli][p.weekday()]} {p.day}.{p.month}."
+
+
+def _kuvaus(ehto: dict, kieli: str) -> str:
+    """Ehto luettavana: 'Kipinä (Iijoki) – Pikku hontto: parhaimmillaan' / '… ≥ 60 p'."""
+    nimi = ehto["paikka"] + (f" – {ehto['kohde']}" if ehto["kohde"] else "")
+    return f"{nimi} ≥ {ehto['raja']} p" if ehto["taso"] == "pisteet" else f"{nimi}: {SANAT[kieli][ehto['taso']]}"
+
+
+def viesti(uudet: list[tuple[dict, int, str]], tanaan: dt.date, kieli: str = "fi") -> dict:
     """Ilmoituksen otsikko, teksti ja avattava osoite."""
-    def paiva(n: int) -> str:
-        if n == 0:
-            return "today" if kieli == "en" else "tänään"
-        p = tanaan + dt.timedelta(days=n)
-        return f"{VIIKONPAIVAT[kieli][p.weekday()]} {p.day}.{p.month}."
-    rivit = [f"{nimi} {round(pisteet)} p ({paiva(n)})" for nimi, pisteet, n in uudet[:6]]
+    rivit = []
+    for ehto, n, kohde in uudet[:6]:
+        lisa = f" ({kohde})" if not ehto["kohde"] and ehto["taso"] != "pisteet" else ""
+        rivit.append(f"{_kuvaus(ehto, kieli)}{lisa}, {_paiva(n, tanaan, kieli)}")
     if len(uudet) > 6:
-        rivit.append(f"+{len(uudet) - 6} " + ("more" if kieli == "en" else "muuta"))
-    return {"otsikko": "Good paddling conditions" if kieli == "en" else "Hyvät melontaolot",
-            "teksti": "\n".join(rivit), "url": "/?kieli=en" if kieli == "en" else "/"}
+        rivit.append(f"+{len(uudet) - 6} {SANAT[kieli]['muuta']}")
+    return {"otsikko": SANAT[kieli]["otsikko"], "teksti": "\n".join(rivit), "url": "/?kieli=en" if kieli == "en" else "/"}
 
 
 def vahvistus(tilaus: dict) -> dict:
-    """Ilmoitus heti tilauksen jälkeen: kertoo, että ilmoitukset toimivat."""
-    en = tilaus["kieli"] == "en"
-    kohde = (f"{len(tilaus['paikat'])} " + ("spots" if en else "paikkaa")) if tilaus["paikat"] \
-        else ("all spots in Finland" if en else "kaikki Suomen paikat")
-    teksti = (f"You will be notified each morning when a spot reaches {tilaus['raja']} points ({kohde})." if en
-              else f"Ilmoitan aamuisin, kun paikan pisteet nousevat {tilaus['raja']}:ään ({kohde}).")
-    return {"otsikko": "Alert subscribed" if en else "Hälytys tilattu", "teksti": teksti,
-            "url": "/?kieli=en" if en else "/"}
+    """Ilmoitus heti tilauksen jälkeen: kertoo, että ilmoitukset toimivat, ja tilatut ehdot."""
+    kieli, n = tilaus["kieli"], tilaus["paivia"]
+    if kieli == "en":
+        jakso = "today" if n == 0 else f"within {n} days"
+        alku = f"Notifying each morning ({jakso}): "
+    else:
+        jakso = "tänään" if n == 0 else f"{n} päivän sisällä"
+        alku = f"Ilmoitan aamuisin ({jakso}): "
+    ehdot = "; ".join(_kuvaus(e, kieli) for e in tilaus["ehdot"][:4]) \
+        + (f" +{len(tilaus['ehdot']) - 4}" if len(tilaus["ehdot"]) > 4 else "")
+    return {"otsikko": "Alert subscribed" if kieli == "en" else "Hälytys tilattu", "teksti": alku + ehdot,
+            "url": "/?kieli=en" if kieli == "en" else "/"}
 
 
-def aja(kanta, tulokset, oletuspaikat: list[str], tanaan: dt.date, avainpari: tuple[str, str],
-        lahetin=laheta) -> dict:
+def aja(kanta, tulokset, tanaan: dt.date, avainpari: tuple[str, str], lahetin=laheta) -> dict:
     """Käy tilaukset läpi: lähettää uudet hälytykset, päivittää tilan ja poistaa vanhentuneet."""
-    parhaat_ = parhaat(tulokset)
+    paikoittain = {t.paikka.nimi: t for t in tulokset}
     lahetetty, poistettu, virheet = 0, 0, []
     for avain, tilaus in kanta.listaa(KOKOELMA).items():
-        uudet, yli = uudet_halytykset(tilaus, parhaat_, oletuspaikat)
+        uudet, tayttyvat = uudet_halytykset(tilaus, paikoittain)
         if uudet:
             tila = lahetin(tilaus, viesti(uudet, tanaan, tilaus.get("kieli", "fi")), avainpari)
             if tila in (404, 410):
@@ -256,8 +335,8 @@ def aja(kanta, tulokset, oletuspaikat: list[str], tanaan: dt.date, avainpari: tu
                 virheet.append(f"{avain[:8]}: HTTP {tila}")
                 continue   # yritetään uudelleen seuraavana aamuna
             lahetetty += 1
-        if yli != sorted(tilaus.get("ilmoitettu") or []):
-            kanta.kirjoita(KOKOELMA, avain, {**tilaus, "ilmoitettu": yli})
+        if tayttyvat != sorted(tilaus.get("ilmoitettu") or []):
+            kanta.kirjoita(KOKOELMA, avain, {**tilaus, "ilmoitettu": tayttyvat})
     return {"lahetetty": lahetetty, "poistettu": poistettu, "virheet": virheet}
 
 
