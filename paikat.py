@@ -163,6 +163,7 @@ ASEMAT = {
     "q5800000y": "Temmesjoki",
     "q5800100y": "Tyrnävänjoki",
     "q5904400y": "Sanginjoki",
+    "q5903470y": "Otermajärvi, luusua (Kutujoki)",
     "q6000410y": "Haukipudas (Kiiminkijoki)",
     "l611331001y": "Pudasjärvi",
     "q6101400y": "Kipinä",
@@ -605,8 +606,21 @@ PAIKAT: tuple[Paikka, ...] = (
     ),
     Paikka(
         "Kutujoki", "https://www.osm.fi/kutujoki/", "retki", 80,
-        "Otermajärvestä Oulujokeen, I–II-luokan kosket. Hyvä aloitteleville. "
-        "Sivulla ei vesikaaviota.",
+        "Otermajärvestä Oulujokeen (Vaala) n. 17 km, 15 koskea, joista II-luokkaa Myllykoski, "
+        "Monisaarikoski ja Petäjäkoski (1 400 m), muut I-luokkaa. Hyvä aloitteleville ja "
+        "retkeilijöille, paras alkukesällä. Mittarina Otermajärven lähtövirtaama (luusua).",
+        # Sivulla ei vesikaaviota eikä lukuja. Rajat ovat arvioita aseman tunnusluvuista
+        # (MNQ 1.2, MHQ 18.1, HQ 44.0 m³/s) ja havaintojen mediaanista: kesäkuun alussa
+        # n. 8–10 m³/s ("paras alkukesällä"), heinä–elokuussa 2–3 m³/s.
+        {"paa": Mittari("59/q5903470y/qin3lyhyt.png", lisakaavio=True, marginaali=3)},
+        (
+            Kohde("Koko reitti (Otermajärvi – Oulujoki)", (4, 30), (7, 16), 0.8,
+                  huom="kapea (5–10 m) joki: alle n. 4 m³/s (kesän alivesi) kivikkoista; "
+                       "tulvalla inkkarin paattiin voi tulla aalto (osm.fi)", lahde="arvio"),
+            Kohde("II-luokan kosket (Myllykoski, Monisaarikoski, Petäjäkoski)", (5, 30), (8, 18), 0.7,
+                  huom="Myllykoski heti alussa, Petäjäkoski 1 400 m; vähällä vedellä kivisiä, "
+                       "yli MHQ:n (18 m³/s) vauhdikkaita aloittelijalle", lahde="arvio"),
+        ),
     ),
     Paikka(
         "Oulujoki", "https://www.osm.fi/oulujoki/", "retki", 0,
