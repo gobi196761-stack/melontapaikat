@@ -404,7 +404,7 @@ SKRIPTI = """
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
   const T = document.documentElement.lang === "en" ? {
     lisaa: "Add to favourites", poista: "Remove from favourites", km: "",
-    kieli: "en-GB", perilla: "on arrival", paivaTila: "Water levels and ratings from the forecast for", ukkonen: "thunderstorm forecast", lahto: "from", oma: "your location",
+    kieli: "en-GB", perilla: "on arrival", paivaTila: "Water levels and ratings from the forecast for", ukkonen: "thunderstorm forecast", yrRaja: "yr.no forecasts only 9 days ahead: its last day", lahto: "from", oma: "your location",
     tila: "Driving distances from your location (OpenStreetMap routing).", lasketaan: "Calculating driving distances…",
     eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
     eiTukea: "Your browser does not support location.", haetaan: "Getting location…",
@@ -413,7 +413,7 @@ SKRIPTI = """
     tuntematon: n => "Unknown municipality: " + n + ". Pick one from the list.",
   } : {
     lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "",
-    kieli: "fi-FI", perilla: "perillä klo", paivaTila: "Vesitilanne ja arviot ennusteen mukaan:", ukkonen: "ukkosta ennustettu", lahto: "lähtö", oma: "oma sijainti",
+    kieli: "fi-FI", perilla: "perillä klo", paivaTila: "Vesitilanne ja arviot ennusteen mukaan:", ukkonen: "ukkosta ennustettu", yrRaja: "yr.no ennustaa vain 9 päivän päähän: sen viimeinen päivä", lahto: "lähtö", oma: "oma sijainti",
     tila: "Ajomatkat omasta sijainnistasi (OpenStreetMap-reititys).", lasketaan: "Lasketaan ajomatkoja…",
     eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
     eiTukea: "Selain ei tue sijaintia.", haetaan: "Haetaan sijaintia…",
@@ -498,12 +498,15 @@ SKRIPTI = """
     if (linkki) {
       const ukkonen = !ohi && s.aika.some((a, j) => a >= s.aika[i] && a < s.aika[i] + 4 * 3600 && UKKONEN.includes(s.k[j]));
       linkki.classList.toggle("ukkonen", ukkonen);
-      ukkonen ? linkki.title = T.ukkonen : linkki.removeAttribute("title");
-      // yr.no:n tuntiennuste saapumispäivälle (?i = päiviä tästä päivästä, Suomen aikaa)
+      // yr.no:n tuntiennuste saapumispäivälle (?i = päiviä tästä päivästä, Suomen aikaa);
+      // yr.no ennustaa vain YR_PAIVIA päivää, joten myöhemmästä saapumisesta sen viimeinen päivä
+      const YR_PAIVIA = 9;   // app.YR_PAIVIA
       const pvm = s => new Date(s * 1000).toLocaleDateString("sv-SE", {timeZone: "Europe/Helsinki"});
       const erotus = Math.round((new Date(pvm(perilla)) - new Date(pvm(Date.now() / 1000))) / 86400000);
+      const otsikko = ukkonen ? T.ukkonen : erotus > YR_PAIVIA ? T.yrRaja : "";
+      otsikko ? linkki.title = otsikko : linkki.removeAttribute("title");
       const url = new URL(linkki.href);
-      erotus > 0 ? url.searchParams.set("i", erotus) : url.searchParams.delete("i");
+      erotus > 0 ? url.searchParams.set("i", Math.min(erotus, YR_PAIVIA)) : url.searchParams.delete("i");
       linkki.href = url.toString();
     }
   }
@@ -767,10 +770,12 @@ def _kello(aika: float, kieli: str) -> str:
 
 
 YR_SAA = "https://www.yr.no/en/forecast/hourly-table/{lev},{pit}"
+YR_PAIVIA = 9   # yr.no:n tuntitaulukko ulottuu tästä päivästä 9 päivän päähän (?i=0…9)
 
 
 def yr_osoite(lev: float, pit: float, aika: float | None = None, nyt: float | None = None) -> str:
-    """yr.no:n tuntiennuste paikalle; ?i=N avaa ajankohdan päivän (0 = tänään, Suomen aikaa)."""
+    """yr.no:n tuntiennuste paikalle; ?i=N avaa ajankohdan päivän (0 = tänään, Suomen aikaa),
+    yr.no:n ennusteen ulkopuolella sen viimeisen päivän."""
     osoite = YR_SAA.format(lev=lev, pit=pit)
     if aika is None:
         return osoite
@@ -781,7 +786,7 @@ def yr_osoite(lev: float, pit: float, aika: float | None = None, nyt: float | No
     except Exception:  # aikavyöhyketietokanta puuttuu
         pass
     erotus = (paiva(aika) - paiva(nyt or time.time())).days
-    return osoite + (f"?i={erotus}" if erotus > 0 else "")
+    return osoite + (f"?i={min(erotus, YR_PAIVIA)}" if erotus > 0 else "")
 
 
 def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt: float) -> tuple[str, str]:

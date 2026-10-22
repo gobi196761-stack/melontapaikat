@@ -684,6 +684,9 @@ def test_yr_linkki_saapumispaivalle():
     assert app.yr_osoite(65.1, 25.8, nyt + 3600, nyt).endswith("/65.1,25.8")          # tänään
     assert app.yr_osoite(65.1, 25.8, nyt + 12 * 3600, nyt).endswith("?i=1")         # huomenna 01.00
     assert app.yr_osoite(65.1, 25.8, nyt + 2 * 86400, nyt).endswith("?i=2")
+    # yr.no ennustaa vain 9 päivää: myöhempi saapuminen sen viimeiselle päivälle (sama raja selaimessa)
+    assert app.yr_osoite(65.1, 25.8, nyt + 13 * 86400, nyt).endswith(f"?i={app.YR_PAIVIA}")
+    assert f"const YR_PAIVIA = {app.YR_PAIVIA};" in app.SKRIPTI
 
 
 def test_saaennuste_kattaa_lahtopaivat(monkeypatch):
