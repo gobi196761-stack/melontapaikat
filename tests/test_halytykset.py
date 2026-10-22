@@ -250,19 +250,14 @@ def test_tilaus_ja_peruutus(kanta, monkeypatch):
     assert tallessa["paivia"] == 5 and tallessa["ehdot"] == [ehto]
     assert lahetetyt[0]["otsikko"] == "Hälytys tilattu" and "5 päivän sisällä" in lahetetyt[0]["teksti"]
     assert wsgi("/api/halytys", "POST", {**pyynto, "paivia": 30})[0] == "400 Bad Request"
-    tila = json.loads(wsgi("/api/halytys", "GET")[2])
-    assert tila == {"kaytossa": True, "avaimet": "Firestoresta (asetukset/vapid)"}
-    assert wsgi("/api/halytys", "PUT")[0] == "405 Method Not Allowed"
+    assert wsgi("/api/halytys", "GET")[0] == "405 Method Not Allowed"
     assert wsgi("/api/halytys", "DELETE", {"endpoint": FCM})[0] == "200 OK"
     assert kanta.lue(h.KOKOELMA, h.tunniste(FCM)) is None
 
 
 def test_tilaus_ei_kayta_ilman_firestorea(monkeypatch):
     monkeypatch.setattr(app.firestore.Firestore, "ymparistosta", classmethod(lambda cls, **kw: None))
-    monkeypatch.delenv("VAPID_PUBLIC_KEY", raising=False)
     assert wsgi("/api/halytys", "POST", {"x": 1})[0] == "503 Service Unavailable"
-    tila = json.loads(wsgi("/api/halytys", "GET")[2])
-    assert tila == {"kaytossa": False, "avaimet": "FIREBASE_SERVICE_ACCOUNT puuttuu Vercelin ympäristömuuttujista"}
 
 
 def test_service_worker_ja_cron(monkeypatch):

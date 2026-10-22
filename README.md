@@ -197,10 +197,7 @@ välillä lakannut täyttymästä.
 
 - Ilmoitukset ovat selaimen Web Push -ilmoituksia (`halytykset.py`, service
   worker `/sw.js`). Ne toimivat Androidin Chromessa ja muissa työpöytäselaimissa.
-  iPhonessa (iOS 16.4+) sivu lisätään ensin Safarissa Koti-valikkoon (Jaa → Lisää
-  Koti-valikkoon) ja hälytys tilataan Koti-valikosta avatusta sovelluksesta. Tätä
-  varten sivulla on sovellusmääritys `/manifest.webmanifest` ja kuvakkeet
-  `/kuvake-<koko>.png` (`sovellus.py`).
+  iPhonessa sivu pitää ensin lisätä kotivalikkoon.
 - Tilaukset tallennetaan Firestoreen (kokoelma `halytykset`), joten käyttöönotto
   vaatii saman `FIREBASE_SERVICE_ACCOUNT`- ja `CRON_SECRET`-asetuksen kuin
   ennusteiden arkisto (yllä). Ilman Firestorea hälytysosiota ei näytetä.
