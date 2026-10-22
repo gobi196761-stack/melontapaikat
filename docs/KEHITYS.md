@@ -122,6 +122,21 @@ Maalismaa on PVO:n voimala, joten aseman oma päivän arvo julkaistaan vasta seu
 
 Rajat ovat peräisin paikkakuvauksista (osm.fi), paikallisilta melojilta (`lahde="meloja"`, mm. mpahkala.kapsi.fi-raportti) tai omasta tulkinnasta (`lahde="arvio"`). Merkitse lähde `huom`-kenttään, kun lisäät tai muutat rajoja.
 
+## Kajakkisuositukset
+
+`paikat.kohteen_kajakit` valitsee kohteelle suositellut kajakit. Jos kohteelle on määritetty `kajakit`, käytetään sitä. Muuten oletukset ovat nämä:
+- retkikohteet: slice ja river runner
+- Neitikoski: freestyle
+- pelipaikkojen hontot ja stopparit (tunnistetaan nimestä) sekä `ISOT_SURFFIT`: freestyle
+- muut pelipaikkojen kohteet: slice
+
+Kuvakkeet (`app.KAJAKKI_KUVAKKEET`) erottuvat värin ja asennon perusteella:
+- freestyle: oranssi, ylösalaisin
+- slice: violetti, keula pystyssä
+- river runner: sininen, oikein päin
+
+Kohdelistassa näkyvät kaikki toimivat kohteet. Toimimattomat ovat piilossa "Eivät toimi nyt" -otsikon alla.
+
 ## Välimuisti ja julkaisu
 
 - Prosessin sisäinen välimuisti on 15 min (`VALIMUISTI_S`). CDN-välimuisti asetetaan `CACHE_CONTROL`-otsakkeella.

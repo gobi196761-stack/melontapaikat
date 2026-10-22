@@ -32,7 +32,26 @@ AVOIN = None  # avoin raja: ei ala- tai ylärajaa
 
 
 # Kajakkityypit kohteiden suosituksiin (sivulla kuvakkeina, ks. app.KAJAKKI_KUVAKKEET)
-KAJAKKITYYPIT = ("freestyle", "slice", "slalom", "riverrunner")
+KAJAKKITYYPIT = ("freestyle", "slice", "riverrunner")
+# Pelipaikkojen isot surffiaallot, joille oletuksena freestyle (hontot ja stopparit tunnistetaan nimestä)
+ISOT_SURFFIT = {"Matkan aalto", "Pelipaikat isolla vedellä", "Mega-aalto", "Finnvågen",
+                "Vaahtokylpy (murtuva aalto)", "Vaahtokylpy, kielen toinen puoli", "Paltvalsen (iso aalto)",
+                "Soulwave (kevättulvan surffiaalto)", "Molkoaalto (surffiaaltojono)"}
+
+
+def kohteen_kajakit(paikka: "Paikka", kohde: "Kohde") -> tuple[str, ...]:
+    """Kohteelle suositellut kajakkityypit: kohteen oma määritys (paikallisen melojan mukaan), muuten
+    retkikohteille slice ja river runner, Neitikoskelle sekä pelipaikkojen honttoihin, stoppareihin ja
+    isoihin surffeihin freestyle ja muille pelipaikkojen kohteille slice."""
+    if kohde.kajakit:
+        return kohde.kajakit
+    if paikka.tyyppi == "retki":
+        return ("slice", "riverrunner")
+    nimi = kohde.nimi.lower()
+    if (paikka.nimi.startswith("Neitikoski") or "hontto" in nimi or "stoppari" in nimi
+            or kohde.nimi in ISOT_SURFFIT):
+        return ("freestyle",)
+    return ("slice",)
 
 
 @dataclass(frozen=True)
@@ -46,7 +65,8 @@ class Kohde:
     huom: str = ""
     lahde: str = "sivu"           # "sivu" = luku suoraan kuvauksesta, "meloja" = paikallisen
                                   # melojan kertoma, "arvio" = tulkinta
-    kajakit: tuple[str, ...] = ()  # suositellut kajakkityypit (KAJAKKITYYPIT), paikallisen melojan mukaan
+    kajakit: tuple[str, ...] = ()  # suositellut kajakkityypit (KAJAKKITYYPIT), paikallisen melojan mukaan;
+                                   # tyhjä = oletus (kohteen_kajakit)
 
 
 @dataclass(frozen=True)
@@ -186,7 +206,7 @@ PAIKAT: tuple[Paikka, ...] = (
             Kohde("Ala-aallot (ykkös- ja kakkosaalto)", (106.7, 107.4), (106.7, 107.2), 0.85,
                   huom="parhaimmillaan 106.7–107.2 m (mpahkala.kapsi.fi); sopii myös koskisuppailuun; "
                        "nopea kajakki: half/full slice, Jackson Funin tapainen tai slalom – nykyaikainen "
-                       "freestyle on hidas", lahde="meloja", kajakit=("slice", "slalom")),
+                       "freestyle on hidas", lahde="meloja", kajakit=("slice",)),
         ),
     ),
     Paikka(
@@ -208,7 +228,7 @@ PAIKAT: tuple[Paikka, ...] = (
                   huom="koskeen keskelle n. 10.5 m vedellä", lahde="arvio", kajakit=("riverrunner", "slice")),
             Kohde("Tulikurkku", (10.3, 11.0), (10.65, 10.75), 0.7,
                   huom="parhaimmillaan 10.7 m; sopii aloittelijoille", lahde="arvio",
-                  kajakit=("slalom", "riverrunner")),
+                  kajakit=("riverrunner",)),
         ),
     ),
     Paikka(

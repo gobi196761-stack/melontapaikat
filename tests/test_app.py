@@ -68,7 +68,7 @@ def test_sivu(palvelin):
     # alussa merkintöjen ja kuvakkeiden selitykset (Kipinän veden lämpötila -laatikko poistettu)
     assert '<details class="selitykset" open><summary>Merkinnät ja kuvakkeet</summary>' in runko
     assert runko.index('class="selitykset"') < runko.index("<table") and "Veden lämpötila" not in runko
-    assert "<b>★</b> parhaimmillaan" in runko and "slalomkajakki" in runko.split("<table")[0]
+    assert "<b>★</b> parhaimmillaan" in runko and "river runner -kajakki" in runko.split("<table")[0]
     assert "päivitetty klo 16.05" in runko
 
 
@@ -361,7 +361,7 @@ def test_englanninkielinen_sivu(palvelin):
     assert '<a href="/?tyyppi=peli&amp;kieli=en">Play spots</a>' in en
     assert "Symbols and icons" in en and "km from Oulu" in en and '<span class="tyyppi">play spot</span>' in en
     assert "at its best" in en or "works (" in en or "too little water" in en
-    assert "Muut kohteet" not in en and "Other features" in en
+    assert "Eivät toimi nyt" not in en and "Not working now" in en
     # suomenkielisiä arvioinnin lauseita ei jää näkyviin
     for fi_teksti in ("parhaimmillaan", "liian vähän vettä", "liikaa vettä", "Oulusta", " pv: "):
         assert fi_teksti not in en.split("<script>")[0], fi_teksti
@@ -718,9 +718,19 @@ def test_kajakkikuvakkeet(palvelin):
         for k in p.kohteet:
             assert set(k.kajakit) <= set(KAJAKKITYYPIT), (p.nimi, k.nimi)
     kipina = next(p for p in PAIKAT if p.nimi == "Kipinä (Iijoki)")
-    assert {k.nimi: k.kajakit for k in kipina.kohteet}["Ala-aallot (ykkös- ja kakkosaalto)"] == ("slice", "slalom")
+    assert {k.nimi: k.kajakit for k in kipina.kohteet}["Ala-aallot (ykkös- ja kakkosaalto)"] == ("slice",)
+    # oletukset: retkelle slice ja river runner, Neitikoskelle ja pelipaikan honttoon freestyle, muuten slice
+    from paikat import kohteen_kajakit
+    oletus = {(p.nimi, k.nimi): kohteen_kajakit(p, k) for p in PAIKAT for k in p.kohteet}
+    assert oletus[("Sanginjoki", "Koskiosuus Lemmenpolku – Taivalkoski")] == ("slice", "riverrunner")
+    assert oletus[("Neitikoski (Lieksanjoki)", "Aalto (aaltoliikkeet)")] == ("freestyle",)
+    assert oletus[("Kattilakoski (Tornionjoki)", "Grillikodan hontto")] == ("freestyle",)
+    assert oletus[("Kattilakoski (Tornionjoki)", "Mega-aalto")] == ("freestyle",)
+    assert oletus[("Kattilakoski (Tornionjoki)", "Kakkosaalto")] == ("slice",)
+    from paikat import ISOT_SURFFIT
+    assert ISOT_SURFFIT <= {k.nimi for p in PAIKAT for k in p.kohteet}   # nimet ajan tasalla
     runko = pyynto("/")[2]
     # Kipinän oikean silta-aukon surffiaalto: freestyle-kuvake nimen perässä
     assert ('<b>Oikean silta-aukon surffiaalto</b> <span class="kajakit"><svg class="kajakki" viewBox="0 0 40 20" '
-            'role="img" aria-label="freestyle-kajakki"><title>freestyle-kajakki</title>') in runko
+            'style="color:#e03131" role="img" aria-label="freestyle-kajakki"><title>freestyle-kajakki</title>') in runko
     assert 'aria-label="freestyle kayak"' in pyynto("/", "kieli=en")[2]

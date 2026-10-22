@@ -41,7 +41,7 @@ import kielet
 import smhi_data
 import syke_data
 import syke_kaavio
-from paikat import PAIKAT, aseman_nimi, nakyy
+from paikat import PAIKAT, aseman_nimi, kohteen_kajakit, nakyy
 from paikkakunnat import PAIKKAKUNNAT
 
 VALIMUISTI_S = 15 * 60
@@ -664,10 +664,8 @@ def _selitykset(kieli: str) -> str:
     """Merkintöjen ja kuvakkeiden selitykset sivun alkuun (aiemmin osa sivun lopussa)."""
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
     merkit = "".join(f"<li><b>{e(m)}</b> {e(t)}</li>" for m, t in SELITYKSET[kieli])
-    kajakit = "".join(
-        f'<li><svg class="kajakki" viewBox="0 0 40 20" aria-hidden="true"><g fill="currentColor">'
-        f'<path d="{runko}"/>{KAJAKKI_MELOJA}</g></svg> {e(k_(nimi))}</li>'
-        for nimi, runko in KAJAKKI_KUVAKKEET.values())
+    kajakit = "".join(f'<li>{_kajakki_svg(tyyppi, k_, selite=True)} {e(k_(KAJAKKI_KUVAKKEET[tyyppi][0]))}</li>'
+                      for tyyppi in KAJAKKI_KUVAKKEET)
     return (f'<details class="selitykset" open><summary>{e(k_("Merkinnät ja kuvakkeet"))}</summary>'
             f'<ul class="pieni">{merkit}{kajakit}</ul><p class="pieni">{SELITE[kieli]}</p></details>')
 # Kielen vaihto: Ison-Britannian lippu englanniksi, Suomen lippu takaisin suomeksi
@@ -686,27 +684,42 @@ LIPUT = {
 }
 
 
-# Kajakkityyppien kuvakkeet (omat sivuprofiilit: meloja + runko; tyypit erottuvat rungon pituudesta
-# ja muodosta). viewBox 0 0 40 20, väri tekstin mukaan.
+# Kajakkityyppien kuvakkeet (omat sivuprofiilit: meloja + runko + vesiviiva). Tyypit erottuvat värin ja
+# asennon mukaan (liikennevalovärit): freestyle punainen ja ylösalaisin ilmassa veden yllä (voltti), slice
+# keltainen 70 asteen kulmassa keula pystyssä (peräupotus), river runner vihreä oikein päin. viewBox 0 0 40 20.
 KAJAKKI_MELOJA = ('<circle cx="20" cy="5.2" r="2.1"/><path d="M18 7.6h4l.8 6.4h-5.6Z"/>'
                   '<path d="M11.5 15.5 28.5 2.5" stroke="currentColor" stroke-width="1.1" fill="none"/>'
                   '<path d="M10.2 16.8l2.6-2.2.9 1.2-2.4 1.9ZM29.8 1.2l-2.6 2.2-.9-1.2 2.4-1.9Z"/>')
+# tyyppi -> (nimi, runko, väri, asento (SVG transform), vesiviivan y)
 KAJAKKI_KUVAKKEET = {
-    "freestyle": ("freestyle-kajakki", "M9 15.2C10.5 17.6 15 18.3 20 18.3S29.5 17.6 31 15.2C28.5 14.6 24.5 13.8 20 13.8S11.5 14.6 9 15.2Z"),
-    "slice": ("slice-kajakki (half / full slice)", "M3.5 15.6C7 17.6 13 18.1 20 18.1S33 17.6 36.5 15.4C32 14.6 26 13.9 20 13.9S8 14.7 3.5 15.6Z"),
-    "slalom": ("slalomkajakki", "M.8 15.9C6 17.2 13 17.6 20 17.6S34 17.2 39.2 15.8C33 15 26 14.4 20 14.4S7 15 .8 15.9Z"),
-    "riverrunner": ("river runner -kajakki", "M4.5 13.4C5 17 11 18.6 20 18.6S35 17 35.5 13.4C33 14.2 27 13.6 20 13.6S7 14.2 4.5 13.4Z"),
+    "freestyle": ("freestyle-kajakki",
+                  "M9 15.2C10.5 17.6 15 18.3 20 18.3S29.5 17.6 31 15.2C28.5 14.6 24.5 13.8 20 13.8S11.5 14.6 9 15.2Z",
+                  "#e03131", "translate(4 .3) scale(.8) matrix(1 0 0 -1 0 20)", 18.6),   # voltissa ilmassa
+    "slice": ("slice-kajakki (half / full slice)",
+              "M3.5 15.6C7 17.6 13 18.1 20 18.1S33 17.6 36.5 15.4C32 14.6 26 13.9 20 13.9S8 14.7 3.5 15.6Z",
+              "#f08c00", "translate(21 9) rotate(-70) scale(.52) translate(-20 -14)", 9.4),
+    "riverrunner": ("river runner -kajakki",
+                    "M4.5 13.4C5 17 11 18.6 20 18.6S35 17 35.5 13.4C33 14.2 27 13.6 20 13.6S7 14.2 4.5 13.4Z",
+                    "#2f9e44", "", 16.5),
 }
 
 
-def _kajakit(kohde, k_) -> str:
+def _kajakki_svg(tyyppi: str, k_, selite: bool = False) -> str:
+    """Kajakkityypin kuvake: värillinen meloja ja runko tyypin asennossa sekä vesiviiva."""
+    nimi, runko, vari, asento, vesi = KAJAKKI_KUVAKKEET[tyyppi]
+    aallot = "".join("t5 0" for _ in range(7))
+    kuva = (f'<path d="M0 {vesi}q2.5-1.3 5 0{aallot}" fill="none" stroke="#339af0" stroke-width="1.1"/><g fill="currentColor"{f" transform={chr(34)}{asento}{chr(34)}" if asento else ""}>'
+            f'<path d="{runko}"/>{KAJAKKI_MELOJA}</g>')
+    if selite:
+        return f'<svg class="kajakki" viewBox="0 0 40 20" style="color:{vari}" aria-hidden="true">{kuva}</svg>'
+    return (f'<svg class="kajakki" viewBox="0 0 40 20" style="color:{vari}" role="img" aria-label="{e(k_(nimi))}">'
+            f'<title>{e(k_(nimi))}</title>{kuva}</svg>')
+
+
+def _kajakit(paikka, kohde, k_) -> str:
     """Kohteelle suositeltujen kajakkityyppien kuvakkeet kohteen nimen perään (nimi vihjeenä)."""
-    kuvat = []
-    for tyyppi in kohde.kajakit:
-        nimi, runko = KAJAKKI_KUVAKKEET[tyyppi]
-        kuvat.append(f'<svg class="kajakki" viewBox="0 0 40 20" role="img" aria-label="{e(k_(nimi))}">'
-                     f'<title>{e(k_(nimi))}</title><g fill="currentColor"><path d="{runko}"/>{KAJAKKI_MELOJA}</g></svg>')
-    return f' <span class="kajakit">{"".join(kuvat)}</span>' if kuvat else ""
+    kuvat = "".join(_kajakki_svg(tyyppi, k_) for tyyppi in kohteen_kajakit(paikka, kohde))
+    return f' <span class="kajakit">{kuvat}</span>' if kuvat else ""
 
 
 def _pisteluokka(p: float) -> str:
@@ -797,17 +810,18 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
         return "".join(rivit)
 
     def kohde(k) -> str:
-        return (f"<li>{melonta._tila_merkki(k.tila)} <b>{e(k.kohde.nimi)}</b>{_kajakit(k.kohde, k_)}: "
+        return (f"<li>{melonta._tila_merkki(k.tila)} <b>{e(k.kohde.nimi)}</b>{_kajakit(p, k.kohde, k_)}: "
                 f"{e(k_(k.selitys))}</li>")
 
     def kohteet(lista: list, huomiot: str) -> str:
         jarjestetty = sorted(lista, key=lambda k: k.pisteet, reverse=True)
+        # kaikki toimivat kohteet näkyvissä, toimimattomat piilossa
         toimivat = [k for k in jarjestetty if k.tila != "ei toimi"]
-        lyhyet = toimivat[:3] if toimivat else jarjestetty[:1]
-        muut = [k for k in jarjestetty if k not in lyhyet]
+        muut = [k for k in jarjestetty if k.tila == "ei toimi"]
+        lyhyet = toimivat
         lisat = ""
         if muut:
-            lisat = (f"<details><summary>{k_('Muut kohteet')} ({len(muut)})</summary><ul>"
+            lisat = (f"<details><summary>{k_('Eivät toimi nyt')} ({len(muut)})</summary><ul>"
                      + "".join(kohde(k) for k in muut) + "</ul></details>")
         return f"<ul>{''.join(kohde(k) for k in lyhyet)}{huomiot}</ul>{lisat}"
 
