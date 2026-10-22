@@ -67,7 +67,8 @@ def test_sivu(palvelin):
     assert "Oikean silta-aukon surffiaalto" in runko
     # alussa merkintöjen ja kuvakkeiden selitykset (Kipinän veden lämpötila -laatikko poistettu)
     assert '<details class="selitykset" open><summary>Merkinnät ja kuvakkeet</summary>' in runko
-    assert runko.index('class="selitykset"') < runko.index("<table") and "Veden lämpötila" not in runko
+    assert runko.index('class="selitykset"') < runko.index("<nav>") < runko.index("<table")   # kategorioiden yläpuolella
+    assert "Veden lämpötila" not in runko and "OpenStreetMap" not in runko
     assert "<b>★</b> parhaimmillaan" in runko and "river runner -kajakki" in runko.split("<table")[0]
     assert "päivitetty klo 16.05" in runko
 

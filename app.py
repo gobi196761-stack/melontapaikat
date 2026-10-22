@@ -421,11 +421,11 @@ SKRIPTI = """
   const T = document.documentElement.lang === "en" ? {
     lisaa: "Add to favourites", poista: "Remove from favourites", km: "",
     kieli: "en-GB", perilla: "on arrival", paivaTila: "Water levels and ratings from the forecast for", ukkonen: "thunderstorm forecast", foreca: "Foreca 15-day forecast (yr.no covers only 9 days)", lahto: "from", oma: "your location",
-    tila: "Driving distances from your location (OpenStreetMap routing).", lasketaan: "Calculating driving distances…",
+    tila: "Driving distances from your location.", lasketaan: "Calculating driving distances…",
     eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
     eiTukea: "Your browser does not support location.", haetaan: "Getting location…",
     eiSaatu: m => "Location not available (" + m + "). Distances are from Oulu city centre.",
-    paikkakunnalta: n => "Driving distances from " + n + " (OpenStreetMap routing).",
+    paikkakunnalta: n => "Driving distances from " + n + ".",
     tuntematon: n => "Unknown municipality: " + n + ". Pick one from the list.",
     tilaa: "Subscribe to alert", paivitaHal: "Update alert", tilataan: "Subscribing…",
     tilattu: "Alert subscribed. You should get a confirmation notification now.", peruttu: "Alert cancelled.",
@@ -437,11 +437,11 @@ SKRIPTI = """
   } : {
     lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "",
     kieli: "fi-FI", perilla: "perillä klo", paivaTila: "Vesitilanne ja arviot ennusteen mukaan:", ukkonen: "ukkosta ennustettu", foreca: "Forecan 15 vrk ennuste (yr.no ennustaa vain 9 päivää)", lahto: "lähtö", oma: "oma sijainti",
-    tila: "Ajomatkat omasta sijainnistasi (OpenStreetMap-reititys).", lasketaan: "Lasketaan ajomatkoja…",
+    tila: "Ajomatkat omasta sijainnistasi.", lasketaan: "Lasketaan ajomatkoja…",
     eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
     eiTukea: "Selain ei tue sijaintia.", haetaan: "Haetaan sijaintia…",
     eiSaatu: m => "Sijaintia ei saatu (" + m + "). Etäisyydet ovat Oulun keskustasta.",
-    paikkakunnalta: n => "Ajomatkat paikkakunnalta " + n + " (OpenStreetMap-reititys).",
+    paikkakunnalta: n => "Ajomatkat paikkakunnalta " + n + ".",
     tuntematon: n => "Tuntematon paikkakunta: " + n + ". Valitse listasta.",
     tilaa: "Tilaa hälytys", paivitaHal: "Päivitä hälytys", tilataan: "Tilataan…",
     tilattu: "Hälytys tilattu. Puhelimeen pitäisi tulla nyt vahvistusilmoitus.", peruttu: "Hälytys peruttu.",
@@ -1078,6 +1078,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div>
 <div class="meta">{k_("osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet")} ·
 {k_("päivitetty klo")} {tilanne.paivitetty:%H.%M}</div>
+{_selitykset(kieli)}
 <nav>{suodattimet}<button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button>
 <label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
 placeholder="{k_("esim. Rovaniemi")}"></label>
@@ -1086,7 +1087,6 @@ placeholder="{k_("esim. Rovaniemi")}"></label>
 <script type="application/json" id="paikkakunnat">{KUNNAT_JSON}</script>
 <p id="sijainti-tila" class="pieni" hidden></p>
 {_halytysosio(k_)}
-{_selitykset(kieli)}
 <p id="ei-suosikkeja" hidden>{EI_SUOSIKKEJA[kieli]}</p>
 <p id="paiva-tila" class="pieni" hidden></p>
 <table data-valilehti="{e(valittu)}" data-paiva0="{tilanne.paivitetty:%Y-%m-%d}">
