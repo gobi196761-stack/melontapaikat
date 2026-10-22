@@ -9,6 +9,9 @@ Reitit:
                   asemalla (Hawa'Ii) mitatut arvot + arvio. ?paikka=<nimi> valitsee kohteiden alueet
     /api/arkistoi  päivän ennusteiden arkistointi Firestoreen (Vercel Cron,
                    vaatii otsakkeen Authorization: Bearer $CRON_SECRET)
+    /api/halytys   hälytyksen tilaus (POST) ja peruutus (DELETE), ks. halytykset.py
+    /api/halyta    aamun hälytysten lähetys (Vercel Cron, kuten /api/arkistoi)
+    /sw.js         push-ilmoitusten service worker
 Suodattimet kummallekin: ?tyyppi=peli|retki|ruotsi ja ?max_km=N
 (ilman tyyppiä vain Suomen paikat; Ruotsin paikat näkyvät vain tyyppi=ruotsi)
 
@@ -35,6 +38,7 @@ from urllib.parse import parse_qs, quote, urlencode
 
 import ennustearkisto
 import firestore
+import halytykset
 import melonta
 import osm_sivut as osm
 import kaavio_svg
@@ -394,6 +398,17 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
 .kajakki { width:26px; height:20.8px; vertical-align:-6px; margin-left:3px; color:var(--linkki); }
 .ukkonen { color:var(--huono) !important; font-weight:700; }
 .tyyppi { font-weight:400; font-size:.85rem; color:var(--heikko); margin-left:2px; }
+.halytys { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
+.halytys summary { font-size:.95rem; color:var(--teksti); margin:0; }
+.halytys p { margin:8px 0 0; }
+.halytys label { margin-right:12px; white-space:nowrap; display:inline-block; margin-top:4px; }
+.halytys select { max-width:100%; }
+.halytys-ehdot { margin:8px 0 0; padding-left:18px; }
+.halytys select, .halytys button { font:inherit; font-size:.9rem; padding:4px 10px; border:1px solid var(--viiva);
+                                   border-radius:999px; background:var(--tausta); color:var(--teksti); }
+.halytys button { color:var(--linkki); cursor:pointer; }
+.halytys [hidden] { display:none; }
+.halytys .halytys-ehdot button { border:0; background:none; padding:0 6px; color:var(--huono); }
 nav button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; background:none;
              color:var(--linkki); font:inherit; font-size:.9rem; cursor:pointer; }
 """
@@ -412,6 +427,13 @@ SKRIPTI = """
     eiSaatu: m => "Location not available (" + m + "). Distances are from Oulu city centre.",
     paikkakunnalta: n => "Driving distances from " + n + " (OpenStreetMap routing).",
     tuntematon: n => "Unknown municipality: " + n + ". Pick one from the list.",
+    tilaa: "Subscribe to alert", paivitaHal: "Update alert", tilataan: "Subscribing…",
+    tilattu: "Alert subscribed. You should get a confirmation notification now.", peruttu: "Alert cancelled.",
+    eiLupaa: "Notifications are blocked. Allow them in the browser settings for this site.",
+    eiEhtoja: "Add at least one condition (+ Add).", halVirhe: "Subscribing failed: ",
+    muutettu: "Changes take effect when you press Update alert.", mikaTahansa: "Any feature",
+    tasot: {toimii: "works", paras: "optimum (at its best)", pisteet: "score limit"}, poistaEhto: "Remove",
+    iphone: "On iPhone, first add this page to the home screen (Share → Add to Home Screen) and open it from there.",
   } : {
     lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "",
     kieli: "fi-FI", perilla: "perillä klo", paivaTila: "Vesitilanne ja arviot ennusteen mukaan:", ukkonen: "ukkosta ennustettu", foreca: "Forecan 15 vrk ennuste (yr.no ennustaa vain 9 päivää)", lahto: "lähtö", oma: "oma sijainti",
@@ -421,6 +443,13 @@ SKRIPTI = """
     eiSaatu: m => "Sijaintia ei saatu (" + m + "). Etäisyydet ovat Oulun keskustasta.",
     paikkakunnalta: n => "Ajomatkat paikkakunnalta " + n + " (OpenStreetMap-reititys).",
     tuntematon: n => "Tuntematon paikkakunta: " + n + ". Valitse listasta.",
+    tilaa: "Tilaa hälytys", paivitaHal: "Päivitä hälytys", tilataan: "Tilataan…",
+    tilattu: "Hälytys tilattu. Puhelimeen pitäisi tulla nyt vahvistusilmoitus.", peruttu: "Hälytys peruttu.",
+    eiLupaa: "Ilmoitukset on estetty. Salli ne selaimen asetuksista tälle sivulle.",
+    eiEhtoja: "Lisää vähintään yksi ehto (+ Lisää).", halVirhe: "Tilaus epäonnistui: ",
+    muutettu: "Muutokset tulevat voimaan, kun painat Päivitä hälytys.", mikaTahansa: "Mikä tahansa kohde",
+    tasot: {toimii: "toimii", paras: "optimi (parhaimmillaan)", pisteet: "pisteraja"}, poistaEhto: "Poista",
+    iphone: "iPhonessa lisää sivu ensin kotivalikkoon (Jaa → Lisää Koti-valikkoon) ja avaa se sieltä.",
   };
   const lue = (k, oletus) => { try { return JSON.parse(localStorage.getItem(k)) ?? oletus; } catch { return oletus; } };
   const kirjoita = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
@@ -643,6 +672,99 @@ SKRIPTI = """
   const muistettu = lue(SIJ, false);
   if (muistettu && muistettu.paikkakunta && kentta) valitse(muistettu.paikkakunta, false);
   else if (muistettu === true) hae();   // lupa annettu aiemmin: päivitä suoraan
+  // Hälytys hyvistä oloista: ehdot (paikka tai kohde; toimii / optimi / pisteraja) ja ennusteen pituus,
+  // push-tilaus (service worker /sw.js) ja asetukset palvelimelle (/api/halytys)
+  const halytys = document.getElementById("halytys");
+  if (halytys && halytys.dataset.vapid && "serviceWorker" in navigator) {
+    halytys.hidden = false;
+    const $ = id => document.getElementById("halytys-" + id);
+    const HAL = "melonta-halytys", tilaa = $("tilaa"), peru = $("peru"), halTila = $("tila"), raja = $("raja"),
+          paikkaV = $("paikka"), kohdeV = $("kohde"), tasoV = $("taso"), lista = $("ehdot"), paivia = $("paivia");
+    const valinnat = JSON.parse($("valinnat").textContent);
+    const tuettu = "PushManager" in window && "Notification" in window;
+    const asetukset = lue(HAL, null) || {};   // viimeksi tilatut ehdot ja ennusteen pituus
+    let ehdot = Array.isArray(asetukset.ehdot) ? asetukset.ehdot.filter(e => valinnat[e.paikka]
+      && (valinnat[e.paikka][e.kohde] || []).includes(e.taso)) : [];
+    if (asetukset.paivia != null) paivia.value = asetukset.paivia;
+    const lisaaVaihtoehto = (v, arvo, teksti) => v.add(new Option(teksti, arvo));
+    // suosikit ensin, sitten muut sivun järjestyksessä
+    Object.keys(valinnat).sort((a, b) => suosikit.has(b) - suosikit.has(a))
+      .forEach(p => lisaaVaihtoehto(paikkaV, p, (suosikit.has(p) ? "♥ " : "") + p));
+    function paivitaKohteet() {
+      kohdeV.length = 0;
+      Object.keys(valinnat[paikkaV.value] || {}).forEach(k => lisaaVaihtoehto(kohdeV, k, k || T.mikaTahansa));
+      paivitaTasot();
+    }
+    function paivitaTasot() {
+      tasoV.length = 0;
+      ((valinnat[paikkaV.value] || {})[kohdeV.value] || []).forEach(t => lisaaVaihtoehto(tasoV, t, T.tasot[t]));
+      $("raja-kentta").hidden = tasoV.value !== "pisteet";
+    }
+    paikkaV.addEventListener("change", paivitaKohteet);
+    kohdeV.addEventListener("change", paivitaTasot);
+    tasoV.addEventListener("change", () => { $("raja-kentta").hidden = tasoV.value !== "pisteet"; });
+    paivitaKohteet();
+    const kuvaus = e => e.paikka + (e.kohde ? " – " + e.kohde : "") + ": "
+      + (e.taso === "pisteet" ? "≥ " + e.raja + " p" : T.tasot[e.taso]);
+    let tilattu = false;
+    function naytaEhdot() {
+      lista.replaceChildren(...ehdot.map((e, i) => {
+        const li = document.createElement("li"), pois = document.createElement("button");
+        li.textContent = kuvaus(e);
+        pois.type = "button"; pois.textContent = "✕"; pois.title = pois.ariaLabel = T.poistaEhto;
+        pois.addEventListener("click", () => { ehdot.splice(i, 1); naytaEhdot(); muutos(); });
+        li.append(pois);
+        return li;
+      }));
+    }
+    const muutos = () => { if (tilattu) halTila.textContent = T.muutettu; };
+    naytaEhdot();
+    $("lisaa").addEventListener("click", () => {
+      const e = {paikka: paikkaV.value, kohde: kohdeV.value, taso: tasoV.value};
+      if (e.taso === "pisteet") e.raja = Number(raja.value);
+      const avain = JSON.stringify(e);
+      if (!ehdot.some(x => JSON.stringify(x) === avain)) { ehdot.push(e); naytaEhdot(); muutos(); }
+    });
+    paivia.addEventListener("change", muutos);
+    const avain = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - s.length % 4) % 4)),
+                                       c => c.charCodeAt(0));
+    const rekisteri = tuettu ? navigator.serviceWorker.register("/sw.js") : null;
+    const naytaTilaus = async () => {
+      const tilaus = rekisteri && await (await rekisteri).pushManager.getSubscription();
+      tilattu = !!tilaus;
+      peru.hidden = !tilaus;
+      tilaa.textContent = tilaus ? T.paivitaHal : T.tilaa;
+    };
+    naytaTilaus().catch(() => {});
+    const kutsu = (metodi, runko) => fetch("/api/halytys", {method: metodi,
+      headers: {"Content-Type": "application/json"}, body: JSON.stringify(runko)})
+      .then(async v => { if (!v.ok) throw new Error((await v.json().catch(() => ({}))).virhe || "HTTP " + v.status); });
+    tilaa.addEventListener("click", async () => {
+      if (!tuettu) { halTila.textContent = T.iphone; return; }
+      if (!ehdot.length) { halTila.textContent = T.eiEhtoja; return; }
+      halTila.textContent = T.tilataan;
+      try {
+        if (await Notification.requestPermission() !== "granted") { halTila.textContent = T.eiLupaa; return; }
+        const r = await rekisteri;
+        const tilaus = await r.pushManager.getSubscription()
+          || await r.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: avain(halytys.dataset.vapid)});
+        await kutsu("POST", {tilaus: tilaus.toJSON(), ehdot, paivia: Number(paivia.value),
+                             kieli: document.documentElement.lang});
+        kirjoita(HAL, {ehdot, paivia: Number(paivia.value)});
+        halTila.textContent = T.tilattu;
+      } catch (virhe) { halTila.textContent = T.halVirhe + virhe.message; }
+      naytaTilaus().catch(() => {});
+    });
+    peru.addEventListener("click", async () => {
+      try {
+        const tilaus = await (await rekisteri).pushManager.getSubscription();
+        if (tilaus) { await kutsu("DELETE", {endpoint: tilaus.endpoint}); await tilaus.unsubscribe(); }
+        try { localStorage.removeItem(HAL); } catch {}
+        halTila.textContent = T.peruttu;
+      } catch (virhe) { halTila.textContent = T.halVirhe + virhe.message; }
+      naytaTilaus().catch(() => {});
+    });
+  }
   // kaaviot ovat oletuksena pystymallisia (puhelin); leveällä vaakanäytöllä vaakamalli
   function kaavionMuoto() {
     const vaaka = innerWidth >= 700 && innerWidth > innerHeight;
@@ -963,6 +1085,7 @@ placeholder="{k_("esim. Rovaniemi")}"></label>
 <datalist id="kunnat">{KUNTALISTA}</datalist>
 <script type="application/json" id="paikkakunnat">{KUNNAT_JSON}</script>
 <p id="sijainti-tila" class="pieni" hidden></p>
+{_halytysosio(k_)}
 {_selitykset(kieli)}
 <p id="ei-suosikkeja" hidden>{EI_SUOSIKKEJA[kieli]}</p>
 <p id="paiva-tila" class="pieni" hidden></p>
@@ -976,6 +1099,34 @@ placeholder="{k_("esim. Rovaniemi")}"></label>
 <script>{SKRIPTI}</script>
 </body>
 </html>"""
+
+
+def _halytysosio(k_) -> str:
+    """Hälytyksen tilaus (näkyy, kun selain tukee push-ilmoituksia ja VAPID-avain on saatavilla).
+    Selain rakentaa valinnat paikoista ja kohteista (#halytys-valinnat: paikka -> kohde -> ehdot)."""
+    avainpari = halytykset.avaimet()
+    if not avainpari:
+        return ""
+    rajat = "".join(f'<option value="{r}"{" selected" if r == 60 else ""}>{r} – {k_(nimi)}</option>'
+                    for r, nimi in ((80, "erinomainen"), (60, "hyvä"), (30, "kohtalainen")))
+    paivat = "".join(f'<option value="{n}"{" selected" if n == 3 else ""}>'
+                     f'{k_("tänään") if n == 0 else f"{n} " + k_("pv")}</option>' for n in range(LAHTO_PAIVIA + 1))
+    valinnat = json.dumps(halytykset.valittavat(PAIKAT), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    return f"""<details id="halytys" class="halytys" hidden data-vapid="{e(avainpari[0])}">
+<summary>{k_("🔔 Hälytys hyvistä oloista")}</summary>
+<p class="pieni">{k_("Ilmoitus puhelimeen, kun valitsemasi paikan tai kohteen ehto täyttyy tänään tai ennusteessa. Tarkistus joka aamu; samasta ehdosta uudelleen vasta, kun se on välillä lakannut täyttymästä.")}</p>
+<p><label>{k_("Paikka")} <select id="halytys-paikka"></select></label>
+<label>{k_("Kohde")} <select id="halytys-kohde"></select></label>
+<label>{k_("Ehto")} <select id="halytys-taso"></select></label>
+<label id="halytys-raja-kentta" hidden>{k_("Pisteraja")} <select id="halytys-raja">{rajat}</select></label>
+<button type="button" id="halytys-lisaa">{k_("+ Lisää")}</button></p>
+<ul id="halytys-ehdot" class="halytys-ehdot"></ul>
+<p><label>{k_("Ennustetta eteenpäin")} <select id="halytys-paivia">{paivat}</select></label></p>
+<p><button type="button" id="halytys-tilaa">{k_("Tilaa hälytys")}</button>
+<button type="button" id="halytys-peru" hidden>{k_("Peru tilaus")}</button></p>
+<p id="halytys-tila" class="pieni" aria-live="polite"></p>
+<script type="application/json" id="halytys-valinnat">{valinnat}</script>
+</details>"""
 
 
 OSRM_TAULUKKO = "https://router.project-osrm.org/table/v1/driving/{pisteet}?sources=0&annotations=distance,duration"
@@ -1013,20 +1164,84 @@ def ajomatkat(lahto: str, hakija: osm.Hakija | None = None) -> tuple[str, dict]:
     return "200 OK", {"lahto": [lev, pit], **_ajomatkat[(lev, pit)]}
 
 
-def arkistoi(environ) -> tuple[str, dict]:
-    """Vercel Cron: kokoaa päivän ennustearkiston ja tallentaa sen Firestoreen."""
+def _cron_kanta(environ):
+    """Vercel Cronin tunnisteen tarkistus ja Firestore: (kanta, None) tai (None, (status, virhe))."""
     salaisuus = os.environ.get("CRON_SECRET", "")
     if not salaisuus:
-        return "503 Service Unavailable", {"virhe": "CRON_SECRET puuttuu"}
+        return None, ("503 Service Unavailable", {"virhe": "CRON_SECRET puuttuu"})
     if not hmac.compare_digest(environ.get("HTTP_AUTHORIZATION", "").encode("utf-8", "surrogateescape"),
                                f"Bearer {salaisuus}".encode("utf-8")):
-        return "401 Unauthorized", {"virhe": "väärä tai puuttuva tunniste"}
+        return None, ("401 Unauthorized", {"virhe": "väärä tai puuttuva tunniste"})
     try:
         kanta = firestore.Firestore.ymparistosta()
     except (ValueError, KeyError, OSError) as e:
-        return "503 Service Unavailable", {"virhe": f"FIREBASE_SERVICE_ACCOUNT ei kelpaa: {e!r}"}
+        return None, ("503 Service Unavailable", {"virhe": f"FIREBASE_SERVICE_ACCOUNT ei kelpaa: {e!r}"})
     if not kanta:
-        return "503 Service Unavailable", {"virhe": "FIREBASE_SERVICE_ACCOUNT puuttuu"}
+        return None, ("503 Service Unavailable", {"virhe": "FIREBASE_SERVICE_ACCOUNT puuttuu"})
+    return kanta, None
+
+
+def halyta(environ) -> tuple[str, dict]:
+    """Vercel Cron aamuisin: hälytykset paikoista, joiden pisteet nousevat tilaajan rajaan."""
+    kanta, virhe = _cron_kanta(environ)
+    if virhe:
+        return virhe
+    avainpari = halytykset.avaimet(kanta)
+    if not avainpari:
+        return "503 Service Unavailable", {"virhe": "VAPID-avaimia ei saatu"}
+    tilanne = hae_tilanne()
+    if not tilanne.lukemia:
+        return "502 Bad Gateway", {"virhe": "tilannetta ei saatu laskettua", "varoitukset": tilanne.varoitukset}
+    try:
+        tulos = halytykset.aja(kanta, tilanne.tulokset, tilanne.paivitetty.date(), avainpari)
+    except (firestore.FirestoreVirhe, OSError) as e:
+        return "502 Bad Gateway", {"virhe": f"Firestore: {e}"}
+    return "200 OK", tulos
+
+
+def halytys_api(environ, metodi: str) -> tuple[str, dict]:
+    """Selaimen hälytystilaus: POST {tilaus, paikat, raja, kieli} tallentaa (ja lähettää
+    vahvistusilmoituksen), DELETE {endpoint} poistaa."""
+    if metodi not in ("POST", "DELETE"):
+        return "405 Method Not Allowed", {"virhe": "vain POST tai DELETE"}
+    try:
+        pituus = int(environ.get("CONTENT_LENGTH") or 0)
+        if not 0 < pituus <= 8192:
+            raise ValueError
+        data = json.loads(environ["wsgi.input"].read(pituus))
+    except (ValueError, KeyError):
+        return "400 Bad Request", {"virhe": "virheellinen pyyntö"}
+    try:
+        kanta = firestore.Firestore.ymparistosta()
+    except (ValueError, KeyError, OSError):
+        kanta = None
+    avainpari = halytykset.avaimet(kanta) if kanta else None
+    if not avainpari:
+        return "503 Service Unavailable", {"virhe": "hälytykset eivät ole käytössä"}
+    try:
+        if metodi == "DELETE":
+            endpoint = data.get("endpoint") if isinstance(data, dict) else None
+            if not isinstance(endpoint, str):
+                return "400 Bad Request", {"virhe": "endpoint puuttuu"}
+            kanta.poista(halytykset.KOKOELMA, halytykset.tunniste(endpoint))
+            return "200 OK", {"poistettu": True}
+        tilaus, virhe = halytykset.tarkista_tilaus(data, halytykset.valittavat(PAIKAT))
+        if not tilaus:
+            return "400 Bad Request", {"virhe": virhe}
+        tila = halytykset.laheta(tilaus, halytykset.vahvistus(tilaus), avainpari)
+        if not 200 <= tila < 300:
+            return "502 Bad Gateway", {"virhe": f"push-palvelu vastasi {tila}"}
+        kanta.kirjoita(halytykset.KOKOELMA, halytykset.tunniste(tilaus["endpoint"]), tilaus)
+    except (firestore.FirestoreVirhe, OSError) as e:
+        return "502 Bad Gateway", {"virhe": f"Firestore: {e}"}
+    return "200 OK", {"tilattu": True}
+
+
+def arkistoi(environ) -> tuple[str, dict]:
+    """Vercel Cron: kokoaa päivän ennustearkiston ja tallentaa sen Firestoreen."""
+    kanta, virhe = _cron_kanta(environ)
+    if virhe:
+        return virhe
     nyt = suomen_aika()
     ajot, virheet = ennustearkisto.hae_ajot()
     arkisto = ennustearkisto.kokoa(ajot, nyt, virheet)
@@ -1299,8 +1514,16 @@ def app(environ, start_response):
                                 ("Cache-Control", valimuisti)])
         return [b"" if metodi == "HEAD" else data]
 
+    if polku == "/api/halytys":
+        status, tulos = halytys_api(environ, metodi)
+        return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False))
     if metodi not in ("GET", "HEAD"):
         return vastaa("405 Method Not Allowed", "text/plain; charset=utf-8", "Vain GET.\n")
+    if polku == "/sw.js":
+        return vastaa("200 OK", "application/javascript; charset=utf-8", halytykset.SERVICE_WORKER, "no-cache")
+    if polku == "/api/halyta":
+        status, tulos = halyta(environ)
+        return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False))
     if polku == "/api/ajomatkat":
         status, tulos = ajomatkat(parse_qs(environ.get("QUERY_STRING", "")).get("lahto", [""])[0])
         return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False),

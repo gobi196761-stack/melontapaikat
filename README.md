@@ -180,6 +180,35 @@ sovelluksen omalle ennusteelle ja vertailukohdaksi pysyvyysennusteelle
 (tuorein havainto pysyy samana) sekä osuuden havainnoista SYKE:n 5–95 %:n
 välillä.
 
+## Hälytys hyvistä oloista (push-ilmoitus)
+
+Sivun kohdasta **🔔 Hälytys hyvistä oloista** voi tilata ilmoituksen puhelimeen.
+Tilaukseen lisätään yksi tai useampi ehto:
+
+- **Paikka** ("Mikä tahansa kohde"): *toimii* = jokin kohde toimii, *optimi* =
+  jokin kohde on parhaimmillaan, tai *pisteraja* (80 / 60 / 30) paikan pisteille.
+- **Kohde**: *toimii* tai *optimi*. Jos kohteella ei ole toimintarajaa (se toimii
+  kaikilla vesillä), toimii-ehdon tilalla on pisteraja kohteen omille pisteille.
+
+Lisäksi valitaan, kuinka pitkälle ennustetta katsotaan (tänään … 14 päivää).
+Ilmoitus kertoo ensimmäisen päivän, jona ehto täyttyy. Tilauksen jälkeen tulee
+heti vahvistusilmoitus. Samasta ehdosta ilmoitetaan uudelleen vasta, kun se on
+välillä lakannut täyttymästä.
+
+- Ilmoitukset ovat selaimen Web Push -ilmoituksia (`halytykset.py`, service
+  worker `/sw.js`). Ne toimivat Androidin Chromessa ja muissa työpöytäselaimissa.
+  iPhonessa sivu pitää ensin lisätä kotivalikkoon.
+- Tilaukset tallennetaan Firestoreen (kokoelma `halytykset`), joten käyttöönotto
+  vaatii saman `FIREBASE_SERVICE_ACCOUNT`- ja `CRON_SECRET`-asetuksen kuin
+  ennusteiden arkisto (yllä). Ilman Firestorea hälytysosiota ei näytetä.
+- **Vercel Cron** kutsuu joka aamu klo 5 UTC reittiä `/api/halyta`, joka laskee
+  päivän tilanteen ja lähettää ilmoitukset. Vanhentuneet tilaukset poistetaan.
+- VAPID-avainparin palvelin luo itse ensimmäisellä kerralla ja tallentaa sen
+  Firestoreen (`asetukset/vapid`). Halutessaan sen voi antaa
+  ympäristömuuttujina `VAPID_PUBLIC_KEY` ja `VAPID_PRIVATE_KEY`.
+  `VAPID_SUBJECT` (esim. `mailto:oma@osoite.fi`) on push-palvelulle annettava
+  yhteystieto.
+
 ## Optimiolosuhteiden analyysi
 
 Rajat ovat sivujen kuvauksista (`paikat.py`). *Arvio* = kuvauksessa ei ole
