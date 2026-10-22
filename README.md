@@ -282,7 +282,7 @@ täydennetty ruotsalaisesta Forsguidenista (forsguiden.com, Wayback-arkisto 2004
 | **Muhosjoki** | Tyrnävänjoki virtaama (lisäkaavio) | > 3.3 m³/s | > 6 m³/s (arvio) | "syysvesillä (Tyrnävä noin 33 m/s) hiukan matalia" – tulkittu 3.3 m³/s:ksi, koska Tyrnävänjoen MHQ on vain 21.8 m³/s |
 | | Tyrnävänjoki vedenkorkeus | Suokylän koskijakso: indeksi > 0.7 | > 0.85 | "voisi sopia kevättulvalla pelimelontahenkisille" |
 | **Temmesjoki** | Temmesjoki virtaama + Tyrnävänjoki (lisä) | Tyrnävän indeksi > 0.2 | > 0.5 | "heti jäiden lähdettyä"; Temmesjoen kaaviossa ei tunnuslukuja |
-| **Kutujoki** (koko reitti) | Otermajärven lähtövirtaama (q5903470y, lisäkaavio) | 4–30 m³/s (arvio) | 7–16 m³/s (arvio) | sivulla ei lukuja eikä kaaviota; Vaalan kunta: paras "erityisesti alkukesällä", jolloin mediaani on n. 8–10 m³/s; heinä–elokuun 2–3 m³/s (MNQ 1.2) kapealle joelle kivikkoista; yläraja MHQ 18.1 m³/s:n yli, HQ 44 m³/s |
+| **Kutujoki** (koko reitti) | Otermajärven lähtövirtaama (q5903470y, lisäkaavio); rinnalla järven vedenkorkeus (l592621001y) | 4–30 m³/s (arvio) | 7–16 m³/s (arvio) | sivulla ei lukuja eikä kaaviota; Vaalan kunta: paras "erityisesti alkukesällä", jolloin mediaani on n. 8–10 m³/s; heinä–elokuun 2–3 m³/s (MNQ 1.2) kapealle joelle kivikkoista; yläraja MHQ 18.1 m³/s:n yli, HQ 44 m³/s |
 | | | II-luokan kosket (Myllykoski, Monisaarikoski, Petäjäkoski): 5–30 m³/s (arvio) | 8–18 m³/s (arvio) | vähällä vedellä kivisiä; osm.fi: "inkkarilla saattaa tulva-aikaan jokunen aalto mennä paattiin" |
 | **Oulujoki, Oulun edustan saaret** | – | | | ei kaaviota (meri: tuuli ratkaisee) |
 
