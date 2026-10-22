@@ -233,7 +233,7 @@ def ajot(tmp_path):
     return osm.Hakija(offline=tmp_path)
 
 
-def test_arviomallin_kaavio(ajot, monkeypatch):
+def test_arviomallin_kaavio(ajot, monkeypatch, vaaka):
     monkeypatch.setattr(app, "_tilanne", None)
     monkeypatch.setattr(app, "arkistoidut_arviot", lambda asema: {dt.date(2026, 10, 17): 400.0})
     kuva = app.arvio_kaavio_svg("61/q6101750y", ajot)
@@ -294,7 +294,27 @@ def test_kaavion_linkit():
     assert app.kaavion_osoite(kipina, "paa", lukema).startswith("/kaavio/syke/61/l611331001y/w3lyhyt?paikka=Kipin")
 
 
-def test_syke_kaavio(ajot):
+def test_kaavio_pystymalli_oletuksena(ajot):
+    """Puhelimen pystynäyttö: kapea kaavio, joka skaalautuu näytön levyiseksi ja jonka tekstit
+    rivittyvät kuvan sisään (vasemmalle tasatut tekstit eivät ylitä oikeaa reunaa)."""
+    import re
+    import kaavio_svg
+    for kuva in (app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)"),
+                 app.arvio_kaavio_svg("61/q6101750y", ajot)):
+        ET.fromstring(kuva)
+        lev = kaavio_svg.MUODOT["pysty"][0]
+        assert kuva.startswith(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {lev} ')
+        assert "width:100%;height:auto" in kuva
+        for tagi, teksti in re.findall(r'<((?:text|tspan) [^>]*)>([^<]+)<', kuva):
+            if "text-anchor" in tagi:   # keskitetyt ja oikealle tasatut ovat kuvan sisällä rakenteen mukaan
+                continue
+            x = float(re.search(r'x="([\d.]+)"', tagi).group(1))
+            koko = re.search(r'font-size="([\d.]+)"', tagi)
+            leveys = len(ET.fromstring(f"<t>{teksti}</t>").text) * kaavio_svg.MERKKI_PX[float(koko.group(1) if koko else 12)]
+            assert x + leveys <= lev + 4, teksti
+
+
+def test_syke_kaavio(ajot, vaaka):
     kuva = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
     ET.fromstring(kuva)
     assert "Kipinä (Iijoki) – mittari" in kuva and "Vedenkorkeus m" in kuva
@@ -670,7 +690,7 @@ def test_ennuste_jatkuu_viimeisesta_havainnosta():
     assert min(ennuste) == d(0) and lukema == (100.0, "malli")
 
 
-def test_mittarin_tuntikaavio(ajot, monkeypatch):
+def test_mittarin_tuntikaavio(ajot, monkeypatch, vaaka):
     """Koiteli ym.: mittarin omat tuntimittaukset ja ennuste päivän loppuun kaavion alle."""
     tunnit = {f"2026-10-18T{t:02d}": 10.50 - 0.005 * t for t in range(0, 15)}
     tulos = syke_data.mittarin_tunnit(tunnit, dt.date(2026, 10, 18))
@@ -686,7 +706,7 @@ def test_mittarin_tuntikaavio(ajot, monkeypatch):
     kuva = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)",
                                nyt=dt.datetime(2026, 10, 18, 12))
     ET.fromstring(kuva)
-    assert kuva.startswith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 820">')   # 440 + 380
+    assert kuva.startswith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 820" ')   # 440 + 380
     assert "Kipinä (Iijoki) – Pudasjärvi, mitattu tunneittain" in kuva and "SYKE päiväarvo" in kuva
     assert "päivän keskiarvo-ennuste 108.58" in kuva   # 108.60 − 0.002 · 11.5 (lasku jatkuu)
 

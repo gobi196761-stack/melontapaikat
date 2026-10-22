@@ -128,7 +128,7 @@ def test_ruotsin_paikat_sivulla(ruotsi):
     assert smhi_data.havainto_url("1387") not in sivu
 
 
-def test_smhi_kaavio(tmp_path):
+def test_smhi_kaavio(tmp_path, vaaka):
     kuva = app.smhi_kaavio_svg("smhi/11/35732", valimuisti(tmp_path), NYT)
     assert kuva.startswith("<svg") and kuva.rstrip().endswith("</svg>")
     ET.fromstring(kuva)   # kelvollista XML:ää

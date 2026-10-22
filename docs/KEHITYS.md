@@ -103,6 +103,13 @@ Maalismaa on PVO:n voimala, joten aseman oma päivän arvo julkaistaan vasta seu
 - yr.no-linkki käyttää parametria `?i=<päiväsiirto>`.
 - Surffi tulee Surffiennustajan rajapinnasta (`/api/forecast`). Merivesi tulee Open-Meteo Marinesta.
 
+## Kaavioiden muoto
+
+- Kaavio on oletuksena pystymallinen (`kaavio_svg.muoto` = "pysty", leveys 440). Otsikot, alueiden tekstit ja selite rivittyvät, ja kuva täyttää näytön leveyden.
+  - SVG-tiedostolla ei ole viewport-määritystä, joten puhelin näyttää sen 980 pikselin virtuaalinäkymässä. Siksi pystymallilla ei ole max-widthiä.
+- `?muoto=vaaka` antaa vanhan 900 pikselin vaakamallin. Pääsivun JS (`kaavionMuoto`) lisää parametrin kaaviolinkkeihin, kun näyttö on vähintään 700 px leveä ja leveämpi kuin korkea.
+- Testit, jotka etsivät tekstejä yhtenä merkkijonona, käyttävät fixturea `vaaka` (tests/conftest.py).
+
 ## Kaavioiden alueet
 
 - Vaalea vyöhyke on toimii-alue ja tumma paras-alue.

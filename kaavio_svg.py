@@ -16,6 +16,9 @@
 
 Kaikissa: syaani katkoviiva = tänään, vihreät alueet = paikan kohteiden rajat
 (vaalea = toimii, tummempi = parhaimmillaan) kohteen nimellä.
+
+Muoto (`muoto`): oletuksena pystykaavio puhelimen pystyasentoon (kapea, tekstit rivittyvät ja
+kuva skaalautuu näytön levyiseksi), "vaaka" leveälle näytölle (sivun JS lisää ?muoto=vaaka).
 """
 
 from __future__ import annotations
@@ -24,13 +27,19 @@ import contextvars
 import datetime as dt
 import html
 import math
+import re
 
 import kielet
 import smhi_data
 import syke_data
 
-LEVEYS, KORKEUS = 900, 440
+LEVEYS, KORKEUS = 900, 440          # vaakakaavio (tunti_svg: korkeus 380)
 VASEN, OIKEA, YLA, ALA = 64, 20, 58, 84
+# muoto -> (leveys, vasen marginaali, piirtoalueen korkeus, tuntikaavion piirtoalueen korkeus, enimmäisleveys px).
+# Pystymallilla ei enimmäisleveyttä: puhelin näyttää SVG-tiedoston 980 px:n virtuaalinäkymässä (ei viewport-
+# määritystä), joten kuvan pitää täyttää koko leveys.
+MUODOT = {"pysty": (440, 50, 380, 300, None), "vaaka": (LEVEYS, VASEN, KORKEUS - YLA - ALA, 380 - 58 - 70, 1200)}
+MERKKI_PX = {12: 6.4, 11.5: 6.2, 16: 8.8}   # tekstin arvioitu merkkileveys fonttikoon mukaan
 PAIVA_MS = smhi_data.PAIVA_MS
 HISTORIA_PAIVIA = 10   # kaavio alkaa näin monta päivää ennen tätä päivää
 
@@ -39,6 +48,65 @@ e = html.escape
 # Reissun ajankohta (unix s, saapuminen perille): sivun mittarilinkki välittää sen (?reissu=),
 # ja kaavioon piirretään sen kohdalle pystykatkoviiva "reissu". Asetetaan pyynnön ajaksi.
 reissu: contextvars.ContextVar[float | None] = contextvars.ContextVar("reissu", default=None)
+# Kaavion muoto pyynnön ajaksi: "pysty" (oletus) tai "vaaka" (?muoto=vaaka)
+muoto: contextvars.ContextVar[str] = contextvars.ContextVar("muoto", default="pysty")
+
+
+def _mitat() -> tuple[int, int, int, int, int]:
+    return MUODOT.get(muoto.get(), MUODOT["pysty"])
+
+
+def _juuri(lev: int, kork: int) -> str:
+    """SVG:n juurielementti: skaalautuu ikkunan levyiseksi, mutta ei muotoa suuremmaksi."""
+    maks = f"max-width:{_mitat()[4]}px;" if _mitat()[4] else ""
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {lev} {kork}" '
+            f'style="display:block;margin:0 auto;width:100%;{maks}height:auto" '
+            f'font-family="system-ui, Segoe UI, sans-serif" font-size="12">')
+
+
+def _rivita(teksti: str, leveys: float, koko: float = 12) -> list[str]:
+    """Teksti riveiksi sanojen välistä, kun se ei mahdu annettuun leveyteen (px)."""
+    merkkeja = max(10, int(leveys / MERKKI_PX.get(koko, koko * 0.55)))
+    rivit, rivi = [], ""
+    for sana in teksti.split(" "):
+        if rivi and len(rivi) + 1 + len(sana) > merkkeja:
+            rivit.append(rivi)
+            rivi = sana
+        else:
+            rivi = f"{rivi} {sana}" if rivi else sana
+    return rivit + [rivi] if rivi else rivit
+
+
+def _otsikot(otsikko: str, alaotsikko: str, x0: float, leveys: float) -> tuple[list[str], float]:
+    """Otsikko (16 px) ja alaotsikko rivitettyinä; palauttaa SVG-osat ja seuraavan vapaan y:n."""
+    osat, yy = [], 22
+    for rivi in _rivita(otsikko, leveys, 16):
+        osat.append(f'<text x="{x0}" y="{yy}" font-size="16" font-weight="600" fill="#1b1f24">{e(rivi)}</text>')
+        yy += 20
+    yy -= 2
+    for rivi in _rivita(alaotsikko, leveys):
+        osat.append(f'<text x="{x0}" y="{yy}" fill="#5c6670">{e(rivi)}</text>')
+        yy += 16
+    return osat, yy
+
+
+def _selite(osat: list[str], merkinnat: list[tuple[str, str, str]], x0: float, oikea_reuna: float,
+            sy: float, merkki) -> float:
+    """Selite riveittäin (rivittyy leveyden mukaan); palauttaa viimeisen rivin y:n."""
+    sx = x0
+    for laji, vari, teksti in merkinnat:
+        leveys = 30 + len(teksti) * MERKKI_PX[12]
+        if sx + leveys > oikea_reuna and sx > x0:
+            sx, sy = x0, sy + 18
+        osat.append(merkki(laji, vari, sx, sy))
+        rivit = _rivita(teksti, oikea_reuna - sx - 23)   # yksin liian pitkä merkintä rivittyy
+        for i, rivi in enumerate(rivit):
+            osat.append(f'<text x="{sx + 23}" y="{sy + 15 * i}" fill="#1b1f24">{e(rivi)}</text>')
+        if len(rivit) > 1:
+            sx, sy = oikea_reuna, sy + 15 * (len(rivit) - 1)   # seuraava merkintä uudelle riville
+        else:
+            sx += leveys
+    return sy
 
 # kohteen rajat: (nimi, toimii (ala, ylä), paras (ala, ylä)); None = avoin raja
 Alue = tuple[str, tuple[float | None, float | None], tuple[float | None, float | None]]
@@ -86,6 +154,10 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     paivan_arvo = (tämän päivän arvo, lähde) merkitään lukemana ennustetta muuttamatta.
     """
     _t = lambda s: kielet.kaanna(s, kieli)   # noqa: E731
+    LEVEYS, VASEN, piirto_k, _, _ = _mitat()   # noqa: N806 (muodon mukaiset mitat)
+    reuna = VASEN if LEVEYS > 600 else 12      # otsikoiden ja selitteen vasen reuna
+    otsikkorivit, YLA = _otsikot(otsikko, alaotsikko, reuna, LEVEYS - reuna - OIKEA)   # noqa: N806
+    YLA = max(YLA + 2, 58)   # noqa: N806
     malli, ennuste, ennuste_vali = malli or {}, ennuste or {}, ennuste_vali or {}
     tausta, havainnot, tunnus = tausta or {}, havainnot or {}, tunnus or []
     aiemmat_arviot, alueet = aiemmat_arviot or {}, alueet or []
@@ -134,7 +206,7 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     alin, ylin = min(tikit[0], ala), max(tikit[-1], yla)
 
     ala_ms, yla_ms = _ms(alku), _ms(loppu) + PAIVA_MS
-    piirto_l, piirto_k = LEVEYS - VASEN - OIKEA, KORKEUS - YLA - ALA
+    piirto_l = LEVEYS - VASEN - OIKEA
 
     def x_ms(ms: float) -> float:
         return VASEN + (ms - ala_ms) / (yla_ms - ala_ms) * piirto_l
@@ -159,12 +231,7 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         b = ylin if raja[1] is None else min(raja[1], ylin)
         return (y(b), y(a)) if b > a else None
 
-    osat = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LEVEYS} {KORKEUS}" '
-            f'font-family="system-ui, Segoe UI, sans-serif" font-size="12">',
-            f'<title>{e(otsikko)}</title>',
-            f'<rect width="{LEVEYS}" height="{KORKEUS}" fill="#fff"/>',
-            f'<text x="{VASEN}" y="22" font-size="16" font-weight="600" fill="#1b1f24">{e(otsikko)}</text>',
-            f'<text x="{VASEN}" y="40" fill="#5c6670">{e(alaotsikko)}</text>',
+    osat = [f'<title>{e(otsikko)}</title>', *otsikkorivit,
             f'<clipPath id="alue"><rect x="{VASEN}" y="{YLA}" width="{piirto_l}" height="{piirto_k}"/></clipPath>']
     # kohteiden alueet: vaalea = toimii, tummempi = parhaimmillaan
     nimioit, reuna_yla, reuna_ala = [], [], []
@@ -280,11 +347,14 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
 
     for ny, nimi, toimii, paras in sorted(nimioit):
         ny = max(ny, edellinen + 14)
-        if ny > YLA + piirto_k - 4:
+        rivit = _rivita(f"{nimi} {rajat_teksti(toimii, paras)}", piirto_l - 12, 11.5)
+        if ny + 14 * (len(rivit) - 1) > YLA + piirto_k - 4:
             break
-        edellinen = ny
+        edellinen = ny + 14 * (len(rivit) - 1)
+        tspanit = "".join(f'<tspan x="{VASEN + 6}" dy="{0 if i == 0 else 14}">{e(r)}</tspan>'
+                          for i, r in enumerate(rivit))
         osat.append(f'<text x="{VASEN + 6}" y="{ny:.1f}" fill="#1b5e20" font-size="11.5" font-weight="600" '
-                    f'stroke="#fff" stroke-width="3" paint-order="stroke">{e(nimi)} {rajat_teksti(toimii, paras)}</text>')
+                    f'stroke="#fff" stroke-width="3" paint-order="stroke">{tspanit}</text>')
     # asteikon ulkopuoliset alueet oikeaan reunaan: ↑ yläpuolella, ↓ alapuolella
     # (teksti: toiminta-alueen rajat, paras alue suluissa, jos se on eri)
     reunat = [(YLA + 14 + 14 * i, "↑", *a) for i, a in enumerate(sorted(reuna_yla, key=lambda a: -(a[1][0] or 0)))]
@@ -333,26 +403,24 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     if alueet:
         selite += [("alue", "#d5ecd6", _t("kohde toimii")), ("alue", "#a9d5aa", _t("kohde parhaimmillaan"))]
     piilossa = [f"{n} {luku(a)}" for n, a, v in tunnus if (n, a, v) not in tunnus_nakyy]
-    sx, sy = VASEN, YLA + piirto_k + 40
-    for laji, vari, teksti in selite:
-        leveys = 30 + len(teksti) * 6.4
-        if sx + leveys > LEVEYS - OIKEA and sx > VASEN:
-            sx, sy = VASEN, sy + 18
+    def merkki(laji: str, vari: str, sx: float, sy: float) -> str:
         if laji == "viiva":
-            osat.append(f'<line x1="{sx}" x2="{sx + 18}" y1="{sy - 4}" y2="{sy - 4}" stroke="{vari}" stroke-width="2.5"/>')
-        elif laji == "katko":
-            osat.append(f'<line x1="{sx}" x2="{sx + 18}" y1="{sy - 4}" y2="{sy - 4}" stroke="{vari}" stroke-width="2" stroke-dasharray="5 3"/>')
-        elif laji == "piste":
-            osat.append(f'<circle cx="{sx + 9}" cy="{sy - 4}" r="3" fill="{vari}"/>')
-        elif laji in ("vino", "onttovino", "onttovino_vaalea"):
-            osat.append(vinonelio(sx + 9, sy - 4, 5, vari, ontto=laji != "vino"))
-        else:
-            osat.append(f'<rect x="{sx}" y="{sy - 10}" width="18" height="12" fill="{vari}"/>')
-        osat.append(f'<text x="{sx + 23}" y="{sy}" fill="#1b1f24">{e(teksti)}</text>')
-        sx += leveys
+            return f'<line x1="{sx}" x2="{sx + 18}" y1="{sy - 4}" y2="{sy - 4}" stroke="{vari}" stroke-width="2.5"/>'
+        if laji == "katko":
+            return (f'<line x1="{sx}" x2="{sx + 18}" y1="{sy - 4}" y2="{sy - 4}" stroke="{vari}" stroke-width="2" '
+                    f'stroke-dasharray="5 3"/>')
+        if laji == "piste":
+            return f'<circle cx="{sx + 9}" cy="{sy - 4}" r="3" fill="{vari}"/>'
+        if laji in ("vino", "onttovino", "onttovino_vaalea"):
+            return vinonelio(sx + 9, sy - 4, 5, vari, ontto=laji != "vino")
+        return f'<rect x="{sx}" y="{sy - 10}" width="18" height="12" fill="{vari}"/>'
+
+    sy = _selite(osat, selite, reuna, LEVEYS - OIKEA, YLA + piirto_k + 40, merkki)
     if piilossa:
         osat.append(f'<text x="{VASEN + piirto_l}" y="{YLA - 6}" text-anchor="end" fill="#5c6670">'
                     f'{e(", ".join(piilossa))} ({_t("yli kuvan")})</text>')
+    korkeus = max(round(sy + 18), KORKEUS) if LEVEYS > 600 else round(sy + 18)
+    osat[:0] = [_juuri(LEVEYS, korkeus), f'<rect width="{LEVEYS}" height="{korkeus}" fill="#fff"/>']
     osat.append("</svg>")
     return "\n".join(osat)
 
@@ -488,8 +556,15 @@ def tunti_svg(otsikko: str, paiva: dt.date, tunnit: dict, vertailu: list[tuple[s
     _t = lambda s: kielet.kaanna(s, kieli)   # noqa: E731
     metreja = yksikko == "m"
     luku = lambda v: _luku(v, metreja)   # noqa: E731
-    lev, kork, vasen, oikea, yla, ala = 900, 380, 64, 20, 58, 70
-    pl, pk = lev - vasen - oikea, kork - yla - ala
+    lev, vasen, _, pk, _ = _mitat()
+    oikea = OIKEA
+    reuna = vasen if lev > 600 else 12
+    otsikkorivit, yla = _otsikot(
+        otsikko, f'{_t("Vedenkorkeus m" if metreja else "Virtaama m³/s")} · '
+                 f'{_t(alaotsikko or "toinen arvio tunneittain SYKE:n reaaliaikamittauksista")} {paiva.day}.{paiva.month}.',
+        reuna, lev - reuna - oikea)
+    yla = max(yla + 2, 58)
+    pl = lev - vasen - oikea
     kaikki = list(tunnit["arviot"].values()) + list(tunnit["ennuste"].values()) + [tunnit["keskiarvo"]] \
         + [v for _, v, _ in vertailu]
     a_, y_ = min(kaikki), max(kaikki)
@@ -499,12 +574,7 @@ def tunti_svg(otsikko: str, paiva: dt.date, tunnit: dict, vertailu: list[tuple[s
     x = lambda t: vasen + t / 24 * pl   # noqa: E731   (tunnin keskikohta: t + 0.5)
     y = lambda v: yla + (ylin - v) / (ylin - alin) * pk   # noqa: E731
     polku = lambda pis: " ".join(f"{'M' if i == 0 else 'L'}{px:.1f},{py:.1f}" for i, (px, py) in enumerate(pis))  # noqa: E731
-    osat = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {lev} {kork}" '
-            f'font-family="system-ui, Segoe UI, sans-serif" font-size="12">',
-            f'<rect width="{lev}" height="{kork}" fill="#fff"/>',
-            f'<text x="{vasen}" y="22" font-size="16" font-weight="600" fill="#1b1f24">{e(otsikko)}</text>',
-            f'<text x="{vasen}" y="40" fill="#5c6670">{e(_t("Vedenkorkeus m" if metreja else "Virtaama m³/s"))} · '
-            f'{e(_t(alaotsikko or "toinen arvio tunneittain SYKE:n reaaliaikamittauksista"))} {paiva.day}.{paiva.month}.</text>']
+    osat = list(otsikkorivit)
     for t in tikit:
         if alin <= t <= ylin:
             osat.append(f'<line x1="{vasen}" x2="{vasen + pl}" y1="{y(t):.1f}" y2="{y(t):.1f}" stroke="#e3e7eb"/>'
@@ -534,23 +604,26 @@ def tunti_svg(otsikko: str, paiva: dt.date, tunnit: dict, vertailu: list[tuple[s
     osat.append(f'<rect x="{vasen}" y="{yla}" width="{pl}" height="{pk}" fill="none" stroke="#9aa4ae"/>')
     selite = [("viiva", "#6a1b9a", _t(mitattu)), ("katko", "#6a1b9a", _t("ennuste päivän loppuun")),
               ("katko", "#00bcd4", _t("viimeisin mittaus"))]
-    sx, sy = vasen, yla + pk + 40
-    for laji, vari, teksti in selite:
-        viiva = 'stroke-dasharray="5 3"' if laji == "katko" else ""
-        osat.append(f'<line x1="{sx}" x2="{sx + 18}" y1="{sy - 4}" y2="{sy - 4}" stroke="{vari}" stroke-width="2.5" {viiva}/>'
-                    f'<text x="{sx + 23}" y="{sy}" fill="#1b1f24">{e(teksti)}</text>')
-        sx += 30 + len(teksti) * 6.4
+    def merkki(laji: str, vari: str, sx: float, sy: float) -> str:
+        viiva = ' stroke-dasharray="5 3"' if laji == "katko" else ""
+        return f'<line x1="{sx}" x2="{sx + 18}" y1="{sy - 4}" y2="{sy - 4}" stroke="{vari}" stroke-width="2.5"{viiva}/>'
+
+    sy = _selite(osat, selite, reuna, lev - oikea, yla + pk + 40, merkki)
+    kork = max(round(sy + 18), 380) if lev > 600 else round(sy + 18)
+    osat[:0] = [_juuri(lev, kork), f'<rect width="{lev}" height="{kork}" fill="#fff"/>']
     osat.append("</svg>")
     return "\n".join(osat)
 
 
 def pinoa(*kuvat: str) -> str:
-    """SVG-kaaviot allekkain yhdeksi kuvaksi (sama leveys 900)."""
-    korkeudet = [int(k.split('viewBox="0 0 900 ')[1].split('"')[0]) for k in kuvat]
-    osat = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 {sum(korkeudet)}">']
+    """SVG-kaaviot allekkain yhdeksi kuvaksi (saman muodon kaaviot, sama leveys)."""
+    mitat = [tuple(int(v) for v in re.search(r'viewBox="0 0 (\d+) (\d+)"', k).groups()) for k in kuvat]
+    lev = max(m[0] for m in mitat)
+    osat = [_juuri(lev, sum(m[1] for m in mitat))]
     yy = 0
-    for kuva, kk in zip(kuvat, korkeudet):
-        osat.append(kuva.replace("<svg ", f'<svg x="0" y="{yy}" width="900" height="{kk}" ', 1))
+    for kuva, (kl, kk) in zip(kuvat, mitat):
+        sisa = re.sub(r' style="[^"]*"', "", kuva, count=1)   # juuren skaalaus vain uloimmalle
+        osat.append(sisa.replace("<svg ", f'<svg x="0" y="{yy}" width="{kl}" height="{kk}" ', 1))
         yy += kk
     osat.append("</svg>")
     return "\n".join(osat)

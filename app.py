@@ -615,6 +615,17 @@ SKRIPTI = """
   const muistettu = lue(SIJ, false);
   if (muistettu && muistettu.paikkakunta && kentta) valitse(muistettu.paikkakunta, false);
   else if (muistettu === true) hae();   // lupa annettu aiemmin: päivitä suoraan
+  // kaaviot ovat oletuksena pystymallisia (puhelin); leveällä vaakanäytöllä vaakamalli
+  function kaavionMuoto() {
+    const vaaka = innerWidth >= 700 && innerWidth > innerHeight;
+    document.querySelectorAll('a[href^="/kaavio/"]').forEach(a => {
+      const url = new URL(a.href);
+      if (vaaka) url.searchParams.set("muoto", "vaaka"); else url.searchParams.delete("muoto");
+      a.href = url.pathname + url.search;
+    });
+  }
+  kaavionMuoto();
+  addEventListener("resize", kaavionMuoto);
 })();
 """
 
@@ -1244,6 +1255,8 @@ def app(environ, start_response):
         except ValueError:
             reissu = None
         merkki = kaavio_svg.reissu.set(reissu)
+        # kaavion muoto: pysty (oletus, puhelin) tai vaaka (sivun JS lisää leveällä näytöllä)
+        muoto = kaavio_svg.muoto.set(parse_qs(environ.get("QUERY_STRING", "")).get("muoto", ["pysty"])[0])
         try:
             kuva = (smhi_kaavio_svg(kaavio, paikan_nimi=paikan_nimi, kieli=kieli) if kaavio.startswith("smhi/")
                     else syke_kaavio_svg(kaavio.removeprefix("syke/"), paikan_nimi=paikan_nimi, kieli=kieli,
@@ -1251,6 +1264,7 @@ def app(environ, start_response):
                     if kaavio.startswith("syke/") else None)
         finally:
             kaavio_svg.reissu.reset(merkki)
+            kaavio_svg.muoto.reset(muoto)
         if kuva is None:
             return vastaa("404 Not Found", "text/plain; charset=utf-8", "Kaaviota ei löydy.\n")
         return vastaa("200 OK", "image/svg+xml; charset=utf-8", kuva, CACHE_CONTROL)
