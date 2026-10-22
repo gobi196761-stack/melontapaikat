@@ -211,3 +211,36 @@ def test_kutujoen_rajat(virtaama, reitti, kosket):
     kutujoki = next(p for p in PAIKAT if p.nimi == "Kutujoki")
     t = arviointi.arvioi(kutujoki, {"paa": lukema(virtaama, yksikko="m3/s")})
     assert [k.tila for k in t.kohteet] == [reitti, kosket]
+
+
+# ---------------------------------------------------------------------------
+# Tervajoki: ei omaa asemaa, mittarina Otermanjärven tulovirtaama (4 vrk ka)
+# ---------------------------------------------------------------------------
+
+def test_tervajoki_otermanjarven_tulovirtaamasta():
+    """22.10.2026: tulovirtaama 7.5 m³/s (vesitaseesta laskettu, kaaviossa ei tunnuslukuja)."""
+    tervajoki = next(p for p in PAIKAT if p.nimi == "Tervajoki (Vaala)")
+    mittari = tervajoki.mittarit["paa"]
+    assert mittari.kaavio == "59/l592621001y/qin2lyhyt.png" and mittari.lisakaavio
+    assert not tervajoki.osm_sivu and tervajoki.sijainti is not None
+    assert [k.lahde for k in tervajoki.kohteet] == ["arvio"]
+
+    l = KaavioLukija().lue((FIXTURES / "59_l592621001y_qin2lyhyt.png").read_bytes(),
+                           osm.kaavio_url(mittari.kaavio))
+    assert l.suure == "virtaama" and l.yksikko == "m3/s" and l.tunnusluvut == {}
+    assert l.arvo == pytest.approx(7.5, abs=0.3)
+    t = arviointi.arvioi(tervajoki, {"paa": l})
+    assert t.kohteet[0].tila == "paras" and t.pisteet == pytest.approx(70)
+
+
+@pytest.mark.parametrize("virtaama, tila", [
+    (1.5, "ei toimi"),    # kesän alivesi
+    (5.0, "toimii"),
+    (17.0, "paras"),      # toukokuun mediaanihuippu
+    (30.0, "toimii"),
+    (50.0, "ei toimi"),
+])
+def test_tervajoen_rajat(virtaama, tila):
+    tervajoki = next(p for p in PAIKAT if p.nimi == "Tervajoki (Vaala)")
+    t = arviointi.arvioi(tervajoki, {"paa": lukema(virtaama, yksikko="m3/s")})
+    assert t.kohteet[0].tila == tila

@@ -284,6 +284,7 @@ täydennetty ruotsalaisesta Forsguidenista (forsguiden.com, Wayback-arkisto 2004
 | **Temmesjoki** | Temmesjoki virtaama + Tyrnävänjoki (lisä) | Tyrnävän indeksi > 0.2 | > 0.5 | "heti jäiden lähdettyä"; Temmesjoen kaaviossa ei tunnuslukuja |
 | **Kutujoki** (alkupää – Järvikylä 17 km) | Otermajärven lähtövirtaama (q5903470y, lisäkaavio); rinnalla järven vedenkorkeus (l592621001y) | 4–30 m³/s (arvio) | 7–16 m³/s (arvio) | sivulla ei lukuja eikä kaaviota; Vaalan kunta: paras "erityisesti alkukesällä", jolloin mediaani on n. 8–10 m³/s; heinä–elokuun 2–3 m³/s (MNQ 1.2) kapealle joelle kivikkoista; yläraja MHQ 18.1 m³/s:n yli, HQ 44 m³/s |
 | | | II-luokan kosket (Myllykoski, Monisaarikoski, Petäjäkoski): 5–30 m³/s (arvio) | 8–18 m³/s (arvio) | vähällä vedellä kivisiä; osm.fi: "inkkarilla saattaa tulva-aikaan jokunen aalto mennä paattiin" |
+| **Tervajoki** (Vaala, Pienanjärvi – Otermanjärvi 14 km) | Otermanjärven tulovirtaama, 4 vrk ka (l592621001y, lisäkaavio) | 4–40 m³/s (arvio) | 7–20 m³/s (arvio) | ei omaa SYKE-asemaa; Tervajoki on järven päätulovirta (lisäksi Paatinjoki). Tulovirtaama on vesitaseesta laskettu, ei tunnuslukuja; mediaani toukokuussa n. 17, kesä–heinäkuussa 1–2 m³/s. [Visit Vaala](https://visitvaala.fi/retkeilykohteet/tervajoen-kutujoen-melontareitti/): paras alkukesällä; osm.fi: "ei yllätyskoskia" |
 | **Oulujoki, Oulun edustan saaret** | – | | | ei kaaviota (meri: tuuli ratkaisee) |
 
 ### Ruotsi (oma välilehti `?tyyppi=ruotsi`)

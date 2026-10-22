@@ -148,6 +148,7 @@ SIJAINNIT: dict[str, tuple[float, float]] = {
     "Marraskoski (Ounasjoki)": (66.7947, 25.4176),
     "Molkoköngäs (Ounasjoki)": (67.0620, 25.0790),
     "Kutujoki": (64.6768, 27.0596),   # reitin alku Otermajärven luusuassa (osm.fi:n merkki Petäjäkoskella)
+    "Tervajoki (Vaala)": (64.7143, 27.2268),   # reitin alku Pienanjärven luusuassa (Vääräkoskentie)
     "Oulujoki": (65.0005, 25.5643),
     "Oulun edustan saaret": (65.0227, 25.4240),
 }
@@ -624,6 +625,23 @@ PAIKAT: tuple[Paikka, ...] = (
             Kohde("II-luokan kosket (Myllykoski, Monisaarikoski, Petäjäkoski)", (5, 30), (8, 18), 0.7,
                   huom="Myllykoski heti alussa, Petäjäkoski 1 400 m; vähällä vedellä kivisiä, "
                        "yli MHQ:n (18 m³/s) vauhdikkaita aloittelijalle", lahde="arvio"),
+        ),
+    ),
+    Paikka(
+        "Tervajoki (Vaala)", "https://visitvaala.fi/retkeilykohteet/tervajoen-kutujoen-melontareitti/", "retki", 120,
+        "Pienanjärvestä Otermanjärveen n. 14 km, I-luokan koskia (mm. Vääräkoski, Pirunkoski, Pystönkoski, "
+        "Holtto). 'Hyvä pikkujoki, ei yllätyskoskia' (osm.fi); Pirunkosken autiotupa. Tervajoen–Kutujoen "
+        "reitin (50 km) yläosa, paras alkukesällä. Mittarina Otermanjärven tulovirtaama (4 vrk ka). "
+        "Joensuunperältä takaisin Ouluun n. 115 km.",
+        # Tervajoella ei ole SYKE-asemaa. Se on Otermanjärven päätulovirta (Pienanjärven valuma-alue 59.27;
+        # lisäksi Paatinjoki ja suo-ojat), joten järven tulovirtaama on joen virtaaman yläraja-arvio.
+        # Tulovirtaama on vesitaseesta laskettu (1 vrk arvot heiluvat, välillä negatiivisia), kaaviossa ei
+        # tunnuslukuja. Simuloidun mediaanin huippu toukokuussa n. 17 m³/s, kesä–heinäkuussa 1–2, syksyllä 3–4.
+        {"paa": Mittari("59/l592621001y/qin2lyhyt.png", lisakaavio=True, marginaali=3)},
+        (
+            Kohde("Tervajoki: Pienanjärvi – Otermanjärvi (14 km)", (4, 40), (7, 20), 0.7,
+                  huom="pieni joki: kesän alivedellä (tulo 1–2 m³/s) kivikkoinen; alkukesä parasta "
+                       "(Vaalan kunta); kosket I-luokkaa", lahde="arvio"),
         ),
     ),
     Paikka(
