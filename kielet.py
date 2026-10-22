@@ -85,7 +85,7 @@ SANAT = {
     "mediaani": "median",
     "tänään": "today",
     "reissu": "trip",
-    "reissu (perillä)": "trip (arrival)",
+    "reissu (vedä ajankohtaa)": "trip (drag the time)",
     "kohde toimii": "feature works",
     "kohde parhaimmillaan": "feature at its best",
     "paras": "best",

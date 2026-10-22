@@ -482,10 +482,12 @@ SKRIPTI = """
     const ohi = i < 0 || perilla >= s.aika[s.aika.length - 1] + 3600;   // ennuste ei ulotu
     const aika = r.querySelector(".saa-aika"), ilma = el.querySelector(".saa-ilma"), kuva = el.querySelector(".saa-ikoni");
     if (aika) aika.textContent = T.perilla + " " + kello(perilla) + (lahto() > Date.now() / 1000 + 43200 ? " " + paiva(perilla) : "");
-    // kaaviolinkit: reissun ajankohta (varttiin pyöristettynä) pystyviivaksi kaavioon
+    // kaaviolinkit: reissun ajankohta (varttiin pyöristettynä) vedettäväksi osoittimeksi kaavioon ja
+    // matka-aika, jotta osoittimen siirto palauttaa lähtöajan (osoittimen aika − matka-aika)
     r.querySelectorAll('a[href^="/kaavio/"]').forEach(a => {
       const url = new URL(a.href);
       url.searchParams.set("reissu", Math.round(perilla / 900) * 900);
+      url.searchParams.set("matka", Math.round(ajoMin + 30));
       a.href = url.pathname + url.search;
     });
     if (ilma) ilma.textContent = ohi ? "–" : Math.round(s.t[i]).toString().replace("-", "−") + " °C";
@@ -547,6 +549,18 @@ SKRIPTI = """
       paivitaSaat(); naytaPaiva();
     });
     naytaPaiva();   // tallessa ollut lähtöpäivä: sen päivän arviot heti
+    // kaavion reissu-osoittimella valittu lähtöaika: takaisin-napilla (sivu välimuistista) tai toisesta välilehdestä
+    const otaLahto = arvo => {
+      if (!arvo || arvo === lahtoKentta.value || new Date(arvo) < new Date(lahtoKentta.min)
+          || new Date(arvo) > new Date(lahtoKentta.max)) return;
+      lahtoKentta.value = arvo;
+      try { sessionStorage.setItem("melonta-lahtoaika", arvo); } catch {}
+      paivitaSaat(); naytaPaiva();
+    };
+    addEventListener("pageshow", () => { try { otaLahto(sessionStorage.getItem("melonta-lahtoaika")); } catch {} });
+    addEventListener("storage", e => {
+      if (e.key === "melonta-lahtoaika" && e.newValue) try { otaLahto(JSON.parse(e.newValue).arvo); } catch {}
+    });
   }
 
   // Ajomatkat (tavallinen ajoreitti) lähtöpisteestä kaikkiin paikkoihin: /api/ajomatkat
@@ -1271,6 +1285,10 @@ def app(environ, start_response):
         except ValueError:
             reissu = None
         merkki = kaavio_svg.reissu.set(reissu)
+        try:   # matka-aika perille (min): osoittimen siirto palauttaa lähtöajan
+            matka = kaavio_svg.matka.set(float(parse_qs(environ.get("QUERY_STRING", "")).get("matka", [""])[0]))
+        except ValueError:
+            matka = kaavio_svg.matka.set(None)
         # kaavion muoto: pysty (oletus, puhelin) tai vaaka (sivun JS lisää leveällä näytöllä)
         muoto = kaavio_svg.muoto.set(parse_qs(environ.get("QUERY_STRING", "")).get("muoto", ["pysty"])[0])
         try:
@@ -1280,6 +1298,7 @@ def app(environ, start_response):
                     if kaavio.startswith("syke/") else None)
         finally:
             kaavio_svg.reissu.reset(merkki)
+            kaavio_svg.matka.reset(matka)
             kaavio_svg.muoto.reset(muoto)
         if kuva is None:
             return vastaa("404 Not Found", "text/plain; charset=utf-8", "Kaaviota ei löydy.\n")

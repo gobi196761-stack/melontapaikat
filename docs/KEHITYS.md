@@ -116,7 +116,11 @@ Maalismaa on PVO:n voimala, joten aseman oma päivän arvo julkaistaan vasta seu
 - Tekstit noudattavat yleissääntöä "nimi toimii (paras x–y)".
 - Asteikon ulkopuoliset alueet piirretään nuolina oikeaan reunaan (↑/↓), ja nuoli viittaa toimii-rajaan.
 - Tulvaindeksialueet muunnetaan MNQ/MHQ:lla arvoiksi.
-- Tämän päivän lukema näkyy oranssina vinoneliönä. Reissu-viiva näytetään parametrilla `?reissu=`, jossa perilläoloaika on pyöristetty 15 minuuttiin (`kaavio_svg.reissu` ContextVar).
+- Tämän päivän lukema näkyy oranssina vinoneliönä.
+- Reissu-osoitin (`kaavio_svg._reissu_osoitin`) näkyy aina, ja sitä voi vetää sormella tai hiirellä. Kaavion SVG:ssä on oma skripti, joten tämä toimii, kun kaavio avataan omana sivunaan.
+  - Osoitin alkaa parametrin `?reissu=` ajasta (perilläoloaika 15 minuutin tarkkuudella), muuten nykyhetkestä.
+  - Se näyttää ajankohdan ja arvon, joka interpoloidaan havainnoista ja niistä jatkuvasta ennusteesta.
+  - `?matka=` on matka-aika minuutteina (ajo + 30 min). Kun osoitinta vedetään, lähtöaika = osoittimen aika − matka-aika tallennetaan sessionStorageen ja localStorageen avaimella `melonta-lahtoaika`. Pääsivu ottaa sen käyttöön `pageshow`- ja `storage`-tapahtumissa.
 
 ## Kohteiden rajojen lähteet
 

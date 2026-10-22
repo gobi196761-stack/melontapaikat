@@ -641,21 +641,39 @@ def test_reissun_pystyviiva(ajot):
         kuva = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
     finally:
         kaavio_svg.reissu.reset(merkki)
-    ET.fromstring(kuva)
-    assert 'stroke="#6a1b9a" stroke-width="2" stroke-dasharray="3 3"' in kuva and ">reissu</text>" in kuva
-    assert "reissu (perillä)" in kuva
-    assert ">reissu</text>" not in app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
-    # reitti: ?reissu= välitetään kaavioon; kaavion ulkopuolinen aika ei piirrä viivaa
+    juuri = ET.fromstring(kuva)
+    ns = "{http://www.w3.org/2000/svg}"
+    osoitin = next(g for g in juuri.iter(f"{ns}g") if g.get("data-reissu"))
+    tiedot = json.loads(osoitin.get("data-reissu"))
+    # vedettävä osoitin alkaa reissun ajankohdasta; arvot havainnoista ja ennusteesta aikajärjestyksessä
+    assert tiedot["t0"] == reissu * 1000 and tiedot["yks"] == "m" and tiedot["nimi"] == "reissu"
+    assert [t for t, _ in tiedot["s"]] == sorted(t for t, _ in tiedot["s"]) and len(tiedot["s"]) > 10
+    assert tiedot["a"] <= tiedot["t0"] <= tiedot["b"]
+    assert 'class="r-kahva"' in kuva and "touch-action:none" in kuva and "<![CDATA[" in kuva
+    assert f'getElementById("{tiedot["id"]}")' in kuva and "reissu (vedä ajankohtaa)" in kuva
+    # kaavion ulkopuolinen reissu: osoitin kaavion alueelle (nykyhetki tai reuna)
     kaukana = kaavio_svg.reissu.set(reissu + 365 * 86400)
     try:
-        assert ">reissu</text>" not in app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
+        toinen = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
     finally:
         kaavio_svg.reissu.reset(kaukana)
+    t2 = json.loads(next(g for g in ET.fromstring(toinen).iter(f"{ns}g") if g.get("data-reissu")).get("data-reissu"))
+    assert t2["a"] <= t2["t0"] <= t2["b"] and t2["id"] != tiedot["id"]
+    assert tiedot["matka"] is None   # ilman ?matka= lähtöaikaa ei palauteta
+    m = kaavio_svg.matka.set(56.0)
+    try:
+        kolmas = app.syke_kaavio_svg("61/l611331001y/w3lyhyt", ajot, "Kipinä (Iijoki)")
+    finally:
+        kaavio_svg.matka.reset(m)
+    assert '&quot;matka&quot;:56.0' in kolmas and 'sessionStorage.setItem("melonta-lahtoaika"' in kolmas
 
 
 def test_kaaviolinkit_saavat_reissun(palvelin):
     runko = pyynto("/")[2]
     assert 'url.searchParams.set("reissu", Math.round(perilla / 900) * 900)' in runko
+    # matka-aika kaavioon ja osoittimella valittu lähtöaika takaisin sivulle
+    assert 'url.searchParams.set("matka", Math.round(ajoMin + 30))' in runko
+    assert 'addEventListener("pageshow"' in runko and 'e.key === "melonta-lahtoaika"' in runko
 
 
 def test_yr_linkki_saapumispaivalle():

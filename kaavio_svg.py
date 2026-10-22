@@ -26,8 +26,11 @@ from __future__ import annotations
 import contextvars
 import datetime as dt
 import html
+import itertools
+import json
 import math
 import re
+import time
 
 import kielet
 import smhi_data
@@ -46,8 +49,12 @@ HISTORIA_PAIVIA = 10   # kaavio alkaa näin monta päivää ennen tätä päivä
 e = html.escape
 
 # Reissun ajankohta (unix s, saapuminen perille): sivun mittarilinkki välittää sen (?reissu=),
-# ja kaavioon piirretään sen kohdalle pystykatkoviiva "reissu". Asetetaan pyynnön ajaksi.
+# ja kaavioon piirretään sen kohdalle vedettävä reissu-osoitin (ilman reissua nykyhetkeen).
+# Asetetaan pyynnön ajaksi.
 reissu: contextvars.ContextVar[float | None] = contextvars.ContextVar("reissu", default=None)
+# Matka-aika perille (min, ajo + lisäaika) sivun linkistä (?matka=): osoitinta vedettäessä lähtöaika
+# = osoittimen aika − matka-aika tallennetaan sivun lähtöaikakenttään (sessionStorage melonta-lahtoaika).
+matka: contextvars.ContextVar[float | None] = contextvars.ContextVar("matka", default=None)
 # Kaavion muoto pyynnön ajaksi: "pysty" (oletus) tai "vaaka" (?muoto=vaaka)
 muoto: contextvars.ContextVar[str] = contextvars.ContextVar("muoto", default="pysty")
 
@@ -129,6 +136,114 @@ def _luku(v: float, metreja: bool = False) -> str:
 
 def _ms(paiva: dt.date) -> int:
     return smhi_data._paivan_ms(paiva)
+
+
+_osoittimet = itertools.count(1)   # yksilöllinen tunnus jokaiselle osoittimelle (pinotut kaaviot)
+
+# Osoittimen skripti (SVG:n sisällä; toimii, kun kaavio avataan omana sivunaan): viivaa tai alareunan
+# kahvaa vedetään sormella tai hiirellä, napautus kaavioon siirtää osoittimen. Aika varttiin.
+_REISSU_JS = """(function () {
+  var g = document.getElementById("%s"), D = JSON.parse(g.getAttribute("data-reissu"));
+  var alue = document.getElementById(D.id + "-alue"), q = function (c) { return g.querySelector("." + c); };
+  var viiva = q("r-viiva"), osuma = q("r-osuma"), kahva = q("r-kahva"), nuoli = q("r-nuoli"),
+      piste = q("r-piste"), aika = q("r-aika"), arvo = q("r-arvo");
+  var muoto = new Intl.DateTimeFormat(D.kieli === "en" ? "en-GB" : "fi-FI", {timeZone: "Europe/Helsinki",
+      weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit"});
+  var x = function (t) { return D.x0 + (t - D.a) / (D.b - D.a) * D.w; };
+  var aikaX = function (px) { return D.a + (px - D.x0) / D.w * (D.b - D.a); };
+  var y = function (v) { return D.y0 + (D.ylin - v) / (D.ylin - D.alin) * D.h; };
+  function arvoAikaan(t) {
+    var s = D.s;
+    if (!s.length || t < s[0][0] || t > s[s.length - 1][0]) return null;
+    for (var i = 1; i < s.length; i++) if (t <= s[i][0]) {
+      var k = (t - s[i - 1][0]) / ((s[i][0] - s[i - 1][0]) || 1);
+      return s[i - 1][1] + k * (s[i][1] - s[i - 1][1]);
+    }
+    return s[s.length - 1][1];
+  }
+  function luku(v) { return D.m ? v.toFixed(2) : Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(1); }
+  var kello = new Intl.DateTimeFormat(D.kieli === "en" ? "en-GB" : "fi-FI",
+      {timeZone: "Europe/Helsinki", hour: "2-digit", minute: "2-digit"});
+  function paikallinen(d) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
+  function lahtoAika(t) { return Math.max(Date.now(), Math.round((t - D.matka * 60000) / 9e5) * 9e5); }
+  function tallennaLahto(t) {   // sivun lähtöaikakenttään: sama välilehti (takaisin) ja muut välilehdet
+    if (D.matka == null) return;
+    var arvo = paikallinen(new Date(lahtoAika(t)));
+    try { sessionStorage.setItem("melonta-lahtoaika", arvo); } catch (e) {}
+    try { localStorage.setItem("melonta-lahtoaika", JSON.stringify({arvo: arvo, aika: Date.now()})); } catch (e) {}
+  }
+  function aseta(t, kayttaja) {
+    t = Math.max(D.a, Math.min(D.b, Math.round(t / 9e5) * 9e5));
+    var px = x(t), v = arvoAikaan(t), oikea = px > D.x0 + D.w * 0.55;
+    [viiva, osuma].forEach(function (l) { l.setAttribute("x1", px); l.setAttribute("x2", px); });
+    kahva.setAttribute("cx", px); nuoli.setAttribute("x", px);
+    aika.setAttribute("x", oikea ? px - 6 : px + 6);
+    aika.setAttribute("text-anchor", oikea ? "end" : "start");
+    aika.textContent = D.nimi + " " + muoto.format(new Date(t))
+      + (D.matka != null ? " (" + D.lahto + " " + kello.format(new Date(lahtoAika(t))) + ")" : "");
+    if (kayttaja) tallennaLahto(t);
+    if (v === null) { piste.setAttribute("visibility", "hidden"); arvo.textContent = ""; return; }
+    var py = Math.max(D.y0 + 24, Math.min(D.y0 + D.h - 30, y(v)));   // ei ajankohdan päälle
+    piste.setAttribute("visibility", "visible"); piste.setAttribute("cx", px); piste.setAttribute("cy", y(v));
+    arvo.setAttribute("x", oikea ? px - 9 : px + 9); arvo.setAttribute("y", py - 9);
+    arvo.setAttribute("text-anchor", oikea ? "end" : "start");
+    arvo.textContent = luku(v) + " " + D.yks;
+  }
+  function kohta(e) {
+    var p = new DOMPoint(e.clientX, e.clientY).matrixTransform(alue.getScreenCTM().inverse());
+    return aikaX(p.x);
+  }
+  var veto = false;
+  [osuma, kahva, nuoli].forEach(function (el) {
+    el.addEventListener("pointerdown", function (e) {
+      veto = true; el.setPointerCapture(e.pointerId); e.preventDefault(); aseta(kohta(e), true);
+    });
+    el.addEventListener("pointermove", function (e) { if (veto) aseta(kohta(e), true); });
+    el.addEventListener("pointerup", function () { veto = false; });
+    el.addEventListener("pointercancel", function () { veto = false; });
+  });
+  alue.addEventListener("click", function (e) { aseta(kohta(e), true); });
+  aseta(D.t0);
+})();"""
+
+
+def _reissu_osoitin(sarja: dict[int, float], ala_ms: float, yla_ms: float, x0: float, leveys: float,
+                    y0: float, korkeus: float, alin: float, ylin: float, metreja: bool, yksikko: str,
+                    kieli: str) -> list[str]:
+    """Vedettävä reissu-osoitin: pystyviiva, alareunan kahva, piste sarjalla sekä ajankohta ja arvo.
+    Alkaa reissun ajankohdasta (?reissu=), muuten nykyhetkestä; kaavion ulkopuolinen aika tuodaan reunaan."""
+    _t = lambda s: kielet.kaanna(s, kieli)   # noqa: E731
+    tunnus = f"reissu{next(_osoittimet)}"
+    alku = (reissu.get() or time.time()) * 1000
+    if not ala_ms <= alku <= yla_ms:
+        alku = min(max(time.time() * 1000, ala_ms), yla_ms)
+    px = x0 + (alku - ala_ms) / (yla_ms - ala_ms) * leveys
+    tiedot = {"id": tunnus, "a": ala_ms, "b": yla_ms, "x0": x0, "w": leveys, "y0": y0, "h": korkeus,
+              "alin": alin, "ylin": ylin, "m": metreja, "yks": "m" if metreja else "m³/s", "kieli": kieli,
+              "nimi": _t("reissu"), "t0": alku, "s": [[ms, round(v, 3)] for ms, v in sorted(sarja.items())],
+              "matka": matka.get(), "lahto": "departure" if kieli == "en" else "lähtö"}
+    ala = y0 + korkeus
+    halo = 'stroke="#fff" stroke-width="3" paint-order="stroke"'
+    return [
+        f'<rect id="{tunnus}-alue" x="{x0}" y="{y0}" width="{leveys}" height="{korkeus}" fill="transparent"/>',
+        f"<g id=\"{tunnus}\" data-reissu='{e(json.dumps(tiedot, separators=(',', ':')))}'>",
+        f'<line class="r-viiva" x1="{px:.1f}" x2="{px:.1f}" y1="{y0}" y2="{ala}" stroke="#6a1b9a" '
+        f'stroke-width="2" stroke-dasharray="3 3"/>',
+        f'<line class="r-osuma" x1="{px:.1f}" x2="{px:.1f}" y1="{y0}" y2="{ala}" stroke="transparent" '
+        f'stroke-width="26" style="cursor:ew-resize;touch-action:none"/>',
+        f'<circle class="r-piste" cx="{px:.1f}" cy="{y0}" r="5" fill="#6a1b9a" stroke="#fff" stroke-width="2" '
+        f'visibility="hidden" pointer-events="none"/>',
+        f'<circle class="r-kahva" cx="{px:.1f}" cy="{ala}" r="11" fill="#6a1b9a" '
+        f'style="cursor:ew-resize;touch-action:none"/>',
+        f'<text class="r-nuoli" x="{px:.1f}" y="{ala + 4.5}" text-anchor="middle" fill="#fff" font-size="13" '
+        f'font-weight="700" style="cursor:ew-resize;touch-action:none;user-select:none">↔</text>',
+        f'<text class="r-aika" x="{px + 6:.1f}" y="{ala - 17}" fill="#6a1b9a" font-weight="700" {halo} '
+        f'pointer-events="none">{e(_t("reissu"))}</text>',
+        f'<text class="r-arvo" x="{px + 9:.1f}" y="{y0 + 30}" fill="#6a1b9a" font-size="13" font-weight="700" {halo} '
+        f'pointer-events="none"></text>',
+        "</g>",
+        f"<script><![CDATA[{_REISSU_JS % tunnus}]]></script>",
+    ]
 
 
 def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
@@ -313,13 +428,6 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     tx = x(tanaan)
     ryhma.append(f'<line x1="{tx:.1f}" x2="{tx:.1f}" y1="{YLA}" y2="{YLA + piirto_k}" stroke="#00bcd4" '
                  f'stroke-width="2" stroke-dasharray="6 4"/>')
-    reissun_x = None
-    if reissu.get() is not None:
-        rx = x_ms(reissu.get() * 1000)
-        if VASEN <= rx <= VASEN + piirto_l:
-            reissun_x = rx
-            ryhma.append(f'<line x1="{rx:.1f}" x2="{rx:.1f}" y1="{YLA}" y2="{YLA + piirto_k}" stroke="#6a1b9a" '
-                         f'stroke-width="2" stroke-dasharray="3 3"/>')
     lukema = arvio if arvio is not None else paivan_arvo[0] if paivan_arvo else None
     if toinen_arvio is not None:   # toinen arviomalli rinnalla: violetti ontto vinoneliö
         ty = y(toinen_arvio[1])
@@ -364,10 +472,18 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         osat.append(f'<text x="{VASEN + piirto_l - 6}" y="{ny:.1f}" text-anchor="end" fill="#1b5e20" '
                     f'font-size="11.5" font-weight="600" stroke="#fff" stroke-width="3" paint-order="stroke">'
                     f'{nuoli} {e(nimi)} {rajat_teksti(toimii, paras)}</text>')
-    if reissun_x is not None:   # nimi viivan yläpäähän (piirtoalueen päälle, ei leikata)
-        osat.append(f'<text x="{reissun_x + 4:.1f}" y="{YLA + 13}" fill="#6a1b9a" font-size="12" font-weight="700" '
-                    f'stroke="#fff" stroke-width="3" paint-order="stroke">{e(_t("reissu"))}</text>')
     osat.append(f'<rect x="{VASEN}" y="{YLA}" width="{piirto_l}" height="{piirto_k}" fill="none" stroke="#9aa4ae"/>')
+    # reissu-osoitin: arvot havainnoista ja niistä jatkuvasta ennusteesta (tai mallista)
+    sarja = dict(havainnot)
+    if arvio is not None:
+        sarja[_ms(tanaan) + PAIVA_MS // 2] = arvio
+    viimeinen = max(sarja, default=None)
+    for p, v in (ennuste or malli).items():
+        ms = _ms(p) + PAIVA_MS // 2
+        if viimeinen is None or ms > viimeinen:
+            sarja[ms] = v
+    osat += _reissu_osoitin(sarja, ala_ms, yla_ms, VASEN, piirto_l, YLA, piirto_k, alin, ylin, metreja,
+                            yksikko, kieli)
 
     # selite (rivittyy)
     selite = []
@@ -398,8 +514,7 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     if tausta:
         selite += [("alue", "#cfd4d9", _t("vaihteluväli")), ("viiva", "#d81b9a", _t("mediaani"))]
     selite.append(("katko", "#00bcd4", _t("tänään")))
-    if reissun_x is not None:
-        selite.append(("katko", "#6a1b9a", _t("reissu (perillä)")))
+    selite.append(("katko", "#6a1b9a", _t("reissu (vedä ajankohtaa)")))
     if alueet:
         selite += [("alue", "#d5ecd6", _t("kohde toimii")), ("alue", "#a9d5aa", _t("kohde parhaimmillaan"))]
     piilossa = [f"{n} {luku(a)}" for n, a, v in tunnus if (n, a, v) not in tunnus_nakyy]
