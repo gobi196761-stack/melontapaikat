@@ -7,8 +7,8 @@ import pytest
 import arviointi
 import melonta
 import osm_sivut as osm
-from paikat import PAIKAT, Kohde, Mittari, Paikka
-from syke_kaavio import Kaaviolukema
+from paikat import PAIKAT, Kohde, Mittari, Paikka, aseman_nimi
+from syke_kaavio import KaavioLukija, Kaaviolukema
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -162,3 +162,52 @@ def test_paasta_paahan_offline(tmp_path, capsys):
     tuloste = capsys.readouterr().out
     assert "Veden lämpötila (Kipinä): 2.8 °C" in tuloste
     assert " 1. Matkakoski (Tornionjoki)" in tuloste and " 2. Kipinä (Iijoki)" in tuloste
+
+
+# ---------------------------------------------------------------------------
+# Kutujoki: Otermajärven lähtövirtaama (SYKE 59/q5903470y), rajat arvioita
+# ---------------------------------------------------------------------------
+
+def test_kutujoen_mittari_ja_arviorajat():
+    kutujoki = next(p for p in PAIKAT if p.nimi == "Kutujoki")
+    mittari = kutujoki.mittarit["paa"]
+    assert mittari.kaavio == "59/q5903470y/qin3lyhyt.png" and mittari.lisakaavio   # osm.fi:n sivulla ei kaaviota
+    assert aseman_nimi(mittari.kaavio) == "Otermajärvi, luusua (Kutujoki)"
+    korkeus = kutujoki.mittarit["korkeus"]   # järven vedenkorkeus rinnalla, ei kohteita
+    assert korkeus.kaavio == "59/l592621001y/w3lyhyt.png" and korkeus.lisakaavio
+    assert aseman_nimi(korkeus.kaavio) == "Otermanjärvi"
+    assert all(k.mittari == "paa" for k in kutujoki.kohteet)
+    assert [k.lahde for k in kutujoki.kohteet] == ["arvio", "arvio"]
+    assert any("Petäjäkoski" in k.nimi for k in kutujoki.kohteet)
+
+
+def test_kutujoki_otermajarven_kaaviosta():
+    """22.10.2026: syystulva, lähtövirtaama 10.2 m³/s (MHQ 18.1, MNQ 1.2), järvi 141.12 m."""
+    url = osm.kaavio_url("59/q5903470y/qin3lyhyt.png")
+    l = KaavioLukija().lue((FIXTURES / "59_q5903470y_qin3lyhyt.png").read_bytes(), url)
+    assert l.suure == "virtaama" and l.yksikko == "m3/s"
+    assert l.arvo == pytest.approx(10.15, abs=0.2)
+    assert l.tunnusluvut == {"MHQ": 18.1, "MNQ": 1.2}
+
+    korkeus = KaavioLukija().lue((FIXTURES / "59_l592621001y_w3lyhyt.png").read_bytes(),
+                                 osm.kaavio_url("59/l592621001y/w3lyhyt.png"))
+    assert korkeus.suure == "vedenkorkeus" and korkeus.arvo == pytest.approx(141.12, abs=0.03)
+    assert korkeus.tunnusluvut == {"MHW": 141.38, "MNW": 140.30}
+
+    kutujoki = next(p for p in PAIKAT if p.nimi == "Kutujoki")
+    t = arviointi.arvioi(kutujoki, {"paa": l, "korkeus": korkeus})
+    assert [k.tila for k in t.kohteet] == ["paras", "paras"]
+    assert t.pisteet == pytest.approx(80 + 2)   # koko reitti paras (laatu 0.8) + kosket toimii
+
+
+@pytest.mark.parametrize("virtaama, reitti, kosket", [
+    (2.5, "ei toimi", "ei toimi"),   # loppukesän alivesi
+    (4.5, "toimii", "ei toimi"),
+    (9.0, "paras", "paras"),          # kesäkuun alun mediaani
+    (17.0, "toimii", "paras"),
+    (35.0, "ei toimi", "ei toimi"),   # lähellä HQ:ta (44 m³/s)
+])
+def test_kutujoen_rajat(virtaama, reitti, kosket):
+    kutujoki = next(p for p in PAIKAT if p.nimi == "Kutujoki")
+    t = arviointi.arvioi(kutujoki, {"paa": lukema(virtaama, yksikko="m3/s")})
+    assert [k.tila for k in t.kohteet] == [reitti, kosket]
