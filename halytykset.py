@@ -81,30 +81,37 @@ def _yksityinen(teksti: str):
 
 
 _avaimet: tuple[float, tuple[str, str] | None] | None = None
+avainten_tila = "ei vielä haettu"   # miksi avaimet saatiin tai jäivät saamatta (GET /api/halytys)
 
 
-def avaimet(kanta=None) -> tuple[str, str] | None:
+def avaimet(kanta=None, uudelleen: bool = False) -> tuple[str, str] | None:
     """(julkinen, yksityinen): ympäristömuuttujista tai Firestoresta (luodaan tarvittaessa).
-    None, jos kumpaakaan ei ole käytettävissä. Tulos pidetään muistissa."""
-    global _avaimet
+    None, jos kumpaakaan ei ole käytettävissä. Tulos pidetään muistissa; epäonnistuminen
+    10 min (uudelleen=True yrittää heti)."""
+    global _avaimet, avainten_tila
     julkinen, yksityinen = os.environ.get("VAPID_PUBLIC_KEY", ""), os.environ.get("VAPID_PRIVATE_KEY", "")
     if julkinen and yksityinen:
+        avainten_tila = "ympäristömuuttujista (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)"
         return julkinen, yksityinen
-    if _avaimet and (_avaimet[1] or time.monotonic() - _avaimet[0] < 600):   # epäonnistuminen 10 min
+    if _avaimet and (_avaimet[1] or (not uudelleen and time.monotonic() - _avaimet[0] < 600)):
         return _avaimet[1]
     tulos = None
     try:
         import firestore
         kanta = kanta or firestore.Firestore.ymparistosta(aikaraja=5)   # sivun lataus ei jää odottamaan
-        if kanta:
+        if not kanta:
+            avainten_tila = "FIREBASE_SERVICE_ACCOUNT puuttuu Vercelin ympäristömuuttujista"
+        else:
             tallessa = kanta.lue(*ASETUKSET)
             if not tallessa:   # luodaan kerran; samanaikainen luonti: toisen tallentama pari voittaa
                 julkinen, yksityinen = luo_avaimet()
                 kanta.luo(*ASETUKSET, {"julkinen": julkinen, "yksityinen": yksityinen})
                 tallessa = kanta.lue(*ASETUKSET)
             tulos = (tallessa["julkinen"], tallessa["yksityinen"])
-    except Exception:  # Firestore ei käytettävissä: hälytykset pois päältä
+            avainten_tila = "Firestoresta (asetukset/vapid)"
+    except Exception as e:  # Firestore ei käytettävissä: hälytykset pois päältä
         tulos = None
+        avainten_tila = f"Firestore-virhe: {type(e).__name__}: {str(e)[:300]}"
     _avaimet = (time.monotonic(), tulos)
     return tulos
 

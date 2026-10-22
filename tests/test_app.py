@@ -781,3 +781,23 @@ def test_halytysosio(palvelin, monkeypatch):
     assert '<script type="application/json" id="halytys-valinnat">{"Kipinä (Iijoki)":{"":["toimii","paras","pisteet"]' in runko
     assert 'navigator.serviceWorker.register("/sw.js")' in runko and 'fetch("/api/halytys"' in runko
     assert "Score limit" in pyynto("/", "kieli=en")[2]
+
+
+def test_asennettava_sovellus(palvelin):
+    import sovellus
+    status, otsakkeet, runko = pyynto("/manifest.webmanifest")
+    assert status == "200 OK" and otsakkeet["Content-Type"].startswith("application/manifest+json")
+    m = json.loads(runko)
+    # iPhonen push-ilmoitukset vaativat Koti-valikosta omana sovelluksenaan avautuvan sivun
+    assert m["display"] == "standalone" and m["start_url"] == "/" and m["name"] == "Melontatilanne"
+    assert {"/kuvake-192.png", "/kuvake-512.png"} <= {k["src"] for k in m["icons"]}
+    assert json.loads(pyynto("/manifest.webmanifest", "kieli=en")[2])["start_url"] == "/?kieli=en"
+    sivu = pyynto("/")[2]
+    assert '<link rel="manifest" href="/manifest.webmanifest">' in sivu
+    assert '<link rel="apple-touch-icon" href="/kuvake-180.png">' in sivu
+    for koko in sovellus.KOOT:
+        vastaus = app.app({"PATH_INFO": f"/kuvake-{koko}.png", "REQUEST_METHOD": "GET", "QUERY_STRING": ""},
+                          lambda status, otsakkeet: None)
+        data = b"".join(vastaus)
+        assert data.startswith(b"\x89PNG") and int.from_bytes(data[16:20], "big") == koko
+    assert pyynto("/kuvake-64.png")[0] == "404 Not Found"
