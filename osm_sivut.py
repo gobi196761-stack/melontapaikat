@@ -9,6 +9,7 @@ mittari, ohjelma huomaa sen.
 from __future__ import annotations
 
 import re
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -84,9 +85,26 @@ def normalisoi(url: str) -> str:
     return url.rstrip("/").rsplit("/", 1)[-1].lower()
 
 
-def hae_turvallisesti(hakija: Hakija, url: str) -> tuple[bytes | None, str | None]:
-    try:
-        return hakija.hae(url), None
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
-        syy = getattr(e, "code", None) or getattr(e, "reason", None) or e
-        return None, f"{url}: {syy}"
+TILAPAISET_KOODIT = (429, 500, 502, 503, 504)
+UUSINTA_ODOTUS_S = 1.5
+
+
+def _tilapainen(virhe: Exception) -> bool:
+    """Aikakatkaisu, yhteysvirhe tai palvelimen hetkellinen ruuhka (ei esim. 404)."""
+    if isinstance(virhe, urllib.error.HTTPError):
+        return virhe.code in TILAPAISET_KOODIT
+    return not isinstance(virhe, FileNotFoundError)
+
+
+def hae_turvallisesti(hakija: Hakija, url: str, uusintoja: int = 1) -> tuple[bytes | None, str | None]:
+    """Hakee osoitteen; tilapäinen virhe yritetään uudelleen hetken päästä (ei offline-tilassa)."""
+    for yritys in range(uusintoja + 1):
+        try:
+            return hakija.hae(url), None
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            if yritys < uusintoja and not hakija.offline and _tilapainen(e):
+                time.sleep(UUSINTA_ODOTUS_S)
+                continue
+            syy = getattr(e, "code", None) or getattr(e, "reason", None) or e
+            return None, f"{url}: {syy}"
+    return None, f"{url}: ei vastausta"

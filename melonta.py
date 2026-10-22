@@ -82,12 +82,14 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
     # 1. Paikkojen sivut ja niiden lopussa olevat kaaviot (verkko-odotusta, joten
     #    säikeitä saa olla paljon). Ruotsin paikoilla ei ole osm.fi-sivua.
     osm_paikat = [p for p in paikat if p.osm_sivu]
-    with ThreadPoolExecutor(max_workers=24) as pool:
+    # osm.fi:lle maltillisesti rinnakkaisia pyyntöjä (ruuhka ja aikakatkaisut Vercelin kylmäkäynnistyksessä)
+    with ThreadPoolExecutor(max_workers=8) as pool:
         sivut = list(zip(osm_paikat, pool.map(lambda p: osm.hae_turvallisesti(hakija, p.url), osm_paikat)))
     sivun_kaaviot: dict[str, list[str]] = {p.url: [] for p in paikat}   # paikan url -> sivun kaaviot
+    epaonnistuneet = []
     for p, (data, virhe) in sivut:
-        if virhe:
-            varoitukset.append(f"Sivun haku epäonnistui: {virhe}")
+        if virhe:   # pisteytys käyttää paikan tunnettuja mittareita; sivun lisäkaaviot jäävät pois
+            epaonnistuneet.append(p.nimi)
             sivun_kaaviot[p.url] = []
             continue
         sivun_kaaviot[p.url] = osm.sivun_kaaviot(data.decode("utf-8", errors="replace"))
@@ -96,6 +98,10 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
                 varoitukset.append(
                     f"{p.nimi}: sivulta ei enää löydy kaaviota {mittari.kaavio} "
                     f"(sivulla: {', '.join(sivun_kaaviot[p.url]) or 'ei kaavioita'}) – käytetään silti")
+
+    if epaonnistuneet:
+        varoitukset.append(f"osm.fi:n sivua ei saatu haettua ({len(epaonnistuneet)}: {', '.join(epaonnistuneet)}) "
+                           "– käytetään paikkojen tunnettuja mittareita")
 
     # 2. Onko osm.fi:hin lisätty paikkoja, joita ei ole analysoitu?
     if tarkista_hakemisto:
@@ -117,9 +123,10 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
     tehtavat = []
     for avain, data, virhe in ladatut:
         if virhe:
-            kayttajat = [p.nimi for p in paikat if avain in sivun_kaaviot[p.url]
-                         or avain in [m.kaavio for m in p.mittarit.values()]]
-            varoitukset.append(f"Kaavion haku epäonnistui ({', '.join(kayttajat)}): {virhe}")
+            # vain pisteytykseen käytetyistä kaavioista ilmoitus; sivun muut kaaviot jäävät hiljaa pois
+            kayttajat = [p.nimi for p in paikat if avain in [m.kaavio for m in p.mittarit.values()]]
+            if kayttajat:
+                varoitukset.append(f"Kaavion haku epäonnistui ({', '.join(kayttajat)}): {virhe}")
         else:
             tehtavat.append((avain, data))
     lukemat: dict[str, Kaaviolukema] = {}
