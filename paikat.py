@@ -147,7 +147,7 @@ SIJAINNIT: dict[str, tuple[float, float]] = {
     "Vaattunkiköngäs (Raudanjoki)": (66.6126, 26.1513),
     "Marraskoski (Ounasjoki)": (66.7947, 25.4176),
     "Molkoköngäs (Ounasjoki)": (67.0620, 25.0790),
-    "Kutujoki": (64.6570, 26.8537),
+    "Kutujoki": (64.6768, 27.0596),   # reitin alku Otermajärven luusuassa (osm.fi:n merkki Petäjäkoskella)
     "Oulujoki": (65.0005, 25.5643),
     "Oulun edustan saaret": (65.0227, 25.4240),
 }
@@ -606,18 +606,19 @@ PAIKAT: tuple[Paikka, ...] = (
         ),
     ),
     Paikka(
-        "Kutujoki", "https://www.osm.fi/kutujoki/", "retki", 90,
-        "Otermajärvestä Oulujokeen (Vaala) n. 17 km, 15 koskea, joista II-luokkaa Myllykoski, "
+        "Kutujoki", "https://www.osm.fi/kutujoki/", "retki", 110,
+        "Melontareitti Kutujoen alkupää (Otermajärven luusua) – Järvikylä n. 17 km, 15 koskea, "
+        "joista II-luokkaa Myllykoski, "
         "Monisaarikoski ja Petäjäkoski (1 400 m), muut I-luokkaa. Hyvä aloitteleville ja "
         "retkeilijöille, paras alkukesällä. Mittarina Otermajärven lähtövirtaama (luusua), "
-        "järven vedenkorkeus rinnalla.",
+        "järven vedenkorkeus rinnalla. Järvikylästä takaisin Ouluun n. 87 km.",
         # Sivulla ei vesikaaviota eikä lukuja. Rajat ovat arvioita aseman tunnusluvuista
         # (MNQ 1.2, MHQ 18.1, HQ 44.0 m³/s) ja havaintojen mediaanista: kesäkuun alussa
         # n. 8–10 m³/s ("paras alkukesällä"), heinä–elokuussa 2–3 m³/s.
         {"paa": Mittari("59/q5903470y/qin3lyhyt.png", lisakaavio=True, marginaali=3),
          "korkeus": Mittari("59/l592621001y/w3lyhyt.png", lisakaavio=True)},
         (
-            Kohde("Koko reitti (Otermajärvi – Oulujoki)", (4, 30), (7, 16), 0.8,
+            Kohde("Kutujoen alkupää – Järvikylä (17 km)", (4, 30), (7, 16), 0.8,
                   huom="kapea (5–10 m) joki: alle n. 4 m³/s (kesän alivesi) kivikkoista; "
                        "tulvalla inkkarin paattiin voi tulla aalto (osm.fi)", lahde="arvio"),
             Kohde("II-luokan kosket (Myllykoski, Monisaarikoski, Petäjäkoski)", (5, 30), (8, 18), 0.7,
