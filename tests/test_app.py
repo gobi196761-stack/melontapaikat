@@ -872,3 +872,8 @@ def test_nappien_lukumaarat(palvelin):
     assert f'Ruotsi <span class="maara">{sum(1 for p in PAIKAT if p.maa == "SE")}</span>' in runko
     assert f'Muut kohteet <span class="maara">{len(muut_kohteet.KOHTEET)}</span>' in runko
     assert 'id="suosikkimaara"' in runko
+
+
+def test_englanninkielisen_etusivun_linkit(palvelin):
+    sivu = pyynto("/", "kieli=en")[2]
+    assert '/paikka/kipina-iijoki?kieli=en"' in sivu
