@@ -33,7 +33,7 @@ def test_paikkasivu_kohteet_rajat_ja_lahteet():
     # lähteet lopussa, alkuperäinen sivu mukana
     lahteet = runko.split("<h2>Lähteet</h2>")[1]
     assert 'href="https://www.osm.fi/melontapaikat/kipinae/"' in lahteet
-    assert "mpahkala.kapsi.fi" in lahteet
+    assert "mpahkala.kapsi.fi" not in lahteet
 
 
 def test_kaikki_paikkasivut_avautuvat():
