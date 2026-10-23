@@ -397,6 +397,8 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
                      font-size:.9rem; width:11em; background:var(--tausta); color:var(--teksti); }
 .reitti { white-space:nowrap; }
 .saa { color:var(--heikko); }
+.lukumaara { font-weight:400; font-size:.8rem; color:var(--heikko); margin:0; }
+h2 + .lukumaara { margin:-4px 0 6px; }
 .haku { display:flex; align-items:center; gap:6px; margin:0 0 12px; color:var(--heikko); }
 .haku input { flex:1; max-width:22em; padding:6px 12px; border:1px solid var(--viiva); border-radius:999px; font:inherit;
               background:var(--tausta); color:var(--teksti); }
@@ -437,7 +439,7 @@ SKRIPTI = """
 (() => {
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
   const T = document.documentElement.lang === "en" ? {
-    lisaa: "Add to favourites", poista: "Remove from favourites", km: "",
+    lisaa: "Add to favourites", poista: "Remove from favourites", km: "", paikka: "spot", paikkaa: "spots",
     kieli: "en-GB", perilla: "on arrival", paivaTila: "Water levels and ratings from the forecast for", ukkonen: "thunderstorm forecast", foreca: "Foreca 15-day forecast (yr.no covers only 9 days)", lahto: "from", oma: "your location",
     tila: "Driving distances from your location.", lasketaan: "Calculating driving distances…",
     eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
@@ -453,7 +455,7 @@ SKRIPTI = """
     tasot: {toimii: "works", paras: "optimum (at its best)", pisteet: "score limit"}, poistaEhto: "Remove",
     iphone: "On iPhone, first add this page to the home screen (Share → Add to Home Screen) and open it from there.",
   } : {
-    lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "",
+    lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "", paikka: "paikka", paikkaa: "paikkaa",
     kieli: "fi-FI", perilla: "perillä klo", paivaTila: "Vesitilanne ja arviot ennusteen mukaan:", ukkonen: "ukkosta ennustettu", foreca: "Forecan 15 vrk ennuste (yr.no ennustaa vain 9 päivää)", lahto: "lähtö", oma: "oma sijainti",
     tila: "Ajomatkat omasta sijainnistasi.", lasketaan: "Lasketaan ajomatkoja…",
     eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
@@ -487,9 +489,14 @@ SKRIPTI = """
       r.hidden = (vainSuosikit && !on) || !osuu(r.dataset.paikka);
       if (!r.hidden) r.querySelector(".sija").textContent = ++n + ".";
     }
+    const lukumaara = document.getElementById("lukumaara");
+    if (lukumaara) lukumaara.textContent = n + " " + (n === 1 ? T.paikka : T.paikkaa);
     const ohje = document.getElementById("ei-suosikkeja");
     if (ohje) ohje.hidden = !(vainSuosikit && n === 0);
-    document.querySelectorAll("li[data-haku]").forEach(li => li.hidden = !osuu(li.dataset.haku));
+    let m = 0;
+    document.querySelectorAll("li[data-haku]").forEach(li => { li.hidden = !osuu(li.dataset.haku); if (!li.hidden) m++; });
+    const ilman = document.getElementById("lukumaara-ilman");
+    if (ilman) ilman.textContent = m + " " + (m === 1 ? T.paikka : T.paikkaa);
   }
   // Haku: paikan nimen osa, isoilla ja pienillä kirjaimilla ei väliä
   const hakukentta = document.getElementById("haku");
@@ -1060,6 +1067,10 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
 </tr>"""
 
 
+def _lukumaara(n: int, k_) -> str:
+    return f"{n} {k_('paikka') if n == 1 else k_('paikkaa')}"
+
+
 def _osoite(**parametrit) -> str:
     """Sivun osoite annetuilla kyselyparametreilla (tyhjät jätetään pois, oletuskieli ei näy)."""
     parametrit = {k: v for k, v in parametrit.items() if v and not (k == "kieli" and v == "fi")}
@@ -1084,7 +1095,8 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     ilman = [t for t in tulokset if t.pisteet is None]
     ilman_html = ""
     if ilman:
-        ilman_html = (f"<h2>{k_('Ei vesikaaviota – tarkista itse')}</h2><ul>" + "".join(
+        ilman_html = (f"<h2>{k_('Ei vesikaaviota – tarkista itse')}</h2>"
+                      f'<p class="lukumaara" id="lukumaara-ilman">{_lukumaara(len(ilman), k_)}</p><ul>' + "".join(
             f'<li data-haku="{e(t.paikka.nimi)}"><a href="{e(paikan_osoite(t.paikka))}">{e(t.paikka.nimi)}</a>: '
             f'{e(t.paikka.kuvaus)}</li>'
             for t in ilman) + "</ul>")
@@ -1125,7 +1137,7 @@ aria-label="{k_("Hae paikkaa…")}"></label>
 <p id="ei-suosikkeja" hidden>{EI_SUOSIKKEJA[kieli]}</p>
 <p id="paiva-tila" class="pieni" hidden></p>
 <table data-valilehti="{e(valittu)}" data-paiva0="{tilanne.paivitetty:%Y-%m-%d}">
-<thead><tr><th></th><th>{k_("Paikka")}</th><th>{k_("Pisteet")}</th><th class="piilo">{k_("+1 … +14 pv")}</th></tr></thead>
+<thead><tr><th></th><th>{k_("Paikka")}<div class="lukumaara" id="lukumaara">{_lukumaara(len(arvioidut), k_)}</div></th><th>{k_("Pisteet")}</th><th class="piilo">{k_("+1 … +14 pv")}</th></tr></thead>
 <tbody>{rivit}</tbody>
 </table>
 {ilman_html}

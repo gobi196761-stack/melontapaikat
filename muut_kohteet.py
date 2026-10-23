@@ -139,7 +139,9 @@ def luettelo(tyyli: str) -> str:
             f'{" · " + e(k["lahto_kunta"]) if k.get("lahto_kunta") else ""}'
             f'{" · " + e(k["matka"]) if k.get("matka") else ""}</span></li>'
             for k in kohteet)
-        osat.append(f'<section class="ryhma"><h2>{e(otsikko)}</h2><ul>{rivit}</ul></section>')
+        osat.append(f'<section class="ryhma"><h2>{e(otsikko)}</h2>'
+                    f'<p class="lukumaara">{len(kohteet)} {"kohde" if len(kohteet) == 1 else "kohdetta"}</p>'
+                    f'<ul>{rivit}</ul></section>')
     return f"""<!doctype html>
 <html lang="fi">
 <head>
@@ -173,6 +175,7 @@ aria-label="Hae kohdetta, jokea tai kuntaa"></label>
         if (!li.hidden) nakyvia++;
       }});
       s.hidden = !nakyvia;
+      s.querySelector(".lukumaara").textContent = nakyvia + (nakyvia === 1 ? " kohde" : " kohdetta");
       n += nakyvia;
     }});
     document.getElementById("ei-osumia").hidden = n > 0;
