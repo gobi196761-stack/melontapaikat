@@ -236,6 +236,33 @@ KORJAUKSET: dict[str, dict] = {
 }
 
 
+# Henkilökohtaiset tapaturmat ja sattumukset poistetaan kuvauksista: (reitin nimi, poistettava
+# lause, korvaava teksti). Reittitieto jää.
+HENKILOKOHTAISET = [
+    ("Kuusaankoskella", " Tässä koskessa kaatuminen aiheutti oikean olkapään kiertäjäkalvosimen repeämän.", ""),
+    ("Kauhavajoella Kauhavan yläjuoksullla",
+     "Lyhyt pätkä Kauhavajoen vauhdikkailla koskilla päättyi heti kaatumiseen ja sen myötä reissun keskeytymiseen.",
+     "Lyhyt pätkä Kauhavajoen vauhdikkailla koskilla."),
+    ("Ylä-Luosta – Horttanaisenkoski",
+     "Vauhdikkaan Luostanjoen melontaretki päättyi kaatumiseen ja melan katoamiseen Horttanaisen koskessa. ", ""),
+    ("Sitten joskus vesi käy liian vähiin…",
+     " Tavoitteena ollut Kemijoki jäi haaveeksi ja jouduin lopettamaan melonnan kesken kiviselle Viitaköngäälle.", ""),
+    ("Saramojoen läntisellä latvalla", " Sen jälkeen alkoivat vaikeudet, jonka takia myös matkanteko keskeytyi.", ""),
+]
+
+
+def poista_henkilokohtaiset(reitit: list[dict]) -> None:
+    for nimi, vanha, uusi in HENKILOKOHTAISET:
+        osumat = 0
+        for r in reitit:
+            if r["nimi"] == nimi:
+                for i, t in enumerate(r["teksti"]):
+                    if vanha in t:
+                        r["teksti"][i], osumat = t.replace(vanha, uusi), osumat + 1
+        if not osumat:
+            raise ValueError(f"Poistettavaa lausetta ei löytynyt: {nimi}: {vanha.strip()}")
+
+
 # ---------------------------------------------------------------------------
 # 1. Jäsennys
 
@@ -534,6 +561,7 @@ def main(docx: str, hakemisto: str) -> None:
     syke_vm = json.loads(sv.read_text()) if sv.exists() else {}
     asemat = json.loads((hak / "syke_asemat.json").read_text())
     reitit = jasenna(kappaleet(docx))
+    poista_henkilokohtaiset(reitit)
     kaytetyt: set[str] = set()
     out = []
     for r in reitit:

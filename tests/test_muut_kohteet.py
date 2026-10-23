@@ -44,3 +44,11 @@ def test_retkikohteilla_lahto_ja_loppu():
         assert "<h2>Lähtö- ja loppupaikka</h2>" in sivu, p.nimi
     sivu = pyynto("/paikka/kutujoki")[2]
     assert "Autiokosken sillan" in sivu and "openstreetmap.org/?mlat=64.6768" in sivu
+
+
+def test_ei_henkilokohtaisia_tapaturmia():
+    teksti = " ".join(" ".join(k.get("kuvaus", [])) for k in muut_kohteet.KOHTEET)
+    for sana in ("kiertäjäkalvosi", "olkapää", "kaatumiseen", "melan katoamiseen", "jouduin", "matkanteko keskeytyi"):
+        assert sana not in teksti, sana
+    kauhava = next(k for k in muut_kohteet.KOHTEET if k["nimi"].startswith("Kauhavajoella"))
+    assert kauhava["kuvaus"] == ["Lyhyt pätkä Kauhavajoen vauhdikkailla koskilla."]
