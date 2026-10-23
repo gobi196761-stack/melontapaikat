@@ -198,7 +198,7 @@ def test_aamun_ajo():
     paikka = tulos([kt("A", "toimii", 80)])
     paikka.paikka = SimpleNamespace(nimi="P")
     tulos_ = h.aja(kanta, [paikka], dt.date(2026, 10, 22), ("julk", "yks"), lahetin)
-    assert tulos_ == {"lahetetty": 1, "poistettu": 1, "virheet": []}
+    assert tulos_ == {"tilauksia": 3, "lahetetty": 1, "jo_ilmoitettu": 1, "poistettu": 1, "virheet": []}
     assert lahetetyt == [(FCM + "1", "P: toimii (A), tänään"), (FCM + "2", "P: toimii (A), tänään")]
     assert kanta.lue(h.KOKOELMA, "eka")["ilmoitettu"] == ["P||toimii|"]
     assert kanta.lue(h.KOKOELMA, "vanha") is None   # vanhentunut tilaus poistettu

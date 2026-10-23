@@ -329,9 +329,12 @@ def vahvistus(tilaus: dict) -> dict:
 def aja(kanta, tulokset, tanaan: dt.date, avainpari: tuple[str, str], lahetin=laheta) -> dict:
     """Käy tilaukset läpi: lähettää uudet hälytykset, päivittää tilan ja poistaa vanhentuneet."""
     paikoittain = {t.paikka.nimi: t for t in tulokset}
-    lahetetty, poistettu, virheet = 0, 0, []
-    for avain, tilaus in kanta.listaa(KOKOELMA).items():
+    tilaukset = kanta.listaa(KOKOELMA)
+    lahetetty, jo_ilmoitettu, poistettu, virheet = 0, 0, 0, []
+    for avain, tilaus in tilaukset.items():
         uudet, tayttyvat = uudet_halytykset(tilaus, paikoittain)
+        if tayttyvat and not uudet:
+            jo_ilmoitettu += 1   # ehto täyttyy, mutta siitä on jo ilmoitettu
         if uudet:
             tila = lahetin(tilaus, viesti(uudet, tanaan, tilaus.get("kieli", "fi")), avainpari)
             if tila in (404, 410):
@@ -344,7 +347,8 @@ def aja(kanta, tulokset, tanaan: dt.date, avainpari: tuple[str, str], lahetin=la
             lahetetty += 1
         if tayttyvat != sorted(tilaus.get("ilmoitettu") or []):
             kanta.kirjoita(KOKOELMA, avain, {**tilaus, "ilmoitettu": tayttyvat})
-    return {"lahetetty": lahetetty, "poistettu": poistettu, "virheet": virheet}
+    return {"tilauksia": len(tilaukset), "lahetetty": lahetetty, "jo_ilmoitettu": jo_ilmoitettu,
+            "poistettu": poistettu, "virheet": virheet}
 
 
 SERVICE_WORKER = """// Melontahälytysten service worker: näyttää push-ilmoituksen ja avaa sivun napautuksesta
