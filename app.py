@@ -47,6 +47,7 @@ import paikkasivut
 import kaavio_svg
 import kielet
 import muut_kohteet
+import retket
 import sovellus
 import smhi_data
 import syke_data
@@ -1609,6 +1610,10 @@ def paikkasivu(paikka) -> str:
     for otsikko, teksti in (kuvaus.osiot if kuvaus else ()):
         osat.append(f"<h2>{e(otsikko)}</h2>{kappaleet(teksti)}")
 
+    retkilinkit = "".join(f'<li><a href="/retki/{e(t)}">{e(r["nimi"])}</a></li>'
+                          for t, r in retket.RETKET.items()
+                          if any(u == paikan_osoite(paikka) for u, _ in r["paikat"]))
+    retkilinkit = f"<h2>Retkiehdotus</h2><ul>{retkilinkit}</ul>" if retkilinkit else ""
     paikat_html = ""
     if paikka.nimi in paikkasivut.LAHTO_LOPPU:
         rivit_ = []
@@ -1683,6 +1688,7 @@ def paikkasivu(paikka) -> str:
 <div class="meta">{tiedot_html}</div>
 {"".join(osat)}
 {paikat_html}
+{retkilinkit}
 {kohteet}
 <h2>Lähteet</h2>
 <ul class="lahteet">{lahteet_html}</ul>
@@ -1760,6 +1766,11 @@ def app(environ, start_response):
         if kuva is None:
             return vastaa("404 Not Found", "text/plain; charset=utf-8", "Kaaviota ei löydy.\n")
         return vastaa("200 OK", "image/svg+xml; charset=utf-8", kuva, CACHE_CONTROL)
+    if polku.startswith("/retki/"):
+        retki = retket.sivu(polku.removeprefix("/retki/"), TYYLI)
+        if retki is None:
+            return vastaa("404 Not Found", "text/plain; charset=utf-8", "Retkeä ei löydy.\n")
+        return vastaa("200 OK", "text/html; charset=utf-8", retki, "public, max-age=3600")
     if polku == "/muut":
         return vastaa("200 OK", "text/html; charset=utf-8", muut_kohteet.luettelo(TYYLI), "public, max-age=3600")
     if polku.startswith("/muut/"):
