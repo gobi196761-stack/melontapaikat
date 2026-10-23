@@ -350,15 +350,48 @@ def _nimi_osuu(ehdokas: dict, nimi: str) -> bool:
     return (ehdokas.get("name") or "").lower().startswith(nimi.lower()[:max(4, len(nimi) - 3)])
 
 
+# Alueet (etelä, länsi, pohjoinen, itä): päiväkirjan ensimmäinen osa on Savosta ja Karjalasta,
+# muun Suomen osioille alue otsikon mukaan.
+ALUEET = {
+    None: (61.7, 25.8, 64.05, 31.6),
+    "SUUREN KYMIJOEN VARRELLA": (60.4, 25.5, 61.5, 27.2),
+    "PÄIJÄNTEEN LATVOILLA KESKI-SUOMESSA": (61.9, 24.5, 63.6, 26.6),
+    "PÄIJÄNTEEN POHJILLA HÄMEESSÄ": (61.0, 25.3, 61.6, 26.0),
+    "VETTÄ PITKIN POHJANLAHTEEN": (64.9, 25.3, 65.5, 26.8),
+    "KAINUUN KORVESSA OULUJÄRVEN LATVOILLA": (64.0, 26.5, 64.9, 28.5),
+    "KAINUUN KORVESSA KIANTAJÄRVEN LATVOILLA": (64.9, 28.5, 65.6, 29.7),
+    "PUDASJÄRVEN HALKI": (65.2, 26.5, 65.6, 27.5),
+    "KEMIJOEN KIEMUROITA": (65.8, 24.8, 67.8, 28.0),
+    "OUNASJOEN PÄÄUOMAA": (67.3, 24.0, 68.0, 25.5),
+    "OUNASJOEN SIVUJOKIA": (66.3, 24.8, 67.5, 26.5),
+    "KÖYRYJÄRVEN YLÄ- JA ALAPUOLELLA": (66.4, 25.8, 66.9, 27.0),
+    "KEMIJOEN LATVAVESILLÄ ITÄRAJALLA": (66.8, 28.5, 67.9, 29.8),
+    "KUUSAMON KUOHUISSA": (65.6, 28.5, 66.6, 30.0),
+    "SALLAN ALUEEN JOKIREITEILLÄ": (66.3, 28.0, 67.8, 29.9),
+    "SAVUKOSKEN ALUEELLA": (67.2, 28.0, 68.4, 29.6),
+    "POHJOISIMMASSA LAPISSA": (68.6, 25.5, 70.1, 28.5),
+    "POHJANMAAN LAKEUKSILLA": (62.9, 22.5, 63.6, 23.4),
+}
+
+
+def _alueella(c: dict, alue) -> bool:
+    return alue is None or (alue[0] <= c["lat"] <= alue[2] and alue[1] <= c["lon"] <= alue[3])
+
+
 def paikanna(r: dict, valimuisti: dict) -> dict:
     nimet = {"lahto": paikan_nimi(r["kentat"].get("lahto", "")), "kohde": paikan_nimi(r["kentat"].get("kohde", ""))}
+    for i, osa in enumerate(re.split(r"\s*[–/]\s*|\s+-\s*|\s*-\s+|\(|\)|,| ja ", r["nimi"])):
+        osa = osa.strip()
+        if osa and len(osa) >= 4 and osa[0].isupper() and osa not in nimet.values() and len(osa.split()) <= 2:
+            nimet[f"otsikko{i}"] = osa
     joet = r["jokilista"]
+    alue = None if r["kunta"] else ALUEET.get(r["osio"], None if r["kokoelma"].startswith(("Muun", "Melotut ")) else ALUEET[None])
     kunnat = [k.strip().lower() for k in re.split(r"[-–]", r["kunta"] or "") if k.strip()]
     ehdokkaat: dict[str, list[dict]] = {}
     for avain, nimi in [*nimet.items(), *((f"joki{i}", j) for i, j in enumerate(joet))]:
         if not nimi or len(nimi) < 3:
             continue
-        lista = [c for c in photon(nimi, valimuisti) if _nimi_osuu(c, nimi)]
+        lista = [c for c in photon(nimi, valimuisti) if _nimi_osuu(c, nimi) and _alueella(c, alue)]
         if kunnat:
             rajattu = [c for c in lista if (c.get("city") or "").lower() in kunnat or (c.get("county") or "").lower() in kunnat]
             lista = rajattu or lista
