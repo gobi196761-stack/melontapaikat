@@ -12,9 +12,10 @@ from __future__ import annotations
 import functools
 import io
 import json
+from pathlib import Path
 
 KOOT = (180, 192, 512)   # 180 = apple-touch-icon, 192 ja 512 = manifest
-TAUSTA = (11, 98, 196)    # sivun linkkiväri (--linkki)
+LOGO = Path(__file__).with_name("logo.jpg")
 TEEMA = "#0b62c4"
 
 
@@ -35,28 +36,11 @@ def manifest(kieli: str = "fi") -> str:
 
 @functools.lru_cache(maxsize=len(KOOT))
 def kuvake(koko: int) -> bytes:
-    """Kuvake PNG:nä: valkoinen kajakki ja mela aalloilla sinisellä pohjalla. Piirretään
-    4-kertaisena ja pienennetään (pehmeät reunat). Sisältö pysyy maskable-kuvakkeen
-    turva-alueella (keskimmäiset 80 %)."""
-    from PIL import Image, ImageDraw
+    """Kuvake PNG:nä: valokuva koskessa melovasta kajakista (logo.jpg, 512 × 512) pienennettynä.
+    Meloja on kuvan keskellä, joten se pysyy maskable-kuvakkeen turva-alueella."""
+    from PIL import Image
 
-    s = koko * 4
-    kuva = Image.new("RGB", (s, s), TAUSTA)
-    d = ImageDraw.Draw(kuva)
-    valk = (255, 255, 255)
-    u = s / 100   # yksikkö: prosentti kuvakkeen leveydestä
-    # mela vinottain kajakin yli, lavat päissä
-    d.line([(27 * u, 27 * u), (73 * u, 57 * u)], fill=valk, width=round(3.2 * u))
-    for x, y in ((27, 27), (73, 57)):
-        d.ellipse([(x - 5.5) * u, (y - 3.2) * u, (x + 5.5) * u, (y + 3.2) * u], fill=valk)
-    # kajakki: pitkä suippo runko ja istuinaukko
-    d.polygon([(14 * u, 48 * u), (30 * u, 42 * u), (70 * u, 42 * u), (86 * u, 48 * u),
-               (70 * u, 53 * u), (30 * u, 53 * u)], fill=valk)
-    d.ellipse([43 * u, 44.5 * u, 57 * u, 49.5 * u], fill=TAUSTA)
-    # aallot
-    for y in (69, 78):
-        for x in range(14, 86, 12):
-            d.arc([x * u, (y - 4) * u, (x + 12) * u, (y + 4) * u], 200, 340, fill=valk, width=round(2.6 * u))
-    tulos = io.BytesIO()
-    kuva.resize((koko, koko), Image.LANCZOS).save(tulos, "PNG", optimize=True)
+    with Image.open(LOGO) as kuva:
+        tulos = io.BytesIO()
+        kuva.convert("RGB").resize((koko, koko), Image.LANCZOS).save(tulos, "PNG", optimize=True)
     return tulos.getvalue()
