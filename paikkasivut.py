@@ -3,7 +3,7 @@
 Jokaisesta paikasta on koottu kuvaus osm.fi:n paikkasivuista, Rovaniemen Melojien
 foorumista, koskimelonta.comista, Suomen freestylemelontamaajoukkueen blogista
 (freestylemelonta.blogspot.com), Tuomas Vaaralan melontapäiväkirjasta
-(tuorala.wordpress.com), mpahkala.kapsi.fi:n melontaraportista ja muista
+(tuorala.wordpress.com) ja muista
 lähteistä (luettu 10/2026). Kun lähde kertoo, että kohde toimi tai oli
 parhaimmillaan tiettynä päivänä, perään on lisätty suluissa sen päivän vesitilanne
 SYKE:n hydrologiarajapinnasta (rajapinnat.ymparisto.fi, vuorokausiarvot; vedenkorkeus
@@ -40,8 +40,6 @@ def tunniste(nimi: str) -> str:
 
 FSB = "https://freestylemelonta.blogspot.com/"
 TUORALA = "https://tuorala.wordpress.com/"
-KAPSI = ("Melontaraportti (mpahkala.kapsi.fi): melontapäiväkirjan vesilukemat",
-         "https://mpahkala.kapsi.fi/melontaraportti.html")
 KM_TORNIONJOKI = ("koskimelonta.com: Tornionjoki (vanhat koskiesittelyt)",
                   "https://koskimelonta.com/kosket/vanhat-koskiesittelyt/lappi/tornionjoki/")
 TUORALA_KATTILA_REF = ("Tuorala: Kattilakosken definitiivinen vedenkorkeusreferenssi (2011)",
@@ -92,7 +90,7 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "eivät perustu mittariin eivätkä ole luotettavia. Ajantasaista tietoa voi kysyä myös Pohjolan "
              "Voimalta, puh. 050 313 3306."),
         ),
-        (("osm.fi: Kipinä", "https://www.osm.fi/melontapaikat/kipinae/"), KAPSI),
+        (("osm.fi: Kipinä", "https://www.osm.fi/melontapaikat/kipinae/"),),
     ),
     # ------------------------------------------------------------------
     "Koiteli (Kiiminkijoki)": Kuvaus(
@@ -134,8 +132,7 @@ KUVAUKSET: dict[str, Kuvaus] = {
         (("osm.fi: Koiteli", "https://www.osm.fi/koiteli/"),
          ("Freestylemelonta-blogi: Vesitilanne ei suosi (10.5.2010)", FSB + "2010/05/vesitilanne-ei-suosi.html"),
          ("Freestylemelonta-blogi: Uusia kuvia Koitelin koskelta (15.5.2010)",
-          FSB + "2010/05/uusia-kuvia-koitelin-koskelta.html"),
-         KAPSI),
+          FSB + "2010/05/uusia-kuvia-koitelin-koskelta.html")),
     ),
     # ------------------------------------------------------------------
     "Matkakoski (Tornionjoki)": Kuvaus(
@@ -182,8 +179,7 @@ KUVAUKSET: dict[str, Kuvaus] = {
          ("Tuorala: Vuennonkoski ja Matkakoski 25.5.2010",
           TUORALA + "2010/06/04/vuennonkoski-ja-matkakoski-25-5-2010/"),
          ("Tuorala: Matkakoski 22.9.2010", TUORALA + "2010/09/22/matkakoski-22-9-2010/"),
-         ("Tuorala: Matkakoski 16.10.2010", TUORALA + "2010/10/18/matkakoski-16-10-2010/"),
-         KAPSI),
+         ("Tuorala: Matkakoski 16.10.2010", TUORALA + "2010/10/18/matkakoski-16-10-2010/")),
     ),
     # ------------------------------------------------------------------
     "Kattilakoski (Tornionjoki)": Kuvaus(
@@ -254,8 +250,7 @@ KUVAUKSET: dict[str, Kuvaus] = {
          ("Freestylemelonta-blogi: Kattilakosken ala-aalto ja Kelokurkkio (19.5.2013)",
           FSB + "2013/05/kattilakosken-ala-aalto-ja-kelokurkkio.html"),
          ("Freestylemelonta-blogi: Koeajo Lapin aalloista (22.5.2023)",
-          FSB + "2023/05/koeajo-lapin-aalloista.html"),
-         KAPSI),
+          FSB + "2023/05/koeajo-lapin-aalloista.html")),
     ),
     # ------------------------------------------------------------------
     "Kukkolankoski (Tornionjoki)": Kuvaus(
@@ -357,8 +352,7 @@ KUVAUKSET: dict[str, Kuvaus] = {
          ("Freestylemelonta-blogi: Pieni kuvapäivitys karkeloista Hawa'Iilta (10.5.2012)",
           FSB + "2012/05/pieni-kuvapaivitys-karkeloista.html"),
          ("Freestylemelonta-blogi: Koeajo Lapin aalloista (22.5.2023)",
-          FSB + "2023/05/koeajo-lapin-aalloista.html"),
-         KAPSI),
+          FSB + "2023/05/koeajo-lapin-aalloista.html")),
     ),
     # ------------------------------------------------------------------
     "Pyhäjoki": Kuvaus(
@@ -379,7 +373,7 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "kallion koloissa pari ikävän näköistä 'akanvirtaa' – varo. Uinnin sattuessa kamat kerätään "
              "suvannosta noin 1 km sillan alapuolelta."),
         ),
-        (("osm.fi: Pyhäjoki", "https://www.osm.fi/pyhaejoki/"), KAPSI),
+        (("osm.fi: Pyhäjoki", "https://www.osm.fi/pyhaejoki/"),),
     ),
     # ------------------------------------------------------------------
     "Siikajoki (Pöyryn pato)": Kuvaus(
@@ -414,7 +408,7 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "padon alle pohjoisrannalle syntyy isolla tulvalla iso hontto, johon ei pidä mennä, ellei tiedä "
              "tarkalleen mitä tekee."),
         ),
-        (("osm.fi: Siikajoen pelipaikat", "https://www.osm.fi/melontapaikat/siikajoki/"), KAPSI),
+        (("osm.fi: Siikajoen pelipaikat", "https://www.osm.fi/melontapaikat/siikajoki/"),),
     ),
     # ------------------------------------------------------------------
     "Niskakoski (Lestijoki)": Kuvaus(

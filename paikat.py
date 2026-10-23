@@ -200,14 +200,14 @@ PAIKAT: tuple[Paikka, ...] = (
         (
             Kohde("Keskimmäisen silta-aukon hontto", (107.65, 108.2), (107.75, 108.0), 1.0,
                   huom="paras pelipaikka; yli 107.85 m ulkoreunaan surffattava aalto-osa "
-                       "(Pilari 107.65–108.20 m, mpahkala.kapsi.fi)", lahde="meloja",
+                       "(Pilari 107.65–108.20 m)", lahde="meloja",
                   kajakit=("freestyle",)),
             Kohde("Oikean silta-aukon surffiaalto", (108.15, 108.8), (108.15, 108.6), 0.8,
                   huom="hidas surffiaalto, ei akanvirtaa (kanto 2–20 m); Sillanalus 108.25–108.60 m, "
-                       "108.59 m optimin ylärajoilla (mpahkala.kapsi.fi)", lahde="meloja",
+                       "108.59 m optimin ylärajoilla", lahde="meloja",
                   kajakit=("freestyle",)),
             Kohde("Ala-aallot (ykkös- ja kakkosaalto)", (106.7, 107.4), (106.7, 107.2), 0.85,
-                  huom="parhaimmillaan 106.7–107.2 m (mpahkala.kapsi.fi); sopii myös koskisuppailuun; "
+                  huom="parhaimmillaan 106.7–107.2 m; sopii myös koskisuppailuun; "
                        "nopea kajakki: half/full slice, Jackson Funin tapainen tai slalom – nykyaikainen "
                        "freestyle on hidas", lahde="meloja", kajakit=("slice",)),
         ),
@@ -219,11 +219,11 @@ PAIKAT: tuple[Paikka, ...] = (
         {"paa": Mittari("60/q6000410y/wlyhyt.png", marginaali=0.3)},
         (
             Kohde("Helmihontto", (10.3, 10.75), (10.65, 10.75), 1.0,
-                  huom="parhaimmillaan 10.7 m; kärrynpyörät, voltit; 10.37–10.45 m vähän pitoa "
-                       "(mpahkala.kapsi.fi)", lahde="meloja", kajakit=("freestyle",)),
+                  huom="parhaimmillaan 10.7 m; kärrynpyörät, voltit; 10.37–10.45 m vähän pitoa",
+                       lahde="meloja", kajakit=("freestyle",)),
             Kohde("Etuaalto", (10.3, 10.75), (10.35, 10.75), 0.9,
-                  huom="10.4 m:stä alkaen kärryttely ja voltti onnistuvat; 10.37 m ihan hyvä "
-                       "(mpahkala.kapsi.fi)", lahde="meloja", kajakit=("riverrunner", "slice")),
+                  huom="10.4 m:stä alkaen kärryttely ja voltti onnistuvat; 10.37 m ihan hyvä",
+                       lahde="meloja", kajakit=("riverrunner", "slice")),
             Kohde("Takaköngäs", (10.5, 11.05), (10.8, 11.05), 0.8,
                   huom="hyvä n. 11.0 m ja sen alle; 10.5 m:llä reunoilla kolisee", lahde="arvio",
                   kajakit=("riverrunner", "slice")),
@@ -243,7 +243,7 @@ PAIKAT: tuple[Paikka, ...] = (
             Kohde("Peliajan paikat (iso stoppari, Ruotsin aalto, WC-Duck)", (27.2, 28.0), (27.5, 27.8), 1.0,
                   huom="alle 28 m pelipaikoille pääsee takaisin melomalla"),
             Kohde("Matkan aalto", (27.7, 28.4), (27.9, 28.15), 0.9,
-                  huom="27.90 m hyvä mutta kapea, alarajoilla; 28.07 m leveä (mpahkala.kapsi.fi)",
+                  huom="27.90 m hyvä mutta kapea, alarajoilla; 28.07 m leveä",
                   lahde="meloja"),
             Kohde("Pelipaikat isolla vedellä", (28.0, 31.0), (28.0, 31.0), 0.7,
                   huom="pudotettava ylhäältä, takaisin kantaen"),
@@ -270,17 +270,17 @@ PAIKAT: tuple[Paikka, ...] = (
             Kohde("Mega-aalto", (78.85, 79.15), (78.95, 79.05), 1.0,
                   huom="parhaimmillaan 79.00 m"),
             Kohde("Ala-aalto", (78.85, 79.15), (78.85, 79.00), 0.9,
-                  huom="parhaimmillaan 78.85 m; toimii 78.85–79.15 m (mpahkala.kapsi.fi)", lahde="meloja"),
+                  huom="parhaimmillaan 78.85 m; toimii 78.85–79.15 m", lahde="meloja"),
             Kohde("Ala-aalto (matala vesi)", (78.20, 78.30), (78.23, 78.27), 0.9, huom="toimii n. 78.25 m"),
             Kohde("Grillikodan hontto", (78.90, 79.10), (78.95, 79.05), 0.6, huom="n. 79 m"),
             Kohde("Parkkihontto", (79.50, AVOIN), (79.50, AVOIN), 0.8, huom="mitä enemmän vettä sen parempi"),
             Kohde("Finnvågen", (80.00, AVOIN), (80.00, 80.80), 1.0,
-                  huom="vaatii paljon vettä, parhaat surffit yli 3000 m³/s; paras 80.0–80.8 m "
-                       "(mpahkala.kapsi.fi)", lahde="meloja"),
+                  huom="vaatii paljon vettä, parhaat surffit yli 3000 m³/s; paras 80.0–80.8 m",
+                       lahde="meloja"),
             Kohde("Svansteinin stoppari", (78.00, AVOIN), (79.00, AVOIN), 0.8,
                   huom="14 km ylävirtaan; sopii kaikentasoisille"),
             Kohde("Kattilakoski ja Svanstein (yleinen)", (78.00, 82.00), (78.00, 82.00), 0.5,
-                  huom="toimiva vedenkorkeus 78.00–82.00 m (mpahkala.kapsi.fi)", lahde="meloja"),
+                  huom="toimiva vedenkorkeus 78.00–82.00 m", lahde="meloja"),
         ),
     ),
     Paikka(
@@ -312,10 +312,10 @@ PAIKAT: tuple[Paikka, ...] = (
         (
             Kohde("Murtuva aalto", (650, 1300), (850, 1300), 1.0,
                   huom="n. 600 m³/s keula kolisee; 850 m³/s tosi hyvä ja paranee; "
-                       "toimii 650–1300 m³/s, 645 m³/s matala (mpahkala.kapsi.fi)", lahde="meloja",
+                       "toimii 650–1300 m³/s, 645 m³/s matala", lahde="meloja",
                   kajakit=("freestyle",)),
             Kohde("Kitula", (650, 1300), (650, 1300), 0.8,
-                  huom="toimii 650–1300 m³/s (mpahkala.kapsi.fi); 607 m³/s keskiaallosta loppui pito, "
+                  huom="toimii 650–1300 m³/s; 607 m³/s keskiaallosta loppui pito, "
                        "645–649 m³/s matala", lahde="meloja", kajakit=("freestyle",)),
         ),
     ),
@@ -326,8 +326,8 @@ PAIKAT: tuple[Paikka, ...] = (
         {"paa": Mittari("54/q5400410y/qinlyhyt.png", marginaali=20)},
         (
             Kohde("Ruukinkoski: stoppari / murtuva aalto", (40, 90), (45, 85), 0.8,
-                  huom="akanvirta laskijan oikealla; takaisin melomalla; toimii 45–90 m³/s "
-                       "(mpahkala.kapsi.fi)", lahde="meloja"),
+                  huom="akanvirta laskijan oikealla; takaisin melomalla; toimii 45–90 m³/s",
+                       lahde="meloja"),
             Kohde("Saunarannan aalto", (80, 150), (130, 150), 0.9,
                   huom="parhaimmillaan n. 140 m³/s; 170 m³/s liikaa"),
         ),
@@ -344,12 +344,12 @@ PAIKAT: tuple[Paikka, ...] = (
             Kohde("Vaahtokylpy, kielen toinen puoli", (140, 250), (140, 200), 0.85,
                   huom="150 m³/s: hontto, jossa syvyyttä volteille", lahde="arvio"),
             Kohde("Kalliosaaren pelipaikat", (70, 250), (100, 250), 0.7,
-                  huom="70 m³/s: keula kolisee upotuksessa; mukavia virranrajoja; hyvä yli 100 m³/s "
-                       "(mpahkala.kapsi.fi)", lahde="meloja"),
+                  huom="70 m³/s: keula kolisee upotuksessa; mukavia virranrajoja; hyvä yli 100 m³/s",
+                       lahde="meloja"),
             Kohde("Aalto 5 km alavirtaan", (150, AVOIN), (150, AVOIN), 0.7, huom="aaltoon pitää kantaa"),
             Kohde("Koskialue vedenkorkeuden mukaan", (19.50, 21.00), (19.70, 21.00), 0.8, mittari="korkeus",
-                  huom="toimiva vedenkorkeus 19.50–21.00 m NN; 19.57 m matala, 19.75–19.79 m hyvä "
-                       "(mpahkala.kapsi.fi)", lahde="meloja"),
+                  huom="toimiva vedenkorkeus 19.50–21.00 m NN; 19.57 m matala, 19.75–19.79 m hyvä",
+                       lahde="meloja"),
         ),
     ),
     Paikka(
@@ -422,7 +422,7 @@ PAIKAT: tuple[Paikka, ...] = (
         {"paa": Mittari("59/q5904400y/qin3lyhyt.png", marginaali=3)},
         (
             Kohde("Koskiosuus Lemmenpolku – Taivalkoski", (6, AVOIN), (10, AVOIN), 0.8,
-                  huom="vähintään 8 m³/s (osm.fi), toimii yli 6 m³/s (mpahkala.kapsi.fi); "
+                  huom="vähintään 8 m³/s (osm.fi), toimii yli 6 m³/s; "
                        "parhaimmillaan reilusti yli 10 m³/s", lahde="meloja"),
         ),
     ),
@@ -433,8 +433,8 @@ PAIKAT: tuple[Paikka, ...] = (
         {"paa": Mittari("63/q6300210y/wlyhyt.png", marginaali=0.3)},
         (
             Kohde("Koskiosuus (Hyry – Kuivaniemi)", (27.6, AVOIN), (28.0, AVOIN), 0.8,
-                  huom="n. 28 m: pienempää aaltoa ja kivien kiertelyä; hyvä yli 28.0 m "
-                       "(mpahkala.kapsi.fi)", lahde="meloja"),
+                  huom="n. 28 m: pienempää aaltoa ja kivien kiertelyä; hyvä yli 28.0 m",
+                       lahde="meloja"),
             Kohde("Kattilakoski – asemankylä pelipätkä", (0.7, AVOIN), (0.85, AVOIN), 0.9, muuttuja=T,
                   huom="heti jäiden lähdön jälkeen isot aallot", lahde="arvio"),
         ),
