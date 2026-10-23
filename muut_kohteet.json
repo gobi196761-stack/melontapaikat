@@ -376,31 +376,22 @@
   "lahto": "Lapinmäen Heinälampi 130,0",
   "kohde": "Viitostie",
   "korkeusero": "n. 20 metriä",
-  "matka": "n. 4 km / a voi jatkaa viitostien varresta edelleen Hiltulanlahteen saakka, mutta ongelmaksi saattaa koitua mm. uuden moottoriliikennetien alitus. Lopussa ennen Hiltulanlahtea on joka tapauksessa melontakelvoton koski.",
+  "matka": "n. 4 km",
   "aika": "26.4.2008",
   "kuvaus": [
-   "Tämä haasteellinen puro on mahdollista meloa vain korkeimman kevättulvahuipun aikana. Omat vaikeutensa tulevat risukkoisen puron varren lisäksi rautatien alittavan rummun läpipääsemisestä ja lähes metrin pudotus siltarummun jälkeen sekä erittäin kiviset koskiosuudet."
+   "Tämä haasteellinen puro on mahdollista meloa vain korkeimman kevättulvahuipun aikana. Omat vaikeutensa tulevat risukkoisen puron varren lisäksi rautatien alittavan rummun läpipääsemisestä ja lähes metrin pudotus siltarummun jälkeen sekä erittäin kiviset koskiosuudet.",
+   "Matkaa voi jatkaa viitostien varresta edelleen Hiltulanlahteen saakka, mutta ongelmaksi saattaa koitua mm. uuden moottoriliikennetien alitus. Lopussa ennen Hiltulanlahtea on joka tapauksessa melontakelvoton koski."
   ],
   "joet": [
    "Heinjoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": [
-   62.59039,
-   27.6051
-  ],
-  "lahto_kunta": "Leppävirta",
-  "kohde_kunta": "Leppävirta",
-  "alue": [
-   62.59039,
-   27.6051
-  ],
+  "kohde_sijainti": null,
+  "lahto_kunta": null,
+  "kohde_kunta": null,
+  "alue": null,
   "vesi": null,
-  "lisatiedot": [],
-  "ajo": {
-   "km": 324,
-   "min": 266
-  }
+  "lisatiedot": []
  },
  {
   "tunniste": "siilinjoki-siilinlahti",
@@ -533,7 +524,10 @@
   "joet": [
    "Kutunjoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   62.69369,
+   27.40313
+  ],
   "kohde_sijainti": null,
   "lahto_kunta": "Suonenjoki",
   "kohde_kunta": null,
@@ -544,8 +538,8 @@
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 323,
-   "min": 268
+   "km": 322,
+   "min": 272
   }
  },
  {
@@ -670,10 +664,11 @@
   "lahto": "Kuikkojärvi 96,5",
   "kohde": "Kuolemanlahti 81,8",
   "korkeusero": "14,7 m",
-  "matka": "n. 6 km / lla purettu uittoränni, Riikankoski on suora kivikkoinen koskiosuus, jota ei pysty melomaan.",
+  "matka": "n. 6 km",
   "aika": "5/2015",
   "kuvaus": [
    "Pieneltä erämaajärveltä alkunsa saava puro laskee Koskilammin (95,7) kautta Suvaksen itärannalle.",
+   "Matkalla purettu uittoränni, Riikankoski on suora kivikkoinen koskiosuus, jota ei pysty melomaan.",
    "Jokiosuuden lopussa ennen Suvaksen Kuolemanlahtea on myös Koskenniemen tilan vieressä laskukelvoton koski. Reitin varrella on majavan pesiä, kalasääsken pesä ja joutsenen pesä."
   ],
   "joet": [
@@ -931,12 +926,22 @@
    "Hoikkajoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
-  "lahto_kunta": null,
-  "kohde_kunta": null,
-  "alue": null,
+  "kohde_sijainti": [
+   64.12762,
+   29.54547
+  ],
+  "lahto_kunta": "Kuhmo",
+  "kohde_kunta": "Kuhmo",
+  "alue": [
+   64.08431,
+   29.84914
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 277,
+   "min": 255
+  }
  },
  {
   "tunniste": "pirttiahon-tien-silta-juojarven-vihtalahti",
@@ -956,13 +961,23 @@
    "Honkajoki",
    "Leväsenjoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   63.05437,
+   27.07459
+  ],
   "kohde_sijainti": null,
-  "lahto_kunta": null,
+  "lahto_kunta": "Tervo",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   63.05437,
+   27.07459
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 267,
+   "min": 257
+  }
  },
  {
   "tunniste": "hoikanlampi-palokki",
@@ -1457,10 +1472,11 @@
   "lahto": "Silta Jysmänpurolla 206,8",
   "kohde": "Vongankoski 139,6 ja Korkeakoski",
   "korkeusero": "67,2 metriä",
-  "matka": "n. 68 kilometriä / n varrella ohitetaan Alasen (193,7), Tiilikkajärven (186,5), Ala-Tiilikan (168,1), Kukkarolammen (151,9) ja Älänteen (144,1) järvet jokimelonnan vastapainoksi.",
+  "matka": "n. 68 kilometriä",
   "aika": "9.-10.5.2008 (Sammakkotammi - Vongankoski) ja 21.-23.5.2009 (Kankaisenkangas – Tervakoski) sekä 29.4.2011. (Näätähiekka – Korkeakoski)",
   "kuvaus": [
    "Melko kuuluisa ja melontaoppaissa usein luonnehdittu melontareitti Rautavaaran korpimaisemissa. Kesäkuun alkuun asti hyvinkin melontakelpoinen, vauhdikas ja runsaskoskinen joki. Sen sijaan toukokuun tulvavesillä vaarallinen, erityisesti Älänteen järven jälkeen Kalliokoskessa, Myllykoskessa, Vongankoskessa on oltava tarkkana virran voiman ja suunnan takia. Korkeakoski on viisainta jättää laskematta kajakilla.",
+   "Matkan varrella ohitetaan Alasen (193,7), Tiilikkajärven (186,5), Ala-Tiilikan (168,1), Kukkarolammen (151,9) ja Älänteen (144,1) järvet jokimelonnan vastapainoksi.",
    "Joessa melontaa voi jatkaa aina Korpisen (110,5) järveen saakka tai vastaavasti reitille voi lähteä ylempää Honkajärveltä (247,7) tai Jysmänjärveltä (223,6).",
    "Hyviä leiripaikkoja ovat mm. Uitonkämppä, Venäjänhiekka, Sammakkotammi, Kämppäkoski, Näädänhiekka ja Vongankoski."
   ],
@@ -1688,7 +1704,10 @@
    "Alajoki",
    "Juuanjoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   63.19083,
+   29.11325
+  ],
   "kohde_sijainti": null,
   "lahto_kunta": "Juuka",
   "kohde_kunta": null,
@@ -1699,8 +1718,8 @@
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 312,
-   "min": 273
+   "km": 325,
+   "min": 292
   }
  },
  {
@@ -1721,23 +1740,13 @@
    "Hepopuro",
    "Vepsänjoki"
   ],
-  "lahto_sijainti": [
-   63.02789,
-   27.24202
-  ],
+  "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Kuopio",
+  "lahto_kunta": null,
   "kohde_kunta": null,
-  "alue": [
-   63.02789,
-   27.24202
-  ],
+  "alue": null,
   "vesi": null,
-  "lisatiedot": [],
-  "ajo": {
-   "km": 292,
-   "min": 268
-  }
+  "lisatiedot": []
  },
  {
   "tunniste": "vaikkojarvi-karenjarvi",
@@ -1756,7 +1765,10 @@
   "joet": [
    "Vaikkojoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   63.13674,
+   28.84649
+  ],
   "kohde_sijainti": [
    63.03587,
    28.68659
@@ -2737,15 +2749,15 @@
    "Lieksajoki"
   ],
   "lahto_sijainti": [
-   62.6795,
-   30.05476
+   63.43411,
+   30.4042
   ],
   "kohde_sijainti": null,
-  "lahto_kunta": "Kontiolahti",
+  "lahto_kunta": "Lieksa",
   "kohde_kunta": null,
   "alue": [
-   62.6795,
-   30.05476
+   63.3903,
+   30.45
   ],
   "vesi": null,
   "lisatiedot": [
@@ -2760,8 +2772,8 @@
    "Lieksanjoki (Matkalahti – Siikakoski)"
   ],
   "ajo": {
-   "km": 401,
-   "min": 363
+   "km": 363,
+   "min": 327
   }
  },
  {
@@ -2819,21 +2831,21 @@
    "Peurajoki"
   ],
   "lahto_sijainti": [
-   64.01381,
-   29.32986
+   64.21615,
+   29.28688
   ],
   "kohde_sijainti": null,
   "lahto_kunta": "Kuhmo",
   "kohde_kunta": null,
   "alue": [
-   64.01381,
-   29.32986
+   64.21199,
+   29.29529
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 269,
-   "min": 247
+   "km": 239,
+   "min": 228
   }
  },
  {
@@ -2919,9 +2931,12 @@
    63.7375,
    29.42505
   ],
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   63.70557,
+   29.35726
+  ],
   "lahto_kunta": "Nurmes",
-  "kohde_kunta": null,
+  "kohde_kunta": "Nurmes",
   "alue": [
    63.70557,
    29.35726
@@ -2954,9 +2969,12 @@
    62.39464,
    30.77677
   ],
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   62.41076,
+   30.65843
+  ],
   "lahto_kunta": "Joensuu",
-  "kohde_kunta": null,
+  "kohde_kunta": "Joensuu",
   "alue": [
    62.41957,
    30.71914
@@ -2993,11 +3011,17 @@
    "Mäntyjoki",
    "Rekijoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   62.50524,
+   30.75265
+  ],
   "kohde_sijainti": null,
-  "lahto_kunta": null,
+  "lahto_kunta": "Joensuu",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   62.50524,
+   30.75265
+  ],
   "vesi": null,
   "lisatiedot": [
    {
@@ -3005,7 +3029,11 @@
     "lahde": "luontoon.fi: Jänisjoen melontareitti",
     "url": "https://www.luontoon.fi/en/trails/janisjoen-melontareitti-tohmajarvi-tohmajarvi-526376-en"
    }
-  ]
+  ],
+  "ajo": {
+   "km": 439,
+   "min": 393
+  }
  },
  {
   "tunniste": "siltakoski-palvekoski",
@@ -3069,16 +3097,19 @@
   "joet": [
    "Lentuanjoki"
   ],
-  "lahto_sijainti": null,
-  "kohde_sijainti": [
-   62.93382,
-   27.36823
+  "lahto_sijainti": [
+   64.20177,
+   29.70241
   ],
-  "lahto_kunta": "Kuopio",
-  "kohde_kunta": "Kuopio",
+  "kohde_sijainti": [
+   64.10708,
+   29.6291
+  ],
+  "lahto_kunta": "Kuhmo",
+  "kohde_kunta": "Kuhmo",
   "alue": [
-   62.93382,
-   27.36823
+   64.20177,
+   29.70241
   ],
   "vesi": null,
   "lisatiedot": [
@@ -3089,8 +3120,8 @@
    }
   ],
   "ajo": {
-   "km": 314,
-   "min": 271
+   "km": 281,
+   "min": 246
   }
  },
  {
@@ -3112,18 +3143,21 @@
    "Kesselinjoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   64.00081,
+   30.05297
+  ],
   "lahto_kunta": "Kuhmo",
-  "kohde_kunta": null,
+  "kohde_kunta": "Kuhmo",
   "alue": [
-   63.99374,
-   30.14226
+   64.11542,
+   30.43221
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 297,
-   "min": 306
+   "km": 323,
+   "min": 343
   }
  },
  {
@@ -3169,7 +3203,10 @@
    "Keihärinkoski",
    "Huopanankoski"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   63.09275,
+   25.51265
+  ],
   "kohde_sijainti": [
    63.11914,
    25.67711
@@ -3183,8 +3220,8 @@
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 245,
-   "min": 214
+   "km": 266,
+   "min": 220
   }
  },
  {
@@ -3205,12 +3242,15 @@
    "Keihärinkoski",
    "Huopanankoski"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   63.01562,
+   25.50459
+  ],
   "kohde_sijainti": [
    63.09275,
    25.51265
   ],
-  "lahto_kunta": "Viitasaari",
+  "lahto_kunta": "Kannonkoski",
   "kohde_kunta": "Viitasaari",
   "alue": [
    63.11291,
@@ -3219,8 +3259,8 @@
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 245,
-   "min": 214
+   "km": 266,
+   "min": 223
   }
  },
  {
@@ -3287,7 +3327,10 @@
    62.35192,
    26.3958
   ],
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   62.43512,
+   26.24195
+  ],
   "lahto_kunta": "Hankasalmi",
   "kohde_kunta": null,
   "alue": [
@@ -3405,10 +3448,16 @@
   ],
   "joet": [],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   61.24114,
+   25.88223
+  ],
   "lahto_kunta": null,
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   61.24114,
+   25.88223
+  ],
   "vesi": null,
   "lisatiedot": [
    {
@@ -3416,7 +3465,11 @@
     "lahde": "Visit Päijänne: Attractions in Asikkala and Vääksy",
     "url": "https://visitpaijanne.fi/wp-content/uploads/2017/11/Attractions-in-Asikkala-and-V%C3%A4%C3%A4ksy.pdf"
    }
-  ]
+  ],
+  "ajo": {
+   "km": 505,
+   "min": 418
+  }
  },
  {
   "tunniste": "vetta-pitkin-pohjanlahteen",
@@ -3475,7 +3528,10 @@
   "joet": [
    "Hiisijoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   64.38992,
+   28.48861
+  ],
   "kohde_sijainti": null,
   "lahto_kunta": "Ristijärvi",
   "kohde_kunta": null,
@@ -3549,12 +3605,15 @@
   "joet": [
    "Iijoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   65.38338,
+   26.90336
+  ],
   "kohde_sijainti": [
    65.38338,
    26.90336
   ],
-  "lahto_kunta": null,
+  "lahto_kunta": "Pudasjärvi",
   "kohde_kunta": "Pudasjärvi",
   "alue": [
    65.37941,
@@ -3567,8 +3626,8 @@
    "Kipinä (Iijoki)"
   ],
   "ajo": {
-   "km": 94,
-   "min": 89
+   "km": 96,
+   "min": 86
   }
  },
  {
@@ -3626,12 +3685,9 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Sodankylä",
+  "lahto_kunta": null,
   "kohde_kunta": null,
-  "alue": [
-   67.28341,
-   26.73086
-  ],
+  "alue": null,
   "vesi": null,
   "lisatiedot": [
    {
@@ -3639,11 +3695,7 @@
     "lahde": "Wikipedia: Kitinen",
     "url": "https://en.wikipedia.org/wiki/Kitinen"
    }
-  ],
-  "ajo": {
-   "km": 342,
-   "min": 294
-  }
+  ]
  },
  {
   "tunniste": "vastavirtaan-sivujoelle",
@@ -3807,12 +3859,22 @@
   ],
   "joet": [],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
-  "lahto_kunta": null,
-  "kohde_kunta": null,
-  "alue": null,
+  "kohde_sijainti": [
+   67.82105,
+   24.84891
+  ],
+  "lahto_kunta": "Kittilä",
+  "kohde_kunta": "Kittilä",
+  "alue": [
+   67.82105,
+   24.84891
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 393,
+   "min": 333
+  }
  },
  {
   "tunniste": "ounasjoen-alimpia-sivujokia",
@@ -4026,13 +4088,23 @@
    "Edellisen vesireitin ylempi osuus Kalliojärven, Kielijärven, Venejärven ja Pirttijärven sekä niitä yhdistävien jokien kautta Köyryjärvelle. Kieliköngäs syytä tarkastaa maitse etukäteen. Tälle reitille voi lähteä myös ylempää, esim. Enijärveltä (n. 208 mpy.)."
   ],
   "joet": [],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   66.68657,
+   26.71115
+  ],
   "kohde_sijainti": null,
-  "lahto_kunta": null,
+  "lahto_kunta": "Kemijärvi",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   66.68657,
+   26.71115
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 273,
+   "min": 231
+  }
  },
  {
   "tunniste": "ensimmainen-syksyinen-tuntuma",
@@ -4097,7 +4169,10 @@
    67.38786,
    29.34653
   ],
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   67.09862,
+   29.16038
+  ],
   "lahto_kunta": "Salla",
   "kohde_kunta": null,
   "alue": [
@@ -4135,7 +4210,10 @@
    "Savinajoki",
    "Oulankajoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   66.51595,
+   29.04378
+  ],
   "kohde_sijainti": [
    66.4097,
    29.18742
@@ -4160,8 +4238,8 @@
    }
   ],
   "ajo": {
-   "km": 293,
-   "min": 261
+   "km": 286,
+   "min": 253
   }
  },
  {
@@ -4232,10 +4310,16 @@
   "joet": [
    "Kuusinkijoki"
   ],
-  "lahto_sijainti": null,
-  "kohde_sijainti": null,
-  "lahto_kunta": null,
-  "kohde_kunta": null,
+  "lahto_sijainti": [
+   66.2607,
+   29.4179
+  ],
+  "kohde_sijainti": [
+   66.21444,
+   29.67964
+  ],
+  "lahto_kunta": "Kuusamo",
+  "kohde_kunta": "Kuusamo",
   "alue": [
    66.22285,
    29.63686
@@ -4249,8 +4333,8 @@
    }
   ],
   "ajo": {
-   "km": 276,
-   "min": 292
+   "km": 264,
+   "min": 274
   }
  },
  {
@@ -4270,7 +4354,10 @@
   "joet": [
    "Poussunjoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   65.82246,
+   29.34835
+  ],
   "kohde_sijainti": [
    65.78495,
    29.36493
@@ -4278,14 +4365,14 @@
   "lahto_kunta": "Kuusamo",
   "kohde_kunta": "Kuusamo",
   "alue": [
-   65.78495,
-   29.36493
+   65.82246,
+   29.34835
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 236,
-   "min": 214
+   "km": 235,
+   "min": 216
   }
  },
  {
@@ -4438,7 +4525,10 @@
   "joet": [
    "Tuntsajoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   67.56356,
+   29.79036
+  ],
   "kohde_sijainti": null,
   "lahto_kunta": "Salla",
   "kohde_kunta": null,
@@ -4471,10 +4561,16 @@
    "Auermajoki",
    "Ylänaruskanjoki"
   ],
-  "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "lahto_sijainti": [
+   67.46938,
+   29.50667
+  ],
+  "kohde_sijainti": [
+   67.44676,
+   29.41233
+  ],
   "lahto_kunta": "Salla",
-  "kohde_kunta": null,
+  "kohde_kunta": "Salla",
   "alue": [
    67.46938,
    29.50667
@@ -4542,7 +4638,10 @@
    "Sotajoki",
    "Nuortijoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   67.77547,
+   29.04288
+  ],
   "kohde_sijainti": null,
   "lahto_kunta": "Savukoski",
   "kohde_kunta": null,
@@ -4601,24 +4700,17 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Inari",
+  "lahto_kunta": null,
   "kohde_kunta": null,
-  "alue": [
-   68.88468,
-   26.91933
-  ],
-  "vesi": "SYKE 10.9.2020: Juutuanjoki 56 m³/s (vuorokausiarvo)",
+  "alue": null,
+  "vesi": null,
   "lisatiedot": [
    {
     "teksti": "Juutuanjoki virtaa Solojärvestä Inarijärveen. Jäniskoskella on riippusilta ja joen pohjoispuolella laavu; Juutuan reitti (6,3 km) kulkee Siidasta joen vartta Jäniskoskelle.",
     "lahde": "Metsähallitus: Inarin retkireitit",
     "url": "https://julkaisut.metsa.fi/wp-content/uploads/sites/2/2024/12/inarinretkireititfineng.pdf"
    }
-  ],
-  "ajo": {
-   "km": 554,
-   "min": 467
-  }
+  ]
  },
  {
   "tunniste": "tenojoen-sivujoelta-tenolle",
@@ -4638,7 +4730,10 @@
    "Utsjoki",
    "Tenojoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   69.90216,
+   27.01957
+  ],
   "kohde_sijainti": null,
   "lahto_kunta": "Utsjoki",
   "kohde_kunta": null,
@@ -4843,9 +4938,12 @@
    "Kilpisjärvi"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   69.01655,
+   20.87321
+  ],
   "lahto_kunta": "Enontekiö",
-  "kohde_kunta": null,
+  "kohde_kunta": "Enontekiö",
   "alue": [
    69.01655,
    20.87321
@@ -4942,16 +5040,13 @@
   "joet": [
    "Simojoki"
   ],
-  "lahto_sijainti": [
-   60.71677,
-   24.3436
-  ],
+  "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Loppi",
+  "lahto_kunta": "Simo",
   "kohde_kunta": null,
   "alue": [
-   60.71677,
-   24.3436
+   65.74494,
+   25.25967
   ],
   "vesi": null,
   "lisatiedot": [],
@@ -4960,8 +5055,8 @@
    "Simojoki"
   ],
   "ajo": {
-   "km": 596,
-   "min": 489
+   "km": 92,
+   "min": 82
   }
  },
  {
@@ -4982,10 +5077,16 @@
    "Silamusjoki",
    "Hiitolanjoki"
   ],
-  "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "lahto_sijainti": [
+   61.42652,
+   29.33052
+  ],
+  "kohde_sijainti": [
+   61.41224,
+   29.40063
+  ],
   "lahto_kunta": "Rautjärvi",
-  "kohde_kunta": null,
+  "kohde_kunta": "Rautjärvi",
   "alue": [
    61.42652,
    29.33052
@@ -5022,18 +5123,11 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Mikkeli",
+  "lahto_kunta": "Juva",
   "kohde_kunta": null,
-  "alue": [
-   61.86837,
-   27.11154
-  ],
+  "alue": null,
   "vesi": null,
-  "lisatiedot": [],
-  "ajo": {
-   "km": 444,
-   "min": 385
-  }
+  "lisatiedot": []
  },
  {
   "tunniste": "iso-punsa-kortejarvi",
@@ -5054,9 +5148,12 @@
    "Kortejoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   62.90763,
+   24.46654
+  ],
   "lahto_kunta": "Karstula",
-  "kohde_kunta": null,
+  "kohde_kunta": "Karstula",
   "alue": [
    62.90763,
    24.46654
@@ -5085,7 +5182,10 @@
   "joet": [
    "Koutajoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   63.14312,
+   26.31211
+  ],
   "kohde_sijainti": null,
   "lahto_kunta": "Keitele",
   "kohde_kunta": null,
@@ -5096,8 +5196,8 @@
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 283,
-   "min": 239
+   "km": 267,
+   "min": 228
   }
  },
  {
@@ -5117,10 +5217,16 @@
   "joet": [
    "Taipaleenjoki"
   ],
-  "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "lahto_sijainti": [
+   62.63772,
+   29.22502
+  ],
+  "kohde_sijainti": [
+   62.61371,
+   29.24682
+  ],
   "lahto_kunta": "Liperi",
-  "kohde_kunta": null,
+  "kohde_kunta": "Liperi",
   "alue": [
    62.61735,
    29.20655
@@ -5128,8 +5234,8 @@
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 377,
-   "min": 329
+   "km": 372,
+   "min": 319
   }
  },
  {
@@ -5152,18 +5258,11 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Suomussalmi",
+  "lahto_kunta": "Leppävirta",
   "kohde_kunta": null,
-  "alue": [
-   64.84416,
-   29.30591
-  ],
+  "alue": null,
   "vesi": null,
-  "lisatiedot": [],
-  "ajo": {
-   "km": 237,
-   "min": 220
-  }
+  "lisatiedot": []
  },
  {
   "tunniste": "pieni-miehalanjarvi-unnukka",
@@ -5184,9 +5283,12 @@
    "Rapujoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   62.37046,
+   28.0634
+  ],
   "lahto_kunta": "Leppävirta",
-  "kohde_kunta": null,
+  "kohde_kunta": "Leppävirta",
   "alue": [
    62.37029,
    28.07311
@@ -5215,7 +5317,10 @@
   "joet": [
    "Isojoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   62.07956,
+   27.45262
+  ],
   "kohde_sijainti": null,
   "lahto_kunta": "Pieksämäki",
   "kohde_kunta": null,
@@ -5281,9 +5386,12 @@
    "Vuottojoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   64.11923,
+   27.23667
+  ],
   "lahto_kunta": "Kajaani",
-  "kohde_kunta": null,
+  "kohde_kunta": "Kajaani",
   "alue": [
    64.05806,
    27.21755
@@ -5312,7 +5420,10 @@
   "joet": [
    "Jormasjoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   64.12906,
+   28.08689
+  ],
   "kohde_sijainti": null,
   "lahto_kunta": "Sotkamo",
   "kohde_kunta": null,
@@ -5345,9 +5456,12 @@
    "Tuhkajoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   64.0582,
+   28.13935
+  ],
   "lahto_kunta": "Sotkamo",
-  "kohde_kunta": null,
+  "kohde_kunta": "Sotkamo",
   "alue": [
    64.04392,
    28.10886
@@ -5378,18 +5492,21 @@
    "Välijoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
-  "lahto_kunta": "Lieksa",
-  "kohde_kunta": null,
+  "kohde_sijainti": [
+   63.84514,
+   27.93392
+  ],
+  "lahto_kunta": "Sotkamo",
+  "kohde_kunta": "Sotkamo",
   "alue": [
-   63.21169,
-   30.94704
+   63.84514,
+   27.93392
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 388,
-   "min": 349
+   "km": 239,
+   "min": 234
   }
  },
  {
@@ -5441,10 +5558,16 @@
   "joet": [
    "Koitajoki"
   ],
-  "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "lahto_sijainti": [
+   62.79756,
+   30.9575
+  ],
+  "kohde_sijainti": [
+   62.60468,
+   31.19457
+  ],
   "lahto_kunta": "Ilomantsi",
-  "kohde_kunta": null,
+  "kohde_kunta": "Ilomantsi",
   "alue": [
    62.79756,
    30.9575
@@ -5516,9 +5639,12 @@
    "Puntinjoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   63.29047,
+   28.41473
+  ],
   "lahto_kunta": "Kuopio",
-  "kohde_kunta": null,
+  "kohde_kunta": "Kuopio",
   "alue": [
    63.26982,
    28.38372
@@ -5623,13 +5749,16 @@
   "joet": [
    "Ylä-Oulankajoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   66.51328,
+   28.77279
+  ],
   "kohde_sijainti": null,
   "lahto_kunta": "Salla",
   "kohde_kunta": null,
   "alue": [
-   66.4555,
-   28.9798
+   66.51328,
+   28.77279
   ],
   "vesi": null,
   "lisatiedot": [
@@ -5640,8 +5769,8 @@
    }
   ],
   "ajo": {
-   "km": 278,
-   "min": 247
+   "km": 303,
+   "min": 272
   }
  },
  {
@@ -5710,14 +5839,14 @@
    28.98204
   ],
   "kohde_sijainti": [
-   67.01383,
-   29.01142
+   67.08947,
+   28.82138
   ],
   "lahto_kunta": "Salla",
   "kohde_kunta": "Salla",
   "alue": [
-   67.09862,
-   29.16038
+   67.1061,
+   28.98204
   ],
   "vesi": null,
   "lisatiedot": [],
@@ -5776,22 +5905,19 @@
    "Rommakkojoki",
    "Lappajoki"
   ],
-  "lahto_sijainti": [
-   61.2302,
-   25.02903
-  ],
+  "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Hämeenlinna",
+  "lahto_kunta": "Sotkamo",
   "kohde_kunta": null,
   "alue": [
-   61.2302,
-   25.02903
+   64.04445,
+   28.31687
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 489,
-   "min": 410
+   "km": 204,
+   "min": 189
   }
  },
  {
@@ -5923,25 +6049,22 @@
    "Höytiäisestä Pyhäselkään laskeva Höytiäisen kanava on melottavissa Puntarikosken voimalaitoksen alapuolelta. Reitti on tasaista vedenpintaa ihmisen rakentamassa kanavassa. Pyhäselän rannassa laajt kaislikot ja matalikot."
   ],
   "joet": [],
-  "lahto_sijainti": [
-   62.67982,
-   29.66046
-  ],
+  "lahto_sijainti": null,
   "kohde_sijainti": [
    62.61292,
    29.69668
   ],
-  "lahto_kunta": "Kontiolahti",
+  "lahto_kunta": "Joensuu",
   "kohde_kunta": "Joensuu",
   "alue": [
-   62.67982,
-   29.66046
+   62.61292,
+   29.69668
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 396,
-   "min": 341
+   "km": 399,
+   "min": 344
   }
  },
  {
@@ -5959,12 +6082,15 @@
    "Jongunjoen sivujoki Suolajoki on vaikeakulkuinen joki. Reitillä on runsaasti kaatuneita puita ja muitakin majavan tekemiä esteitä. Jongunjoen osuus on selkeä ja ilman etukäteistutustumista melottavissa oleva reititetty joki."
   ],
   "joet": [],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   63.80648,
+   29.71619
+  ],
   "kohde_sijainti": [
    63.69332,
    29.91528
   ],
-  "lahto_kunta": "Lieksa",
+  "lahto_kunta": "Kuhmo",
   "kohde_kunta": "Lieksa",
   "alue": [
    63.69332,
@@ -5979,8 +6105,8 @@
    }
   ],
   "ajo": {
-   "km": 315,
-   "min": 293
+   "km": 310,
+   "min": 299
   }
  },
  {
@@ -5998,13 +6124,19 @@
    "Ala-Koitajoki on kivinen jokireitti myös kevään korkean veden aikana. Matkalla tulee jatkuvasti pohjakosketuksia. Pamilonkoski on mukava koskiränni kapeikossa."
   ],
   "joet": [],
-  "lahto_sijainti": null,
-  "kohde_sijainti": null,
-  "lahto_kunta": "Joensuu",
-  "kohde_kunta": null,
+  "lahto_sijainti": [
+   62.8495,
+   30.49663
+  ],
+  "kohde_sijainti": [
+   62.85633,
+   30.42152
+  ],
+  "lahto_kunta": "Ilomantsi",
+  "kohde_kunta": "Joensuu",
   "alue": [
-   62.85363,
-   30.40756
+   62.8495,
+   30.49663
   ],
   "vesi": null,
   "lisatiedot": [
@@ -6015,8 +6147,8 @@
    }
   ],
   "ajo": {
-   "km": 391,
-   "min": 340
+   "km": 397,
+   "min": 351
   }
  },
  {
@@ -6034,7 +6166,10 @@
    "Ennallistetun Ämmänkosken pystyy laskemaan myös kajakilla."
   ],
   "joet": [],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   62.31241,
+   27.89823
+  ],
   "kohde_sijainti": null,
   "lahto_kunta": "Varkaus",
   "kohde_kunta": null,
@@ -6140,15 +6275,8 @@
   "kohde_sijainti": null,
   "lahto_kunta": "Siikajoki",
   "kohde_kunta": null,
-  "alue": [
-   64.71169,
-   24.97837
-  ],
+  "alue": null,
   "vesi": null,
-  "lisatiedot": [],
-  "ajo": {
-   "km": 53,
-   "min": 52
-  }
+  "lisatiedot": []
  }
 ]

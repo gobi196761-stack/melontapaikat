@@ -225,10 +225,23 @@ LISATIEDOT: dict[str, list[tuple[str, str, str]]] = {
 }
 
 
+# Käsin tarkistetut korjaukset paikannukseen: reitin nimi -> kentät. None poistaa väärän
+# osuman (parempi ei sijaintia kuin väärä).
+KORJAUKSET: dict[str, dict] = {
+    "Heinälampi - Kallavesi": {"lahto": None, "kohde": None, "keskus": None},        # osui Joensuuhun
+    "Sammakkolampi – Pielinen": {"lahto": None, "kohde": None, "keskus": None},      # osui Kajaaniin
+    "Vastavirtaan sivujoelle": {"lahto": None, "kohde": None, "keskus": None},       # osui Kittilään
+    "Ruunaalla": {"lahto": {"lat": 63.43411, "lon": 30.4042, "city": "Lieksa"},       # Matkalahdentie
+                  "keskus": {"lat": 63.3903, "lon": 30.45, "city": "Lieksa"}},
+}
+
+
 # ---------------------------------------------------------------------------
 # 1. Jäsennys
 
-KENTTA = re.compile(r'^(Lähtö ja kohde|Lähtö|Kohde|Korkeuserot?|Matka|Aika)\s*:?\s*(.*)$')
+# Kentän nimen perässä kaksoispiste tai luku ("Aika 21.5.2010"); "Matkaa voi jatkaa…" on tekstiä.
+KENTTA = re.compile(r'^(Lähtö ja kohde|Lähtö|Kohde|Korkeuserot?|Matka|Aika)'
+                    r'(?:\s*:\s*|\s+(?=\d|n\.|noin|alle|edestakaisin|muutam))(.*)$')
 AVAIN = {"Lähtö ja kohde": "lahto", "Lähtö": "lahto", "Kohde": "kohde", "Korkeusero": "korkeusero",
          "Korkeuserot": "korkeusero", "Matka": "matka", "Aika": "aika"}
 
@@ -525,7 +538,7 @@ def main(docx: str, hakemisto: str) -> None:
     out = []
     for r in reitit:
         r["jokilista"] = jokilista(r)
-        sij = paikanna(r, valimuisti)
+        sij = {**paikanna(r, valimuisti), **KORJAUKSET.get(r["nimi"], {})}
         keskus = (sij["keskus"]["lat"], sij["keskus"]["lon"]) if sij["keskus"] else None
         k = r["kentat"]
         kohde = {
