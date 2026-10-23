@@ -67,7 +67,8 @@ def test_sivu(palvelin):
     assert runko.index("Matkakoski") < runko.index("Kipinä (Iijoki)") < runko.index("Niskakoski")
     assert "Oikean silta-aukon surffiaalto" in runko
     # alussa merkintöjen ja kuvakkeiden selitykset (Kipinän veden lämpötila -laatikko poistettu)
-    assert '<details class="selitykset" open><summary>Merkinnät ja kuvakkeet</summary>' in runko
+    assert '<details class="selitykset"><summary>Merkinnät ja kuvakkeet</summary>' in runko   # suljettu oletuksena
+    assert 'id="haku"' in runko
     assert runko.index('class="selitykset"') < runko.index("<nav>") < runko.index("<table")   # kategorioiden yläpuolella
     assert "Veden lämpötila" not in runko and "OpenStreetMap" not in runko
     assert "<b>★</b> parhaimmillaan" in runko and "river runner -kajakki" in runko.split("<table")[0]
@@ -834,3 +835,18 @@ def test_etusivun_nimet_linkittavat_paikkasivuille(palvelin):
     assert '<a href="/paikka/kipina-iijoki">Kipinä (Iijoki)</a>' in runko
     linkit = set(re.findall(r'href="(/paikka/[a-z0-9-]+)"', runko))
     assert linkit <= {f"/paikka/{t}" for t in app.PAIKKASIVUT}
+
+
+def test_skriptien_syntaksi(tmp_path):
+    """Sivun JavaScript jäsentyy (esim. kaksi samannimistä const-muuttujaa kaataisi koko skriptin)."""
+    import muut_kohteet
+    import subprocess
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node puuttuu")
+    skriptit = [app.SKRIPTI, muut_kohteet.luettelo("").split("<script>")[1].split("</script>")[0]]
+    for i, s in enumerate(skriptit):
+        tiedosto = tmp_path / f"s{i}.js"
+        tiedosto.write_text(s, encoding="utf-8")
+        tulos = subprocess.run([node, "--check", str(tiedosto)], capture_output=True, text=True)
+        assert tulos.returncode == 0, tulos.stderr

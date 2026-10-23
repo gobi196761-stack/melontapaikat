@@ -52,3 +52,8 @@ def test_ei_henkilokohtaisia_tapaturmia():
         assert sana not in teksti, sana
     kauhava = next(k for k in muut_kohteet.KOHTEET if k["nimi"].startswith("Kauhavajoella"))
     assert kauhava["kuvaus"] == ["Lyhyt pätkä Kauhavajoen vauhdikkailla koskilla."]
+
+
+def test_haku_luettelossa():
+    runko = pyynto("/muut")[2]
+    assert 'id="haku"' in runko and 'data-haku="Kajakilla kahden Kuusamon kylän väliä Kitkajoki' in runko

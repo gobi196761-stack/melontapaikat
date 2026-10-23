@@ -397,6 +397,10 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
                      font-size:.9rem; width:11em; background:var(--tausta); color:var(--teksti); }
 .reitti { white-space:nowrap; }
 .saa { color:var(--heikko); }
+.haku { display:flex; align-items:center; gap:6px; margin:0 0 12px; color:var(--heikko); }
+.haku input { flex:1; max-width:22em; padding:6px 12px; border:1px solid var(--viiva); border-radius:999px; font:inherit;
+              background:var(--tausta); color:var(--teksti); }
+li[hidden] { display:none; }
 .takaisin { display:inline-block; margin-bottom:10px; font-size:.9rem; }
 .kuvaus h2 { font-size:1.1rem; margin:22px 0 6px; }
 .kuvaus p { margin:6px 0; }
@@ -480,12 +484,20 @@ SKRIPTI = """
       nappi.textContent = on ? "♥" : "♡";
       nappi.setAttribute("aria-pressed", on);
       nappi.title = on ? T.poista : T.lisaa;
-      r.hidden = vainSuosikit && !on;
+      r.hidden = (vainSuosikit && !on) || !osuu(r.dataset.paikka);
       if (!r.hidden) r.querySelector(".sija").textContent = ++n + ".";
     }
     const ohje = document.getElementById("ei-suosikkeja");
     if (ohje) ohje.hidden = !(vainSuosikit && n === 0);
+    document.querySelectorAll("li[data-haku]").forEach(li => li.hidden = !osuu(li.dataset.haku));
   }
+  // Haku: paikan nimen osa, isoilla ja pienillä kirjaimilla ei väliä
+  const hakukentta = document.getElementById("haku");
+  function osuu(teksti) {
+    const q = hakukentta ? hakukentta.value.trim().toLowerCase() : "";
+    return !q || teksti.toLowerCase().includes(q);
+  }
+  if (hakukentta) hakukentta.addEventListener("input", () => paivita());
   for (const r of rivit) {
     r.querySelector(".suosikki").addEventListener("click", () => {
       const nimi = r.dataset.paikka;
@@ -830,7 +842,7 @@ def _selitykset(kieli: str) -> str:
     merkit = "".join(f"<li><b>{e(m)}</b> {e(t)}</li>" for m, t in SELITYKSET[kieli])
     kajakit = "".join(f'<li>{_kajakki_svg(tyyppi, k_, selite=True)} {e(k_(KAJAKKI_KUVAKKEET[tyyppi][0]))}</li>'
                       for tyyppi in KAJAKKI_KUVAKKEET)
-    return (f'<details class="selitykset" open><summary>{e(k_("Merkinnät ja kuvakkeet"))}</summary>'
+    return (f'<details class="selitykset"><summary>{e(k_("Merkinnät ja kuvakkeet"))}</summary>'
             f'<ul class="pieni">{merkit}{kajakit}</ul><p class="pieni">{SELITE[kieli]}</p></details>')
 # Kielen vaihto: Ison-Britannian lippu englanniksi, Suomen lippu takaisin suomeksi
 LIPUT = {
@@ -1073,7 +1085,8 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     ilman_html = ""
     if ilman:
         ilman_html = (f"<h2>{k_('Ei vesikaaviota – tarkista itse')}</h2><ul>" + "".join(
-            f'<li><a href="{e(paikan_osoite(t.paikka))}">{e(t.paikka.nimi)}</a>: {e(t.paikka.kuvaus)}</li>'
+            f'<li data-haku="{e(t.paikka.nimi)}"><a href="{e(paikan_osoite(t.paikka))}">{e(t.paikka.nimi)}</a>: '
+            f'{e(t.paikka.kuvaus)}</li>'
             for t in ilman) + "</ul>")
     varoitukset = ""
     if tilanne.varoitukset:
@@ -1104,6 +1117,8 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
 placeholder="{k_("esim. Rovaniemi")}"></label>
 <label class="paikkakunta">{k_("lähtöaika")} <input id="lahtoaika" type="datetime-local" step="900" data-paivia="{LAHTO_PAIVIA}"></label></nav>
+<label class="haku">🔍 <input id="haku" type="search" autocomplete="off" placeholder="{k_("Hae paikkaa…")}"
+aria-label="{k_("Hae paikkaa…")}"></label>
 <datalist id="kunnat">{KUNTALISTA}</datalist>
 <script type="application/json" id="paikkakunnat">{KUNNAT_JSON}</script>
 <p id="sijainti-tila" class="pieni" hidden></p>
