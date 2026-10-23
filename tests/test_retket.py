@@ -16,3 +16,11 @@ def test_ei_henkilo_eika_ryhmakohtaisia_tietoja():
     for sana in ("Hakoranta", "Tulikankaantie", "516", "booking", "pizzeria", "omakustan", "13.5", "jumiin",
                  "sovitaan"):
         assert sana.lower() not in sivu.lower(), sana
+
+
+def test_siiponjoki_ilman_henkilotietoja():
+    status, _, sivu = pyynto("/paikka/siiponjoki-kalajoki")
+    assert status == "200 OK" and "Pleunantie 379" in sivu and "Konikarvontie 204" in sivu
+    assert "64.210165" in sivu                      # Siiponkylän silta kartalla
+    for sana in ("Laura", "vetäjä", "Liity ryhmään", "ryhmän jäsenistä", "2026"):
+        assert sana not in sivu, sana

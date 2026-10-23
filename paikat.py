@@ -151,6 +151,7 @@ SIJAINNIT: dict[str, tuple[float, float]] = {
     "Tervajoki (Vaala)": (64.7143, 27.2268),   # reitin alku Pienanjärven luusuassa (Vääräkoskentie)
     "Kuusinkijoki": (66.1555, 29.5645),   # lähtö Myllykosken voimalaitoksen alapuolella (Vuotunki)
     "Savinajoki": (66.5181, 29.0852),     # lähtö Niitselyksentien varrella Sallan puolella
+    "Siiponjoki (Kalajoki)": (64.18771, 23.80112),   # Pleunan laavu, lähtö Pleunantien pysäköintialueelta
     "Oulujoki": (65.0005, 25.5643),
     "Oulun edustan saaret": (65.0227, 25.4240),
 }
@@ -681,6 +682,14 @@ PAIKAT: tuple[Paikka, ...] = (
                        "selvästi enemmän vettä (yläpuolinen järvi suli myöhemmin); kesällä vähävetinen",
                   lahde="arvio", kajakit=("riverrunner",)),
         ),
+    ),
+    Paikka(
+        "Siiponjoki (Kalajoki)",
+        "https://www.visitfinland.com/en/product/404c43ec-b55e-478f-9194-0b7e42248438/siiponjoki-nature-trail/",
+        "retki", 150,
+        "Kalajoen eteläpuolinen, pääosin luonnontilainen pieni joki (n. 40 km): koskipaikkoja, kaatuneita puita "
+        "ja hiekkatörmiä, matalalla vedellä kantoja. Pleunan laavu – Siiponkylän silta n. 7 km. Joella ei ole "
+        "SYKE:n ennusteasemaa.",
     ),
     Paikka(
         "Oulujoki", "https://www.osm.fi/oulujoki/", "retki", 0,

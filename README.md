@@ -291,6 +291,7 @@ täydennetty ruotsalaisesta Forsguidenista (forsguiden.com, Wayback-arkisto 2004
 | **Kuusinkijoki** (Kuusamo, Myllykoski – Koivumutka 17 km) | Myllykosken laskennallinen virtaama (q7300350y, lisäkaavio; asemalla ei havaintoja – kaaviokuvaa ei saada luettua, joten luvut ajo.jsonista) | > 25 m³/s | 40–60 m³/s | melojien havainnot: 25.5.2024 n. 50 m³/s isot aallot ja stopparit, 18.5.2025 28 m³/s kosket matalia mutta Hanhivirta ja Paljakat vielä hyviä; MHQ 42,3 m³/s. Vain korkealla vedellä ja muovikajakilla |
 | **Savinajoki** (Salla–Kuusamo, Niitselyksentie – Savilampi 15,5 km) | Oulankajoen virtaama alavirrassa (q7300100y, lisäkaavio; Savinajoella ei omaa asemaa) | > 60 m³/s (arvio) | 90–140 m³/s (arvio) | 26.5.2024 Oulankajoki 99 m³/s melottu, 18.5.2025 135 m³/s "huomattavasti isompi vesi"; kesällä vähävetinen ja kivinen |
 | **Oulujoki, Oulun edustan saaret** | – | | | ei kaaviota (meri: tuuli ratkaisee) |
+| **Siiponjoki** (Kalajoki, Pleunan laavu – Siiponkylän silta 7 km / Konikarvo 15 km) | – | | | ei ennusteasemaa (Kurikkalassa vain havaintoasema 5300810 ilman kaaviota) |
 
 ### Ruotsi (oma välilehti `?tyyppi=ruotsi`)
 

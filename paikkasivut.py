@@ -980,6 +980,30 @@ KUVAUKSET: dict[str, Kuvaus] = {
          ("SYKE: Oulankajoen virtaama", "https://wwwi2.ymparisto.fi/i2/73/q7300100y/wqfi.html")),
     ),
     # ------------------------------------------------------------------
+    "Siiponjoki (Kalajoki)": Kuvaus(
+        "Siiponjoki on Kalajoen eteläpuolella virtaava, pääosin luonnontilainen pieni joki, noin 40 km pitkä. "
+        "Joessa on koskipaikkoja, kaatuneita puita ja hiekkatörmiä. Joki meanderoi eli mutkittelee uomaansa "
+        "muuttaen, ja matalan veden aikaan kajakkia voi joutua kantamaan tai hinaamaan matalilla osuuksilla; "
+        "myös kivisyyden vuoksi hankalia paikkoja löytyy. Rakennettuja taukopaikkoja on ilmeisesti vain yksi, "
+        "Pleunan laavu.",
+        (
+            ("Vaativuus",
+             "Keskivaativa: koskipaikat voi kiertää, mutta reitti voi osoittautua muuten vaikeakulkuiseksi, ja "
+             "maihin joutuu nousemaan useita kertoja. Kyseessä ei ole helppo ja sujuva reitti – mukaan kannattaa "
+             "varata reipasta retkimieltä ja ripaus seikkailuhenkeä."),
+            ("Kalusto",
+             "Koskikajakki tai jokiretkikajakki (tai muovinen merikajakki). Päiväretken tarpeet (eväät, "
+             "vaihtovaatteet) kannattaa mahduttaa kajakkiin. Päähän melontakypärä."),
+            ("Ympäristö",
+             "Joen vartta kulkee noin 20 km:n Siiponjoen luontopolku mäntymetsissä; joen rannalla on kota ja "
+             "kaksi laavua (Visit Finland). Pleunan laavun lähellä kasvaa alueen vanhin puu, 'ikimänty'."),
+            ("Vesitilanne",
+             "Siiponjoella ei ole SYKE:n ennusteasemaa (Kurikkalassa on vain havaintoasema ilman ennustetta), "
+             "joten sovellus ei pisteytä jokea. Matalalla vedellä kantoja on enemmän."),
+        ),
+        (("Melontaretken kuvaus: Siiponjoki (reittiehdotus ja kalusto)", None), ("Visit Finland: Siiponjoen luontopolku", "https://www.visitfinland.com/en/product/404c43ec-b55e-478f-9194-0b7e42248438/siiponjoki-nature-trail/")),
+    ),
+    # ------------------------------------------------------------------
     "Oulujoki": Kuvaus(
         "Oulujoki on Oulujärven laskujoki, joka laskee Perämereen Oulussa. Se on Pohjois-Pohjanmaan ja Kainuun "
         "pääjoki, ja suurin osa Kainuusta kuuluu sen valuma-alueeseen. Joki on säännöstelty ja melottavissa "
@@ -1129,6 +1153,15 @@ LAHTO_LOPPU: dict[str, tuple[tuple[str, str, tuple[float, float] | None], ...]] 
                   "alussa jyrkkä nousu, sitten harvaa mäntymetsää ja kanervikkoa – liina vetämiseen on hyvä "
                   "olla mukana.", (66.4319, 29.15647)),
         ("Pysäköinti", "Savilammen pysäköintialue.", (66.44226, 29.16207)),
+    ),
+    "Siiponjoki (Kalajoki)": (
+        ("Lähtö", "Siiponjoen luontopolun pysäköintialue, Pleunantie 379, Kalajoki. Kalusto kannetaan reilut "
+                  "400 m rantaan Pleunan laavun tuntumaan; laavulla voi pitää evästauon ennen melontaa.",
+         (64.18771, 23.80112)),
+        ("Loppu", "Siiponkylän silta: retken pituus noin 7 km.", (64.210165, 23.772353)),
+        ("Vaihtoehto", "Konikarvon satama ja melontalaituri, Konikarvontie 204 (Rahja). Lopuksi melotaan lyhyt "
+                       "mutta melko suojaisa meriosuus rantaa pitkin satamaan: kokonaispituus vajaa 15 km "
+                       "(7 km Siiponkylän sillalle + 7,4 km sillalta Konikarvoon).", (64.21618, 23.68384)),
     ),
     "Oulujoki": (
         ("Lähtö ja loppu", "osm.fi ei määrittele Oulujoelle kiinteää lähtö- tai loppupaikkaa: joki on "
