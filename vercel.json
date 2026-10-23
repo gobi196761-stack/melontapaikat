@@ -2,7 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["arn1"],
   "crons": [{ "path": "/api/arkistoi", "schedule": "0 18 * * *" },
-            { "path": "/api/halyta", "schedule": "0 5 * * *" }],
+            { "path": "/api/halyta", "schedule": "0 5 * * *" },
+            { "path": "/api/kapsi?ajo=1", "schedule": "0 1 * * *" },
+            { "path": "/api/kapsi?ajo=2", "schedule": "0 9 * * *" },
+            { "path": "/api/kapsi?ajo=3", "schedule": "0 13 * * *" },
+            { "path": "/api/kapsi?ajo=4", "schedule": "0 21 * * *" }],
   "functions": {
     "app.py": {
       "maxDuration": 120,

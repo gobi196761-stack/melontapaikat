@@ -816,6 +816,7 @@ def test_halyta_kirjoittaa_yhteenvedon_lokiin(monkeypatch, capsys):
 
     monkeypatch.setenv("CRON_SECRET", "salainen")
     monkeypatch.setattr(app, "_cron_kanta", lambda environ: ("kanta", None))
+    monkeypatch.setattr(app.kapsi, "keraa", lambda kanta, nyt: {"mittauksia": 5, "uusia": 5})
     monkeypatch.setattr(app.halytykset, "avaimet", lambda kanta: ("julk", "yks"))
     monkeypatch.setattr(app, "hae_tilanne", lambda: app.Tilanne(paivitetty=dt.datetime(2026, 10, 23, 8, 0),
                                                                 tulokset=[], varoitukset=[], lukemia=1))
@@ -824,6 +825,7 @@ def test_halyta_kirjoittaa_yhteenvedon_lokiin(monkeypatch, capsys):
     status, _ = app.halyta({})
     loki = json.loads(capsys.readouterr().out.strip().removeprefix("halyta: "))
     assert status == "200 OK" and loki["tilauksia"] == 2 and loki["lahetetty"] == 1
+    assert loki["kapsi"] == {"mittauksia": 5, "uusia": 5}   # Maalismaan keruu mukana yhteenvedossa
 
 
 
