@@ -879,3 +879,22 @@ def test_nappien_lukumaarat(palvelin):
 def test_englanninkielisen_etusivun_linkit(palvelin):
     sivu = pyynto("/", "kieli=en")[2]
     assert '/paikka/kipina-iijoki?kieli=en"' in sivu
+
+
+def test_ikkuna_etusivulla(monkeypatch, tilanne):
+    turva = {"meri": 6.0, "maatuuli": {"ms": 6.0, "puuska": None, "suunta": 90, "aika": PAIVA.timestamp(),
+                                       "alkaa": PAIVA.timestamp()}}
+    monkeypatch.setattr(app, "hae_tilanne", lambda: app.Tilanne(**{**tilanne.__dict__, "turva": turva}))
+    fi = pyynto("/")[2]
+    assert 'id="turva" class="turva-tausta" hidden' in fi and "Ennen vesille lähtöä" in fi
+    assert "Kylmä vesi: kuivapuku on ainoa oikea ratkaisu" in fi and "itätuulta 6 m/s" in fi
+    assert 'class="turva-sulje" aria-label="Sulje">×</button>' in fi
+    en = pyynto("/", "kieli=en")[2]
+    assert "Before you go out on the water" in en and "Offshore wind on the Oulu coast" in en
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node puuttuu")
+    skripti = fi.split('<div id="turva"')[1].split("<script>")[1].split("</script>")[0]
+    import subprocess
+    tulos = subprocess.run([node, "--check", "-"], input=skripti, capture_output=True, text=True)
+    assert tulos.returncode == 0, tulos.stderr
