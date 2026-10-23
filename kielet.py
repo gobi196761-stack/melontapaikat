@@ -14,6 +14,7 @@ KIELET = ("fi", "en")
 
 # Kiinteät tekstit: suomi -> englanti
 SANAT = {
+    "Muut kohteet": "Other routes",
     # sivu
     "Melontatilanne": "Paddling conditions",
     "Melontapaikkojen tilanne": "Paddling spots",
