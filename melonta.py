@@ -69,9 +69,11 @@ def _lue_kaaviot(tehtavat: list[tuple[str, bytes]], prosessit: bool):
 
 
 def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hakemisto: bool = True,
-                  prosessit: bool | None = None, nyt: dt.datetime | None = None):
+                  prosessit: bool | None = None, nyt: dt.datetime | None = None, lisakaaviot: bool = True):
     """Hakee sivut ja kaaviot ja lukee kaaviot.
 
+    lisakaaviot=False: sivujen muita kuin pisteytykseen käytettyjä kaavioita ei ladata eikä lueta
+    (verkkosovellus ei näytä niitä; kuvien luku on laskennan raskain osa).
     prosessit=None: rinnakkaiset prosessit paitsi Vercelissä (VERCEL-ympäristömuuttuja).
     nyt: SMHI-havaintojen iän ja ennusteen alun laskentaan (oletus nyt).
     """
@@ -115,7 +117,7 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
     # 3. Kaikki tarvittavat kaaviot: pisteytykseen käytetyt + sivujen muut kaaviot
     tarvittavat: list[str] = []
     for p in paikat:
-        for k in [m.kaavio for m in p.mittarit.values() if not m.smhi] + sivun_kaaviot[p.url]:
+        for k in [m.kaavio for m in p.mittarit.values() if not m.smhi] + (sivun_kaaviot[p.url] if lisakaaviot else []):
             if k not in tarvittavat:
                 tarvittavat.append(k)
     with ThreadPoolExecutor(max_workers=16) as pool:
