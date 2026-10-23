@@ -69,6 +69,7 @@ def test_sivu(palvelin):
     # alussa merkintöjen ja kuvakkeiden selitykset (Kipinän veden lämpötila -laatikko poistettu)
     assert '<details class="selitykset"><summary>Merkinnät ja kuvakkeet</summary>' in runko   # suljettu oletuksena
     assert 'id="haku"' in runko
+    assert '<div class="lukumaara" id="lukumaara">3 paikkaa</div>' in runko   # Kipinä, Matkakoski, Niskakoski
     assert runko.index('class="selitykset"') < runko.index("<nav>") < runko.index("<table")   # kategorioiden yläpuolella
     assert "Veden lämpötila" not in runko and "OpenStreetMap" not in runko
     assert "<b>★</b> parhaimmillaan" in runko and "river runner -kajakki" in runko.split("<table")[0]

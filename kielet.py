@@ -16,6 +16,8 @@ KIELET = ("fi", "en")
 SANAT = {
     "Muut kohteet": "Other routes",
     "Hae paikkaa…": "Search spots…",
+    "paikkaa": "spots",
+    "paikka": "spot",
     "Hae kohdetta…": "Search routes…",
     # sivu
     "Melontatilanne": "Paddling conditions",

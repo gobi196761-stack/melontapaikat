@@ -56,4 +56,5 @@ def test_ei_henkilokohtaisia_tapaturmia():
 
 def test_haku_luettelossa():
     runko = pyynto("/muut")[2]
+    assert 'kohdetta</p>' in runko
     assert 'id="haku"' in runko and 'data-haku="Kajakilla kahden Kuusamon kylän väliä Kitkajoki' in runko
