@@ -365,6 +365,8 @@ nav > a, .surffi { padding:4px 10px; border:1px solid var(--viiva); border-radiu
 .surffi.ok { border-color:var(--hyva); }
 .surffi.ok, .surffi .ok { color:var(--hyva); font-weight:600; }
 nav a.valittu { background:var(--teksti); color:var(--tausta); border-color:var(--teksti); }
+nav .maara { font-size:.8em; opacity:.7; font-weight:400; }
+nav .maara:empty { display:none; }
 a { color:var(--linkki); }
 .lampo { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
 table { width:100%; border-collapse:collapse; }
@@ -497,6 +499,8 @@ SKRIPTI = """
     document.querySelectorAll("li[data-haku]").forEach(li => { li.hidden = !osuu(li.dataset.haku); if (!li.hidden) m++; });
     const ilman = document.getElementById("lukumaara-ilman");
     if (ilman) ilman.textContent = m + " " + (m === 1 ? T.paikka : T.paikkaa);
+    const suosikkimaara = document.getElementById("suosikkimaara");
+    if (suosikkimaara) suosikkimaara.textContent = suosikit.size;
   }
   // Haku: paikan nimen osa, isoilla ja pienillä kirjaimilla ei väliä
   const hakukentta = document.getElementById("haku");
@@ -1081,10 +1085,16 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     valittu = kysely.get("tyyppi", [""])[0]
     kieli = kielet.kieli(kysely)
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
+    def maara(arvo: str) -> str:
+        if arvo == "suosikit":   # suosikit ovat selaimessa: skripti täyttää määrän
+            return ' <span class="maara" id="suosikkimaara"></span>'
+        return f' <span class="maara">{sum(1 for p in PAIKAT if nakyy(p, arvo or None))}</span>'
     suodattimet = "".join(
-        f'<a href="{e(_osoite(tyyppi=arvo, kieli=kieli))}"{" class=valittu" if valittu == arvo else ""}>{k_(nimi)}</a>'
+        f'<a href="{e(_osoite(tyyppi=arvo, kieli=kieli))}"{" class=valittu" if valittu == arvo else ""}>'
+        f'{k_(nimi)}{maara(arvo)}</a>'
         for arvo, nimi in [("", "Kaikki"), ("peli", "Pelipaikat"), ("retki", "Retket"), ("ruotsi", "Ruotsi"),
-                           ("suosikit", "♥ Suosikit")]) + f'<a href="/muut">{k_("Muut kohteet")}</a>'
+                           ("suosikit", "♥ Suosikit")]) + (
+        f'<a href="/muut">{k_("Muut kohteet")} <span class="maara">{len(muut_kohteet.KOHTEET)}</span></a>')
     toinen = "fi" if kieli == "en" else "en"
     vaihto = (f'<a class="kieli" href="{e(_osoite(tyyppi=valittu, kieli=toinen))}" hreflang="{toinen}" '
               f'lang="{toinen}">{LIPUT[toinen]}{"Suomeksi" if toinen == "fi" else "In English"}</a>')

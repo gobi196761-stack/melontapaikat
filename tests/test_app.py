@@ -11,6 +11,7 @@ import pytest
 import app
 import kaavio_svg
 import melonta
+import muut_kohteet
 import osm_sivut as osm
 import syke_data
 import syke_kaavio
@@ -104,8 +105,8 @@ def test_ruotsi_omalla_valilehdella(palvelin):
         assert not nimet(tyyppi) & ruotsi
     assert "Vikaköngäs (Raudanjoki)" in nimet(None) and "Vikaköngäs (Raudanjoki)" in nimet("peli")
     runko = pyynto("/", "tyyppi=ruotsi")[2]
-    assert '<a href="/?tyyppi=ruotsi" class=valittu>Ruotsi</a>' in runko
-    assert runko.index(">Retket<") < runko.index(">Ruotsi<")
+    assert '<a href="/?tyyppi=ruotsi" class=valittu>Ruotsi <span class="maara">' in runko
+    assert runko.index(">Retket <") < runko.index(">Ruotsi <")
     assert "Veden lämpötila" not in runko   # Suomen aseman lämpötila ei kuulu Ruotsi-välilehdelle
 
 
@@ -343,7 +344,7 @@ def test_kaikilla_paikoilla_sijainti():
 
 def test_suosikit_ja_sijainti_sivulla(palvelin):
     runko = pyynto("/")[2]
-    assert '<a href="/?tyyppi=suosikit">♥ Suosikit</a>' in runko
+    assert '<a href="/?tyyppi=suosikit">♥ Suosikit <span class="maara" id="suosikkimaara"></span></a>' in runko
     assert 'data-paikka="Kipinä (Iijoki)" data-sijainti="65.2838,26.5408"' in runko
     assert runko.count('class="suosikki"') == runko.count("<tr data-paikka=")
     assert '<span class="km">~60 km Oulusta</span>' in runko
@@ -362,7 +363,7 @@ def test_englanninkielinen_sivu(palvelin):
     en = pyynto("/", "kieli=en")[2]
     assert '<html lang="en">' in en and "<title>Paddling conditions</title>" in en
     assert 'href="/" hreflang="fi"' in en and "Suomeksi" in en
-    assert '<a href="/?tyyppi=peli&amp;kieli=en">Play spots</a>' in en
+    assert '<a href="/?tyyppi=peli&amp;kieli=en">Play spots <span class="maara">' in en
     assert "Symbols and icons" in en and "km from Oulu" in en and '<span class="tyyppi">play spot</span>' in en
     assert "at its best" in en or "works (" in en or "too little water" in en
     assert "Eivät toimi nyt" not in en and "Not working now" in en
@@ -862,3 +863,12 @@ def test_lisakaaviot_pois(aineisto, monkeypatch):
     melonta.kerää_tilanne(hakija, paikat, tarkista_hakemisto=False, prosessit=False, lisakaaviot=False)
     mittarit = {m.kaavio for p in paikat for m in p.mittarit.values()}
     assert luetut and set(luetut) <= mittarit
+
+
+def test_nappien_lukumaarat(palvelin):
+    runko = pyynto("/")[2]
+    retket = sum(1 for p in PAIKAT if p.maa == "FI" and p.tyyppi == "retki")
+    assert f'Retket <span class="maara">{retket}</span></a>' in runko
+    assert f'Ruotsi <span class="maara">{sum(1 for p in PAIKAT if p.maa == "SE")}</span>' in runko
+    assert f'Muut kohteet <span class="maara">{len(muut_kohteet.KOHTEET)}</span>' in runko
+    assert 'id="suosikkimaara"' in runko
