@@ -73,9 +73,9 @@ Tukholmassa (`arn1`) lähellä osm.fi:tä ja SYKE:ä ja jättää testit pois pa
 - Yksi laskenta kestää noin 20–30 s, yhdellä ytimellä mitattuna 18 s. Siinä haetaan
   23 sivua ja noin 35 kaaviota, ja kaaviot luetaan peräkkäin, koska Vercelissä
   (AWS Lambda) ei voi käynnistää prosessipoolia.
-- Tulos pidetään funktion muistissa 15 minuuttia, joten `/`, `/api` ja suodattimet
+- Tulos pidetään funktion muistissa tunnin, joten `/`, `/api` ja suodattimet
   käyttävät samaa laskentaa. Lisäksi CDN tallentaa vastauksen
-  (`s-maxage=1800, stale-while-revalidate=3600`), joten useimmat kävijät saavat
+  (`s-maxage=3600, stale-while-revalidate=3600`), joten useimmat kävijät saavat
   sivun heti.
 - Jos yhtään kaaviota ei saada luettua, vastaus on `503` eikä sitä tallenneta
   välimuistiin. CDN näyttää silloin edellisen onnistuneen version

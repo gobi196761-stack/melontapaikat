@@ -56,8 +56,8 @@ from arviointi import muotoile
 from paikat import PAIKAT, aseman_nimi, kohteen_kajakit, nakyy
 from paikkakunnat import PAIKKAKUNNAT, RUOTSI
 
-VALIMUISTI_S = 15 * 60
-CACHE_CONTROL = "public, max-age=300, s-maxage=1800, stale-while-revalidate=3600, stale-if-error=86400"
+VALIMUISTI_S = 60 * 60   # SYKE:n data päivittyy kerran päivässä; pidempi aika säästää suoritinaikaa
+CACHE_CONTROL = "public, max-age=300, s-maxage=3600, stale-while-revalidate=3600, stale-if-error=86400"
 
 
 def suomen_aika() -> dt.datetime:
@@ -94,7 +94,7 @@ def hae_tilanne() -> Tilanne:
             return _tilanne[1]
         nyt = suomen_aika()
         hakija = osm.Hakija(aikaraja=20)
-        sivun_kaaviot, lukemat, varoitukset = melonta.kerää_tilanne(hakija, PAIKAT)
+        sivun_kaaviot, lukemat, varoitukset = melonta.kerää_tilanne(hakija, PAIKAT, lisakaaviot=False)
         tulokset = melonta.arvioi_kaikki(PAIKAT, sivun_kaaviot, lukemat, nyt.date())
         status, oulusta = ajomatkat(OULU, hakija)
         if not status.startswith("200"):

@@ -851,3 +851,14 @@ def test_skriptien_syntaksi(tmp_path):
         tiedosto.write_text(s, encoding="utf-8")
         tulos = subprocess.run([node, "--check", str(tiedosto)], capture_output=True, text=True)
         assert tulos.returncode == 0, tulos.stderr
+
+
+def test_lisakaaviot_pois(aineisto, monkeypatch):
+    """Verkkosovellus ei lue sivujen ylimääräisiä kaavioita (vain komentorivi näyttää ne)."""
+    hakija, paikat = aineisto
+    luetut = []
+    alkuperainen = melonta._lue_kaaviot
+    monkeypatch.setattr(melonta, "_lue_kaaviot", lambda t, p: luetut.extend(a for a, _ in t) or alkuperainen(t, p))
+    melonta.kerää_tilanne(hakija, paikat, tarkista_hakemisto=False, prosessit=False, lisakaaviot=False)
+    mittarit = {m.kaavio for p in paikat for m in p.mittarit.values()}
+    assert luetut and set(luetut) <= mittarit
