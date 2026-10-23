@@ -1671,7 +1671,7 @@ def paikkasivu(paikka) -> str:
 {kohteet}
 <h2>Lähteet</h2>
 <ul class="lahteet">{lahteet_html}</ul>
-<p class="pieni">Kuvaus on koottu lähteistä omin sanoin; tarkista olosuhteet aina paikan päällä. Suluissa olevat vesitiedot ovat kuvatun päivän vuorokausiarvoja SYKE:n hydrologiarajapinnasta (Ruotsin paikat: SMHI:n korjattu päiväarkisto); vedenkorkeudet on muunnettu samalle asteikolle kuin sovelluksen kaavioissa.</p>
+<p class="pieni">Kuvaus on koottu lähteistä omin sanoin; tarkista olosuhteet aina paikan päällä. Suluissa olevat vesitiedot ovat kuvatun päivän vuorokausiarvoja SYKE:n hydrologiarajapinnasta (Ruotsin paikat: SMHI:n korjattu päiväarkisto); vedenkorkeudet on muunnettu samalle asteikolle kuin sovelluksen kaavioissa. Tornionjoen virtaama Matkakosken kohdalla on Karungin asemalta.</p>
 </main>
 </body>
 </html>"""

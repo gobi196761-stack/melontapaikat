@@ -7,7 +7,8 @@ foorumista, koskimelonta.comista, Suomen freestylemelontamaajoukkueen blogista
 lähteistä (luettu 10/2026). Kun lähde kertoo, että kohde toimi tai oli
 parhaimmillaan tiettynä päivänä, perään on lisätty suluissa sen päivän vesitilanne
 SYKE:n hydrologiarajapinnasta (rajapinnat.ymparisto.fi, vuorokausiarvot; vedenkorkeus
-muunnettu sovelluksen kaavioiden asteikolle vertaamalla ajo.jsonin havaintoihin) tai
+muunnettu sovelluksen kaavioiden asteikolle vertaamalla ajo.jsonin havaintoihin; Matkakoskella
+ei ole virtaamamittausta, joten virtaama on alavirran Karungin asemalta) tai
 Ruotsin paikoille SMHI:n korjatusta päiväarkistosta. Tekstit ovat lähteiden tiivistelmiä omin sanoin;
 vedenkorkeudet ja virtaamat ovat lähteiden lukuja ja niiden ajankohta on
 kerrottu, kun se on tiedossa. Kohteiden toimintarajat sivulle tulevat suoraan
@@ -126,9 +127,9 @@ KUVAUKSET: dict[str, Kuvaus] = {
             ("Kokemuksia",
              "Keväällä 2010 freestylemaajoukkue piti Koiteliä Pohjois-Pohjanmaan parhaana treenipaikkana, koska "
              "Taivalkoskella oli liikaa ja Hawa'Iilla liian vähän vettä eikä Tornionjoelle päässyt vielä. Veden "
-             "laskettua löytyi uusi Helmihontto (SYKE 10.5.2010: Haukipudas 10.66 m), ja helatorstain "
+             "laskettua löytyi uusi Helmihontto (SYKE 10.5.2010: Haukipudas 10.66 m, 117 m³/s), ja helatorstain "
              "viikonloppuna takimmaisessa portaassa oli hyvä kärrytellä pitävässä hontossa, jossa akanvirrat "
-             "olivat molemmin puolin (SYKE 13.–16.5.2010: Haukipudas 10.61–10.54 m)."),
+             "olivat molemmin puolin (SYKE 13.–16.5.2010: Haukipudas 10.61–10.54 m, 108–97 m³/s)."),
         ),
         (("osm.fi: Koiteli", "https://www.osm.fi/koiteli/"),
          ("Freestylemelonta-blogi: Vesitilanne ei suosi (10.5.2010)", FSB + "2010/05/vesitilanne-ei-suosi.html"),
@@ -159,15 +160,15 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "Veden laskiessa ison honton Ruotsin reuna muuttuu vaarallisen näköiseksi montuksi, ja lippoamiseen "
              "käytetyt köydet voivat aiheuttaa hankaluuksia."),
             ("Kokemuksia",
-             "25.5.2010 virtaama oli noin 2300 m³/s (SYKE 25.5.2010: Matkakoski 30.98 m). Vuennonkoskessa oli talon kokoisia aaltoja ja synkkiä "
+             "25.5.2010 virtaama oli noin 2300 m³/s (SYKE 25.5.2010: Matkakoski 30.98 m, Karunki 2568 m³/s). Vuennonkoskessa oli talon kokoisia aaltoja ja synkkiä "
              "pyörteitä, ja Matkakoski tarjosi blogin mukaan 'suurinta mämmiä mitä Suomesta löytyy': surffit "
              "olivat lähinnä selviytymistaistelua. Syyskuussa 2010 (27.7 m, noin 335 m³/s) Ruotsin aalto oli "
              "vaikea, ja lokakuussa (27.2 m, noin 210 m³/s) hontto oli hyvä voltteihin.\n\n"
              "Syyssateet 2009 nostivat vettä juuri sopivasti Ruotsin aallolle (SYKE 20.9.2009: Matkakoski "
-             "27.64 m): 'hyvänä päivänä se tuo hymyn melojan suulle, huonona päivänä se murtaa parhaimmankin "
+             "27.64 m, Karunki 341 m³/s): 'hyvänä päivänä se tuo hymyn melojan suulle, huonona päivänä se murtaa parhaimmankin "
              "melojan itsetunnon'. Toukokuussa 2014 aaltokausi avattiin heti jäiden lähdettyä Ruotsin aallossa "
-             "(SYKE 4.–11.5.2014: Matkakoski 28.38–28.05 m), ja heinäkuussa 2014 sekä Ruotsin että Suomen "
-             "puolen aalto toimivat (SYKE 7.7.2014: Matkakoski 28.09 m). Molempiin joutui kantamaan, mutta se "
+             "(SYKE 4.–11.5.2014: Matkakoski 28.38–28.05 m, Karunki 697–471 m³/s), ja heinäkuussa 2014 sekä Ruotsin että Suomen "
+             "puolen aalto toimivat (SYKE 7.7.2014: Matkakoski 28.09 m, Karunki 478 m³/s). Molempiin joutui kantamaan, mutta se "
              "oli sen arvoista."),
         ),
         (("osm.fi: Matkakoski", "https://www.osm.fi/matkakoski/"),
@@ -285,7 +286,7 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "vastarannalle ennen kuin virta vie liian alas. Laskun loppupuolella oli hienot korkeat aallot."),
             ("Kokemuksia",
              "Heinäkuussa 2014 maajoukkuemelojat surffasivat 'Gladiaattori-aaltoa' (SYKE 9.7.2014: Matkakoski "
-             "28.20 m): hitaassa ja pienessä "
+             "28.20 m, Karunki 513 m³/s): hitaassa ja pienessä "
              "aallossa onnistuivat hontto- ja aaltoliikkeet, mutta parhaiten se sopi spinnailuun. Paikka on "
              "mukava, akanvirrallinen vaihtelu Matkakosken jälkeen."),
         ),
@@ -307,7 +308,7 @@ KUVAUKSET: dict[str, Kuvaus] = {
             ("Vesimäärät",
              "Matkakosken vedenkorkeudella 28.7 m pätkällä on mukavia pelipaikkoja, mutta 28.2 m:llä ei juuri "
              "enää kannata lähteä laskemaan. Tulva-aikaan Vuennon–Matkakosken väli on 'jännä paikka'. Tuomas "
-             "Vaarala kuvasi 25.5.2010 (noin 31 m, 2300 m³/s; SYKE 25.5.2010: Matkakoski 30.98 m) laskua yhdeksi Suomen parhaista isoveden "
+             "Vaarala kuvasi 25.5.2010 (noin 31 m, 2300 m³/s; SYKE 25.5.2010: Matkakoski 30.98 m, Karunki 2568 m³/s) laskua yhdeksi Suomen parhaista isoveden "
              "pätkistä: alkupalaksi talon kokoisia aaltoja, isoja honttoja, jotka kierrettiin kaukaa, ja "
              "melko synkän oloisia pyörteitä."),
         ),
