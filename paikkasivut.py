@@ -908,6 +908,102 @@ KUVAUKSET: dict[str, Kuvaus] = {
          ("osm.fi: muut jokikuvaukset", "https://www.osm.fi/jokikuvaukset-muut/")),
     ),
     # ------------------------------------------------------------------
+    "Kuusinkijoki": Kuvaus(
+        "Kuusinkijoki on Kuusamon itäpuolella virtaava, Kitkajokea vähemmän tunnettu tulvajoki. Siinä on paljon "
+        "vauhdikkaita koskiosuuksia (I–II+), ja suvanto-osuuksia on vähän: noin 100 m pudotusta 15 km:n matkalla "
+        "ja lähes 20 eritasoista koskea isoine aaltoineen, stoppareineen ja pienine könkäineen. Joki on ollut "
+        "yksi Suomen suosituimmista koskisyöksyn kilpailupaikoista. Kivisen luonteensa vuoksi sitä suositellaan "
+        "melottavaksi vain korkealla vedellä ja muovikajakilla. Joen varrella on jylhiä kallioita.",
+        (
+            ("Turvallisuus",
+             "Vesi on keväällä erittäin kylmää ja kosket pitkähköjä, osin jyrkkien kalliorantojen välissä, joten "
+             "kuivapuku on tarpeen. Uintireissu pitkässä koskessa voi venyä pitkäksi."),
+            ("Kosket ylhäältä alas",
+             "0,0 km lähtö Myllykosken voimalaitoksen alapuolisesta kanavasta. 0,8 km Käpykoski (noin 5 km, "
+             "välissä suvanto). 4,9 km Melalampi (scouttaus oikealta).\n\n"
+             "5,3 km Kiukaankorvankoski (II+, 0,9 km): ensimmäisten kallioiden kohdalla stoppari oikealla, "
+             "alemman kallion alla 'kirnu'. Kivinen; laskulinja lähinnä keskeltä. 6,8 km leveämpi kohta. "
+             "7,1 km Rojokoski ja viisi muuta I-luokan koskea.\n\n"
+             "12,4 km Hanhisuvanto (kapea, jyrkät rannat). 12,6 km Hanhivirta (II+, 0,2 km): laskulinja keskeltä; "
+             "300 m alempana iso stoppariaalto, sitten koski kaartaa vasemmalle ja laskee pieninä könkäinä "
+             "Paljakan lampareeseen (laavu vasemmalla).\n\n"
+             "13,1 km Paljakan 1 (II+, 0,8 km): alussa noin metrin köngäs, reunoissa stopparit, laskulinja keskeltä. "
+             "Jatkuu isoina aaltoina vasemmalle kaartuen; alaosassa oikean kallion kohdalla kaksi rinnakkaista "
+             "stopparia. 13,9 km Takkupyörre (porukka kasaan; laavu oikealla).\n\n"
+             "14,1 km Paljakankoski 2 (0,8 km): tasaisesti voimistuva, oikealle kääntyvä koski, suurten kivien "
+             "aaltoja ja stoppareita; alaosa leveä ja kivinen. 14,8 km Lohipyörre (pieni suvanto, laavu oikealla, "
+             "mahdollinen lopetus).\n\n"
+             "14,9 km Raatekoski (II, 0,6 km): vauhdikas suora koski, alapäässä pieni köngäs; laskulinja ensin "
+             "keskeltä, sitten vasenta reunaa. Joki levenee ja jatkuu tasaisena koskena Koivumutkaan: "
+             "16,8 km Koivumutkat 1, 17,4 km Koivumutkat 2, 17,6 km leveä kohta, suvanto vasemmalla."),
+            ("Vesimäärät",
+             "Mittarina on SYKE:n Myllykosken laskennallinen virtaama (asemalla ei ole mitattuja havaintoja). "
+             "25.5.2024 virtaama oli noin 50 m³/s: isoja aaltoja, ja välillä piti meloa reippaasti, jottei jäänyt "
+             "peräkkäisiin isoihin aaltoihin ja stoppareihin kiinni. Melonta kesti 2 h 30 min (12 km). "
+             "18.5.2025 virtaama oli 28 m³/s ja joki aivan erilainen: kosket matalia ja kiviä lähellä pintaa tai "
+             "sen yläpuolella. Hanhivirrassa ja Paljakan koskissa oli silti suhteellisen isoja aaltoja, vaikka "
+             "mela osui stoppareiden pohjassa kiviin."),
+            ("Muuta",
+             "Metsähallituksen esitteen mukaan Kuusinkijoen melontareitti on 17,5 km. Oulangan kansallispuiston "
+             "Pieni Karhunkierros on lähellä. Piiraisen melontapäiväkirjassa joesta on oma reittisivunsa "
+             "(Muut kohteet)."),
+        ),
+        (("Retkisuunnitelma: Kuusinki- ja Savinajoki 2026 (koskikuvaukset ja melojien vesihavainnot 2024–2025)", None),
+         ("Metsähallitus: Oulangan melontaesite (muut melontareitit)",
+          "https://julkaisut.metsa.fi/assets/pdf/lp/Esitteet/oulankamelonta-en.pdf"),
+         ("SYKE: Myllykosken virtaama", "https://wwwi2.ymparisto.fi/i2/73/q7300350y/wqfi.html")),
+    ),
+    # ------------------------------------------------------------------
+    "Savinajoki": Kuvaus(
+        "Savinajoki on Sallan puolelta Kuusamoon virtaava tulvajoki, saman tyyppinen kuin Kuusinkijoki mutta "
+        "leveämpi ja erilaisin aalloin. Viiksjärven jälkeen joki pudottautuu kauniissa kanjonimaisemassa I–II-"
+        "luokan lähes yhtenäisenä koskena Savilampeen asti, pudotusta 60 m reilun 10 km:n matkalla. Ennen "
+        "koskiosuuksia on noin 3 km järviosuus. Kesällä joki on vähävetinen ja kivinen.",
+        (
+            ("Turvallisuus",
+             "Vesi on keväällä erittäin kylmää ja kosket pitkiä, joten kuivapuku on tarpeen."),
+            ("Vesimäärät",
+             "Savinajoella ei ole omaa SYKE-asemaa; mittarina on alavirran Oulankajoen virtaama, joka kertoo "
+             "kevään tulvan vaiheesta. 26.5.2024 (Oulankajoki 99 m³/s) reitti melottiin Niitselyksentieltä "
+             "Savilammelle: 15,5 km, 3 h. 18.5.2025 (Oulankajoki 135 m³/s) Savinajoessa oli huomattavasti enemmän "
+             "vettä kuin 2024, ilmeisesti koska yläpuolinen järvi suli myöhemmin. Piiraisen mukaan joen lukuisat "
+             "kosket ovat alkukesästä vesimäärältään laskukelpoisia."),
+            ("Muuta",
+             "Metsähallituksen esitteen mukaan Savinajoen melontareitti on 14 km. Kiutakönkään yläpuolelta "
+             "Oulankajoesta on löydetty mahdollisesti surffattava pieni aalto. Kiutakönkään laskeminen on "
+             "hengenvaarallista, ja Taivalköngäs ohitetaan kävellen."),
+        ),
+        (("Retkisuunnitelma: Kuusinki- ja Savinajoki 2026 (koskikuvaukset ja melojien vesihavainnot 2024–2025)", None),
+         ("Metsähallitus: Oulangan melontaesite", "https://julkaisut.metsa.fi/assets/pdf/lp/Esitteet/oulankamelonta-en.pdf"),
+         ("luontoon.fi: Oulankajoen koskimelontareitti Savilampi – Kiutaköngäs",
+          "https://www.luontoon.fi/en/trails/oulankajoen-koskimelontareitti-savilampi-kiutakonkaan-leirintaalue-kuusamo-500518-en"),
+         ("SYKE: Oulankajoen virtaama", "https://wwwi2.ymparisto.fi/i2/73/q7300100y/wqfi.html")),
+    ),
+    # ------------------------------------------------------------------
+    "Siiponjoki (Kalajoki)": Kuvaus(
+        "Siiponjoki on Kalajoen eteläpuolella virtaava, pääosin luonnontilainen pieni joki, noin 40 km pitkä. "
+        "Joessa on koskipaikkoja, kaatuneita puita ja hiekkatörmiä. Joki meanderoi eli mutkittelee uomaansa "
+        "muuttaen, ja matalan veden aikaan kajakkia voi joutua kantamaan tai hinaamaan matalilla osuuksilla; "
+        "myös kivisyyden vuoksi hankalia paikkoja löytyy. Rakennettuja taukopaikkoja on ilmeisesti vain yksi, "
+        "Pleunan laavu.",
+        (
+            ("Vaativuus",
+             "Keskivaativa: koskipaikat voi kiertää, mutta reitti voi osoittautua muuten vaikeakulkuiseksi, ja "
+             "maihin joutuu nousemaan useita kertoja. Kyseessä ei ole helppo ja sujuva reitti – mukaan kannattaa "
+             "varata reipasta retkimieltä ja ripaus seikkailuhenkeä."),
+            ("Kalusto",
+             "Koskikajakki tai jokiretkikajakki (tai muovinen merikajakki). Päiväretken tarpeet (eväät, "
+             "vaihtovaatteet) kannattaa mahduttaa kajakkiin. Päähän melontakypärä."),
+            ("Ympäristö",
+             "Joen vartta kulkee noin 20 km:n Siiponjoen luontopolku mäntymetsissä; joen rannalla on kota ja "
+             "kaksi laavua (Visit Finland). Pleunan laavun lähellä kasvaa alueen vanhin puu, 'ikimänty'."),
+            ("Vesitilanne",
+             "Siiponjoella ei ole SYKE:n ennusteasemaa (Kurikkalassa on vain havaintoasema ilman ennustetta), "
+             "joten sovellus ei pisteytä jokea. Matalalla vedellä kantoja on enemmän."),
+        ),
+        (("Melontaretken kuvaus: Siiponjoki (reittiehdotus ja kalusto)", None), ("Visit Finland: Siiponjoen luontopolku", "https://www.visitfinland.com/en/product/404c43ec-b55e-478f-9194-0b7e42248438/siiponjoki-nature-trail/")),
+    ),
+    # ------------------------------------------------------------------
     "Oulujoki": Kuvaus(
         "Oulujoki on Oulujärven laskujoki, joka laskee Perämereen Oulussa. Se on Pohjois-Pohjanmaan ja Kainuun "
         "pääjoki, ja suurin osa Kainuusta kuuluu sen valuma-alueeseen. Joki on säännöstelty ja melottavissa "
@@ -1036,6 +1132,36 @@ LAHTO_LOPPU: dict[str, tuple[tuple[str, str, tuple[float, float] | None], ...]] 
         ("Lähtö", "Pienanjärven luusua Vääräkoskentien varressa Vaalassa.", (64.7143, 27.2268)),
         ("Loppu", "Otermanjärvi (Joensuunperä); reitti jatkuu halutessa Kutujokea Järvikylään.",
          (64.65905, 27.10692)),
+    ),
+    "Kuusinkijoki": (
+        ("Lähtö", "Myllykosken voimalaitoksen alapuolinen kanava Vuotungin kylässä (reitin 0 km).",
+         (66.1555, 29.5645)),
+        ("Vaihtoehto", "Hiekkamonttu tien vasemmalla puolella noin 3,2 km Suorajärven tien risteyksestä. Autojen "
+                       "siirto hiekkamontulta Koivumutkan lopetuspaikalle on noin 28 km (40 min).", None),
+        ("Loppu", "Koivumutkat: toisen Koivumutkan jälkeisen suvannon vasen puoli tai entisen leirintäalueen "
+                  "kohta (Koivumutkien laavu). Saunavaarantien loppuosa oli 2025 huonossa kunnossa ja autot "
+                  "jätettiin noin 2 km rannasta.", (66.2434, 29.70053)),
+        ("Vaihtoehto", "Lohipyörre Paljakankosken jälkeen (laavu oikealla): jyrkkä nousu ja pitkähkö kajakkien "
+                       "kanto mäntymetsän läpi autoille. Autojen siirto alemmalta lähtöpaikalta tänne on vain "
+                       "noin 9 km, mutta osa tiestä on erittäin huonokuntoista.", None),
+    ),
+    "Savinajoki": (
+        ("Lähtö", "Niitselyksentien varrelta Sallan puolelta, Pitkäkoskea edeltävältä sillalta (piste on "
+                  "Niitselyksentiellä; tarkista silta kartalta). Ennen koskia noin 3 km järviosuus.",
+         (66.51814, 29.08518)),
+        ("Loppu", "Savilampi (autiotupa). Kajakit kannetaan noin 1 km Savilammen pysäköintialueelle (n. 40 min): "
+                  "alussa jyrkkä nousu, sitten harvaa mäntymetsää ja kanervikkoa – liina vetämiseen on hyvä "
+                  "olla mukana.", (66.4319, 29.15647)),
+        ("Pysäköinti", "Savilammen pysäköintialue.", (66.44226, 29.16207)),
+    ),
+    "Siiponjoki (Kalajoki)": (
+        ("Lähtö", "Siiponjoen luontopolun pysäköintialue, Pleunantie 379, Kalajoki. Kalusto kannetaan reilut "
+                  "400 m rantaan Pleunan laavun tuntumaan; laavulla voi pitää evästauon ennen melontaa.",
+         (64.18771, 23.80112)),
+        ("Loppu", "Siiponkylän silta: retken pituus noin 7 km.", (64.210165, 23.772353)),
+        ("Vaihtoehto", "Konikarvon satama ja melontalaituri, Konikarvontie 204 (Rahja). Lopuksi melotaan lyhyt "
+                       "mutta melko suojaisa meriosuus rantaa pitkin satamaan: kokonaispituus vajaa 15 km "
+                       "(7 km Siiponkylän sillalle + 7,4 km sillalta Konikarvoon).", (64.21618, 23.68384)),
     ),
     "Oulujoki": (
         ("Lähtö ja loppu", "osm.fi ei määrittele Oulujoelle kiinteää lähtö- tai loppupaikkaa: joki on "

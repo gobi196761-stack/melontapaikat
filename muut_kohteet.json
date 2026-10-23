@@ -2825,7 +2825,7 @@
   "matka": "n. 10 kilometriä",
   "aika": "9.5.2018",
   "kuvaus": [
-   "Runsaasti tulvivalla Peurajoella oli helppoa melontaa kolmen Jokijärven kautta kyseiselle sillalle. Sen jälkeen alkoivat vaikeudet, jonka takia myös matkanteko keskeytyi."
+   "Runsaasti tulvivalla Peurajoella oli helppoa melontaa kolmen Jokijärven kautta kyseiselle sillalle."
   ],
   "joet": [
    "Peurajoki"
@@ -3400,7 +3400,7 @@
   "matka": "n. 1-2 kilometriä",
   "aika": "20.6.2016",
   "kuvaus": [
-   "Varjolan tilan rannasta pääsee helposti kohti kosken kuohuja. Kosken niskalta on yksi selkeä reitti koskialueen oikeassa reunassa. Kosken vasen reuna on kivinen. Tässä koskessa kaatuminen aiheutti oikean olkapään kiertäjäkalvosimen repeämän."
+   "Varjolan tilan rannasta pääsee helposti kohti kosken kuohuja. Kosken niskalta on yksi selkeä reitti koskialueen oikeassa reunassa. Kosken vasen reuna on kivinen."
   ],
   "joet": [
    "Kuusaankoski"
@@ -3819,7 +3819,7 @@
   "matka": "n. 12 kilometriä",
   "aika": "30.5.2002",
   "kuvaus": [
-   "Jo toukokuun lopussa liian kivinen melottavaksi. Tavoitteena ollut Kemijoki jäi haaveeksi ja jouduin lopettamaan melonnan kesken kiviselle Viitaköngäälle. Joen saattaisi päästä läpi kajakilla heti jäiden lähdön jälkeen tulvahuipun aikana."
+   "Jo toukokuun lopussa liian kivinen melottavaksi. Joen saattaisi päästä läpi kajakilla heti jäiden lähdön jälkeen tulvahuipun aikana."
   ],
   "joet": [
    "Reutujoki",
@@ -4237,6 +4237,10 @@
     "url": "https://www.luontoon.fi/en/trails/oulankajoen-koskimelontareitti-savilampi-kiutakonkaan-leirintaalue-kuusamo-500518-en"
    }
   ],
+  "paikkasivu": [
+   "/paikka/savinajoki",
+   "Savinajoki"
+  ],
   "ajo": {
    "km": 286,
    "min": 253
@@ -4311,18 +4315,15 @@
    "Kuusinkijoki"
   ],
   "lahto_sijainti": [
-   66.2607,
-   29.4179
+   66.1555,
+   29.5645
   ],
-  "kohde_sijainti": [
-   66.21444,
-   29.67964
-  ],
+  "kohde_sijainti": null,
   "lahto_kunta": "Kuusamo",
-  "kohde_kunta": "Kuusamo",
+  "kohde_kunta": null,
   "alue": [
-   66.22285,
-   29.63686
+   66.1555,
+   29.5645
   ],
   "vesi": null,
   "lisatiedot": [
@@ -4332,9 +4333,13 @@
     "url": "https://julkaisut.metsa.fi/assets/pdf/lp/Esitteet/oulankamelonta-en.pdf"
    }
   ],
+  "paikkasivu": [
+   "/paikka/kuusinkijoki",
+   "Kuusinkijoki"
+  ],
   "ajo": {
-   "km": 264,
-   "min": 274
+   "km": 254,
+   "min": 244
   }
  },
  {
@@ -4785,7 +4790,7 @@
   "matka": "n. 0,5 kilometriä",
   "aika": "27.4.2018",
   "kuvaus": [
-   "Lyhyt pätkä Kauhavajoen vauhdikkailla koskilla päättyi heti kaatumiseen ja sen myötä reissun keskeytymiseen."
+   "Lyhyt pätkä Kauhavajoen vauhdikkailla koskilla."
   ],
   "joet": [
    "Kauhavajoki"
@@ -5668,7 +5673,7 @@
   "matka": "noin 20 km",
   "aika": "18.5.2023",
   "kuvaus": [
-   "Vauhdikkaan Luostanjoen melontaretki päättyi kaatumiseen ja melan katoamiseen Horttanaisen koskessa. Joki on hyvin melottavissa kevään korkealla vedellä. Horttanaisen koski kannattaa käydä katsomassa etukäteen."
+   "Joki on hyvin melottavissa kevään korkealla vedellä. Horttanaisen koski kannattaa käydä katsomassa etukäteen."
   ],
   "joet": [
    "Luostanjoki"
@@ -5811,6 +5816,10 @@
     "lahde": "Metsähallitus: Oulangan melontaesite",
     "url": "https://julkaisut.metsa.fi/assets/pdf/lp/Esitteet/oulankamelonta-en.pdf"
    }
+  ],
+  "paikkasivu": [
+   "/paikka/savinajoki",
+   "Savinajoki"
   ],
   "ajo": {
    "km": 297,

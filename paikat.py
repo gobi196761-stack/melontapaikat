@@ -149,6 +149,9 @@ SIJAINNIT: dict[str, tuple[float, float]] = {
     "Molkoköngäs (Ounasjoki)": (67.0620, 25.0790),
     "Kutujoki": (64.6768, 27.0596),   # reitin alku Otermajärven luusuassa (osm.fi:n merkki Petäjäkoskella)
     "Tervajoki (Vaala)": (64.7143, 27.2268),   # reitin alku Pienanjärven luusuassa (Vääräkoskentie)
+    "Kuusinkijoki": (66.1555, 29.5645),   # lähtö Myllykosken voimalaitoksen alapuolella (Vuotunki)
+    "Savinajoki": (66.5181, 29.0852),     # lähtö Niitselyksentien varrella Sallan puolella
+    "Siiponjoki (Kalajoki)": (64.18771, 23.80112),   # Pleunan laavu, lähtö Pleunantien pysäköintialueelta
     "Oulujoki": (65.0005, 25.5643),
     "Oulun edustan saaret": (65.0227, 25.4240),
 }
@@ -177,6 +180,8 @@ ASEMAT = {
     "l657121001y": "Olkkajärvi, tulovirtaama (Raudanjoki)",
     "q6503600y": "Marraskoski (Ounasjoki)",
     "q6503300y": "Kaukonen (Ounasjoki)",
+    "q7300350y": "Myllykoski (Kuusinkijoki)",
+    "q7300100y": "Oulankajoki",
     # SMHI:n havaintoasemat ("smhi/<asema>/<piste>")
     "1387": "Gransel (Piteälven)",
     "11": "Männikkö (Kalixälven)",
@@ -643,6 +648,48 @@ PAIKAT: tuple[Paikka, ...] = (
                   huom="pieni joki: kesän alivedellä (tulo 1–2 m³/s) kivikkoinen; alkukesä parasta "
                        "(Vaalan kunta); kosket I-luokkaa", lahde="arvio"),
         ),
+    ),
+    Paikka(
+        "Kuusinkijoki", "https://julkaisut.metsa.fi/assets/pdf/lp/Esitteet/oulankamelonta-en.pdf", "retki", 255,
+        "Kuusamon tulvajoki: Myllykoski – Koivumutka n. 17 km, lähes 20 koskea (I–II+), pudotusta n. 100 m "
+        "15 km:llä. Kivinen: vain korkealla vedellä ja muovikajakilla. Vesi erittäin kylmää – kuivapuku. "
+        "Mittarina Myllykosken laskennallinen virtaama.",
+        # Myllykosken asemalla (7300350) ei ole havaintoja, vain SYKE:n mallin virtaama ja ennuste.
+        # Rajat melojien havainnoista: 25.5.2024 n. 50 m³/s isot aallot ja stopparit; 18.5.2025
+        # 28 m³/s kosket matalia ja kiviä pinnassa, mutta Hanhivirta ja Paljakat vielä hyviä.
+        {"paa": Mittari("73/q7300350y/qinlyhyt.png", lisakaavio=True, marginaali=10)},
+        (
+            Kohde("Myllykoski – Koivumutka (n. 17 km, I–II+)", (25, AVOIN), (40, 60), 1.0,
+                  huom="25.5.2024 n. 50 m³/s: isoja aaltoja ja stoppareita, välillä piti meloa ettei jäänyt "
+                       "kiinni; 18.5.2025 28 m³/s: kosket matalia, kiviä pinnassa, mela osui stoppareissa "
+                       "pohjaan – Hanhivirrassa ja Paljakan koskissa silti isoja aaltoja", lahde="meloja",
+                  kajakit=("riverrunner",)),
+        ),
+    ),
+    Paikka(
+        "Savinajoki", "https://julkaisut.metsa.fi/assets/pdf/lp/Esitteet/oulankamelonta-en.pdf", "retki", 290,
+        "Sallan ja Kuusamon tulvajoki: Viiksjärven jälkeen lähes yhtenäistä I–II-luokan koskea kanjonissa "
+        "Savilampeen, pudotusta 60 m reilulla 10 km:llä. Kesällä vähävetinen ja kivinen. Mittarina "
+        "Oulankajoen virtaama alavirrassa (Savinajoella ei omaa asemaa).",
+        # Savinajoki laskee Oulankajokeen Savilammella; Oulankajoen asema (7300100) on alavirrassa ja
+        # kertoo kevään tulvan vaiheen, ei Savinajoen omaa virtaamaa. Rajat ovat arvioita:
+        # 26.5.2024 Oulankajoki 99 m³/s (melottu, 15,5 km), 18.5.2025 135 m³/s ("huomattavasti
+        # isompi vesi"), 5.6.2016 Oulankajoki 17 m³/s (Piirainen: "alkukesästä laskukelpoisia").
+        {"paa": Mittari("73/q7300100y/qinlyhyt.png", lisakaavio=True, marginaali=20)},
+        (
+            Kohde("Niitselyksentie – Savilampi (15,5 km, I–II)", (60, AVOIN), (90, 140), 0.9,
+                  huom="Oulankajoki 26.5.2024 99 m³/s: melottu, hyvä; 18.5.2025 135 m³/s: Savinajoessa "
+                       "selvästi enemmän vettä (yläpuolinen järvi suli myöhemmin); kesällä vähävetinen",
+                  lahde="arvio", kajakit=("riverrunner",)),
+        ),
+    ),
+    Paikka(
+        "Siiponjoki (Kalajoki)",
+        "https://www.visitfinland.com/en/product/404c43ec-b55e-478f-9194-0b7e42248438/siiponjoki-nature-trail/",
+        "retki", 150,
+        "Kalajoen eteläpuolinen, pääosin luonnontilainen pieni joki (n. 40 km): koskipaikkoja, kaatuneita puita "
+        "ja hiekkatörmiä, matalalla vedellä kantoja. Pleunan laavu – Siiponkylän silta n. 7 km. Joella ei ole "
+        "SYKE:n ennusteasemaa.",
     ),
     Paikka(
         "Oulujoki", "https://www.osm.fi/oulujoki/", "retki", 0,

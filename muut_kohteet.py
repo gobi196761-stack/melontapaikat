@@ -133,12 +133,13 @@ def luettelo(tyyli: str) -> str:
     osat = []
     for otsikko, kohteet in ryhmat.items():
         rivit = "".join(
-            f'<li><a href="/muut/{e(k["tunniste"])}">{e(k["nimi"])}</a>'
+            f'<li data-haku="{e(" ".join([k["nimi"], *k.get("joet", []), k.get("lahto_kunta") or ""]))}">'
+            f'<a href="/muut/{e(k["tunniste"])}">{e(k["nimi"])}</a>'
             f'<span class="pieni"> · {e(" – ".join(k.get("joet", [])) or "")}'
             f'{" · " + e(k["lahto_kunta"]) if k.get("lahto_kunta") else ""}'
             f'{" · " + e(k["matka"]) if k.get("matka") else ""}</span></li>'
             for k in kohteet)
-        osat.append(f"<h2>{e(otsikko)}</h2><ul>{rivit}</ul>")
+        osat.append(f'<section class="ryhma"><h2>{e(otsikko)}</h2><ul>{rivit}</ul></section>')
     return f"""<!doctype html>
 <html lang="fi">
 <head>
@@ -154,8 +155,30 @@ def luettelo(tyyli: str) -> str:
 <p>{len(KOHTEET)} jokireittiä Timo Piiraisen melontapäiväkirjasta. Jokaisella reitillä on oma sivunsa:
 lähtö- ja loppupaikka kartalla, ajo-ohje, päiväkirjan kuvaus, vesitilanne melontapäivänä ja muista
 lähteistä löytyneet tiedot. Näitä reittejä ei pisteytetä vesitilanteen mukaan.</p>
+<label class="haku">🔍 <input id="haku" type="search" autocomplete="off" placeholder="Hae kohdetta, jokea tai kuntaa…"
+aria-label="Hae kohdetta, jokea tai kuntaa"></label>
+<p id="ei-osumia" class="pieni" hidden>Ei osumia.</p>
 {"".join(osat)}
 <p class="pieni">Lähde: {e(LAHDE)}.</p>
+<script>
+(() => {{
+  const haku = document.getElementById("haku");
+  haku.addEventListener("input", () => {{
+    const q = haku.value.trim().toLowerCase();
+    let n = 0;
+    document.querySelectorAll("section.ryhma").forEach(s => {{
+      let nakyvia = 0;
+      s.querySelectorAll("li[data-haku]").forEach(li => {{
+        li.hidden = !!q && !li.dataset.haku.toLowerCase().includes(q);
+        if (!li.hidden) nakyvia++;
+      }});
+      s.hidden = !nakyvia;
+      n += nakyvia;
+    }});
+    document.getElementById("ei-osumia").hidden = n > 0;
+  }});
+}})();
+</script>
 </main>
 </body>
 </html>"""
