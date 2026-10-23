@@ -126,7 +126,7 @@ Maalismaa on PVO:n voimala, joten aseman oma päivän arvo julkaistaan vasta seu
 
 ## Kohteiden rajojen lähteet
 
-Rajat ovat peräisin paikkakuvauksista (osm.fi), paikallisilta melojilta (`lahde="meloja"`, mm. mpahkala.kapsi.fi-raportti) tai omasta tulkinnasta (`lahde="arvio"`). Merkitse lähde `huom`-kenttään, kun lisäät tai muutat rajoja.
+Rajat ovat peräisin paikkakuvauksista (osm.fi), paikallisilta melojilta (`lahde="meloja"`) tai omasta tulkinnasta (`lahde="arvio"`). Merkitse lähde `huom`-kenttään, kun lisäät tai muutat rajoja.
 
 ## Kajakkisuositukset
 
