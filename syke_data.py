@@ -21,7 +21,7 @@ import datetime as dt
 import json
 from dataclasses import dataclass
 
-from syke_kaavio import Kaaviolukema
+from syke_kaavio import Kaaviolukema, suure_urlista
 
 HAVAINTO_MAX_IKA = 3   # päivää, kuten kuvista luettaessa
 ENNUSTE_PAIVIA = 14
@@ -104,6 +104,19 @@ def taydenna(lukema: Kaaviolukema, ajo: dict) -> str | None:
         lukema.tanaan_paiva = tanaan.day
     lukema.tietolahde = "SYKE-data"
     return None
+
+
+def lukema_ajosta(kaavio: str, ajo: dict | None) -> Kaaviolukema | None:
+    """Lukema pelkästä ajo.jsonista, kun kaaviokuvaa ei saada luettua. Esim. Myllykosken (Kuusinkijoki)
+    asemalla ei ole havaintoja: kuvan harmaa vaihteluväli peittää koko piirtoalueen, eikä akseleita
+    löydy. Mallin virtaama ja ennuste saadaan silti JSONista; tunnuslukuja ei."""
+    if not ajo or not _sarjat(kaavio):
+        return None
+    suure, yksikko = suure_urlista(kaavio)
+    lukema = Kaaviolukema(url=kaavio, suure=suure, yksikko=yksikko, tanaan_paiva=None, havaittu=None,
+                          havaittu_paivia_sitten=None, malli=None)
+    taydenna(lukema, ajo)
+    return lukema if lukema.malli is not None or lukema.havaittu is not None else None
 
 
 def veden_lampotila(ajo: dict) -> float | None:

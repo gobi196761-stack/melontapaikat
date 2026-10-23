@@ -130,16 +130,17 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
         else:
             tehtavat.append((avain, data))
     lukemat: dict[str, Kaaviolukema] = {}
+    lukematta: dict[str, str] = {}   # kuva ei luettavissa: yritetään vielä pelkkää ajo.jsonia
     for avain, lukema, virhe in _lue_kaaviot(tehtavat, prosessit):
         if virhe:
-            varoitukset.append(f"Kaavion tulkinta epäonnistui: {virhe}")
+            lukematta[avain] = virhe
         else:
             lukemat[avain] = lukema
 
     # 4. Havainto, malli ja ennuste numeroina asemien ajo.json-tiedostoista.
     #    Jos tiedostoa ei saada, kuvasta luettu arvo jää voimaan.
     #    Arviomallien syöteasemat haetaan samalla.
-    ajot = {a for a in map(syke_data.ajo_avain, lukemat) if a}
+    ajot = {a for a in map(syke_data.ajo_avain, [*lukemat, *lukematta]) if a}
     for asema, malli in syke_data.ARVIOMALLIT.items():
         if f"{asema}/ajo.json" in ajot:
             ajot.update(malli.ajo_avaimet())
@@ -159,6 +160,12 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
     # Arviomallien syöteasemien tämän päivän mittaukset SYKE:n reaaliaikatiedostoista
     if any(f"{a}/ajo.json" in luetut for a in syke_data.ARVIOMALLIT):
         syke_data.lisaa_reaaliaika(luetut, lambda url: osm.hae_turvallisesti(hakija, url)[0])
+    for avain, virhe in lukematta.items():
+        lukema = syke_data.lukema_ajosta(avain, luetut.get(syke_data.ajo_avain(avain)))
+        if lukema:
+            lukemat[avain] = lukema
+        else:
+            varoitukset.append(f"Kaavion tulkinta epäonnistui: {virhe}")
     for avain, lukema in lukemat.items():
         ajo = luetut.get(syke_data.ajo_avain(avain))
         if not ajo:

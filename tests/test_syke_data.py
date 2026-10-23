@@ -242,3 +242,15 @@ def test_tuntiarviot_ja_loppupaivan_ennuste():
     # ilman jonkin syötteen tuntimittauksia ei tuntiarvioita
     del ajot["61/q6101210y/reaaliaika_tunnit"]
     assert syke_data.tuntiarviot("61/q6101750y", ajot, dt.date(2026, 10, 18)) is None
+
+
+def test_lukema_pelkasta_ajosta():
+    """Myllykoski (Kuusinkijoki): asemalla vain mallin virtaama, kaaviokuvaa ei saada luettua."""
+    ajo = {"ennustepvm_www": "2026-10-23",
+           "qinlask_ka": {"ensim_pvm": "2026-10-21", "lst": [11.3, 11.2, 11.1, 10.9, 10.8]}}
+    lukema = syke_data.lukema_ajosta("73/q7300350y/qinlyhyt.png", ajo)
+    assert lukema.suure == "virtaama" and lukema.yksikko == "m3/s"
+    assert lukema.malli == 11.1 and lukema.havaittu is None and lukema.arvo == 11.1
+    assert lukema.ennuste == {1: 10.9, 2: 10.8} and lukema.tietolahde == "SYKE-data"
+    assert syke_data.lukema_ajosta("73/q7300350y/qinlyhyt.png", None) is None
+    assert syke_data.lukema_ajosta("73/q7300350y/qinlyhyt.png", {"ennustepvm_www": "2026-10-23"}) is None

@@ -49,6 +49,8 @@ PAIKKASIVUT = {
     "Torniojoki": ("/paikka/kattilakoski-tornionjoki", "Kattilakoski (Tornionjoki)"),
     "Pyhäjoki": ("/paikka/pyhajoki", "Pyhäjoki"),
     "Siikajoki": ("/paikka/siikajoki-poyryn-pato", "Siikajoki (Pöyryn pato)"),
+    "Kuusinkijoki": ("/paikka/kuusinkijoki", "Kuusinkijoki"),
+    "Savinajoki": ("/paikka/savinajoki", "Savinajoki"),
 }
 
 MH_OULANKA = ("Metsähallitus: Oulangan melontaesite",
@@ -231,6 +233,9 @@ KORJAUKSET: dict[str, dict] = {
     "Heinälampi - Kallavesi": {"lahto": None, "kohde": None, "keskus": None},        # osui Joensuuhun
     "Sammakkolampi – Pielinen": {"lahto": None, "kohde": None, "keskus": None},      # osui Kajaaniin
     "Vastavirtaan sivujoelle": {"lahto": None, "kohde": None, "keskus": None},       # osui Kittilään
+    "Kuusamon itäpuolelta kohti kaakkoa": {                                          # osui Käylän Myllykoskelle
+        "lahto": {"lat": 66.1555, "lon": 29.5645, "city": "Kuusamo"},                 # Myllykoski, Vuotunki
+        "kohde": None, "keskus": {"lat": 66.1555, "lon": 29.5645, "city": "Kuusamo"}},
     "Ruunaalla": {"lahto": {"lat": 63.43411, "lon": 30.4042, "city": "Lieksa"},       # Matkalahdentie
                   "keskus": {"lat": 63.3903, "lon": 30.45, "city": "Lieksa"}},
 }

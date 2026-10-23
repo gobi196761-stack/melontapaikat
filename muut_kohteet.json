@@ -4237,6 +4237,10 @@
     "url": "https://www.luontoon.fi/en/trails/oulankajoen-koskimelontareitti-savilampi-kiutakonkaan-leirintaalue-kuusamo-500518-en"
    }
   ],
+  "paikkasivu": [
+   "/paikka/savinajoki",
+   "Savinajoki"
+  ],
   "ajo": {
    "km": 286,
    "min": 253
@@ -4311,18 +4315,15 @@
    "Kuusinkijoki"
   ],
   "lahto_sijainti": [
-   66.2607,
-   29.4179
+   66.1555,
+   29.5645
   ],
-  "kohde_sijainti": [
-   66.21444,
-   29.67964
-  ],
+  "kohde_sijainti": null,
   "lahto_kunta": "Kuusamo",
-  "kohde_kunta": "Kuusamo",
+  "kohde_kunta": null,
   "alue": [
-   66.22285,
-   29.63686
+   66.1555,
+   29.5645
   ],
   "vesi": null,
   "lisatiedot": [
@@ -4332,9 +4333,13 @@
     "url": "https://julkaisut.metsa.fi/assets/pdf/lp/Esitteet/oulankamelonta-en.pdf"
    }
   ],
+  "paikkasivu": [
+   "/paikka/kuusinkijoki",
+   "Kuusinkijoki"
+  ],
   "ajo": {
-   "km": 264,
-   "min": 274
+   "km": 254,
+   "min": 244
   }
  },
  {
@@ -5811,6 +5816,10 @@
     "lahde": "Metsähallitus: Oulangan melontaesite",
     "url": "https://julkaisut.metsa.fi/assets/pdf/lp/Esitteet/oulankamelonta-en.pdf"
    }
+  ],
+  "paikkasivu": [
+   "/paikka/savinajoki",
+   "Savinajoki"
   ],
   "ajo": {
    "km": 297,

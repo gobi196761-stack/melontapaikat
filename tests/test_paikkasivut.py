@@ -11,7 +11,9 @@ def test_jokaisella_paikalla_kuvaus_ja_lahteet():
     for nimi, kuvaus in paikkasivut.KUVAUKSET.items():
         assert kuvaus.johdanto, nimi
         assert kuvaus.lahteet, nimi
-        assert all(url.startswith(("http://", "https://")) for _, url in kuvaus.lahteet), nimi
+        # linkittömät lähteet (esim. retkisuunnitelma) näytetään tekstinä
+        assert all(url is None or url.startswith(("http://", "https://")) for _, url in kuvaus.lahteet), nimi
+        assert any(url for _, url in kuvaus.lahteet), nimi
 
 
 def test_tunnisteet_yksilollisia():

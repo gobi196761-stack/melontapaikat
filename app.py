@@ -1663,7 +1663,7 @@ def paikkasivu(paikka) -> str:
     if paikka.url not in {url for _, url in lahteet}:
         lahteet.insert(0, ("Paikan pääsivu", paikka.url))
     lahteet_html = "".join(f'<li><a href="{e(url)}" target="_blank" rel="noopener">{e(otsikko)}</a></li>'
-                           for otsikko, url in lahteet)
+                           if url else f"<li>{e(otsikko)}</li>" for otsikko, url in lahteet)
     return f"""<!doctype html>
 <html lang="fi">
 <head>
