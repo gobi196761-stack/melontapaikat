@@ -16,6 +16,8 @@ import json
 from pathlib import Path
 from urllib.parse import urlencode
 
+import sovellus
+
 e = html.escape
 AINEISTO = Path(__file__).with_name("muut_kohteet.json")
 LAHDE = "Timo Piirainen: melontapäiväkirja, Melottuja jokireittejä (13.6.2026)"
@@ -102,7 +104,7 @@ def sivu(k: dict, tyyli: str) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{e(k["nimi"])} – Muut kohteet</title>
-<link rel="icon" type="image/png" href="/kuvake-192.png">
+<link rel="icon" type="image/png" href="{sovellus.kuvake_osoite(192)}">
 <style>{tyyli}</style>
 </head>
 <body><main class="kuvaus">
@@ -148,7 +150,7 @@ def luettelo(tyyli: str) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Muut kohteet – Melontapaikat</title>
-<link rel="icon" type="image/png" href="/kuvake-192.png">
+<link rel="icon" type="image/png" href="{sovellus.kuvake_osoite(192)}">
 <style>{tyyli}</style>
 </head>
 <body><main class="kuvaus">

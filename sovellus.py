@@ -10,12 +10,24 @@ Reitit (app.py): /manifest.webmanifest ja /kuvake-<koko>.png (KOOT).
 from __future__ import annotations
 
 import functools
+import hashlib
 import io
 import json
 from pathlib import Path
 
 KOOT = (180, 192, 512)   # 180 = apple-touch-icon, 192 ja 512 = manifest
 LOGO = Path(__file__).with_name("logo.jpg")
+# Kuvakkeiden ja manifestin osoitteisiin logon sisällöstä laskettu versio: kun logo vaihtuu, osoite
+# vaihtuu, eikä selain (tai uudelleen asennettu sovellus) käytä välimuistissa olevaa vanhaa kuvaketta.
+VERSIO = hashlib.sha256(LOGO.read_bytes()).hexdigest()[:8]
+
+
+def kuvake_osoite(koko: int) -> str:
+    return f"/kuvake-{koko}.png?v={VERSIO}"
+
+
+def manifest_osoite(kieli: str = "fi") -> str:
+    return f"/manifest.webmanifest?{'kieli=en&' if kieli == 'en' else ''}v={VERSIO}"
 TEEMA = "#0b62c4"
 
 
@@ -28,9 +40,9 @@ def manifest(kieli: str = "fi") -> str:
                         else "Pohjois-Suomen melontapaikat päivän vesitilanteen mukaan"),
         "lang": kieli, "start_url": "/?kieli=en" if en else "/", "scope": "/", "display": "standalone",
         "background_color": "#ffffff", "theme_color": TEEMA,
-        "icons": [{"src": f"/kuvake-{k}.png", "sizes": f"{k}x{k}", "type": "image/png", "purpose": "any"}
+        "icons": [{"src": kuvake_osoite(k), "sizes": f"{k}x{k}", "type": "image/png", "purpose": "any"}
                   for k in KOOT if k != 180]
-        + [{"src": "/kuvake-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}],
+        + [{"src": kuvake_osoite(512), "sizes": "512x512", "type": "image/png", "purpose": "maskable"}],
     }, ensure_ascii=False, indent=1)
 
 

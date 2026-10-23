@@ -1121,10 +1121,10 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{k_("Melontatilanne")}</title>
-<link rel="manifest" href="/manifest.webmanifest{"?kieli=en" if kieli == "en" else ""}">
+<link rel="manifest" href="{e(sovellus.manifest_osoite(kieli))}">
 <meta name="theme-color" content="{sovellus.TEEMA}">
-<link rel="icon" type="image/png" href="/kuvake-192.png">
-<link rel="apple-touch-icon" href="/kuvake-180.png">
+<link rel="icon" type="image/png" href="{sovellus.kuvake_osoite(192)}">
+<link rel="apple-touch-icon" href="{sovellus.kuvake_osoite(180)}">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="{k_("Melonta")}">
 <style>{TYYLI}</style>
@@ -1774,10 +1774,10 @@ def paikkasivu(paikka, kieli: str = "fi") -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{e(paikka.nimi)} – {"Paddling spots" if en else "Melontapaikat"}</title>
 <meta name="description" content="{e(kuvaus_meta)}">
-<link rel="manifest" href="/manifest.webmanifest{"?kieli=en" if en else ""}">
+<link rel="manifest" href="{e(sovellus.manifest_osoite(kieli))}">
 <meta name="theme-color" content="{sovellus.TEEMA}">
-<link rel="icon" type="image/png" href="/kuvake-192.png">
-<link rel="apple-touch-icon" href="/kuvake-180.png">
+<link rel="icon" type="image/png" href="{sovellus.kuvake_osoite(192)}">
+<link rel="apple-touch-icon" href="{sovellus.kuvake_osoite(180)}">
 <link rel="alternate" hreflang="{toinen}" href="{e(paikan_osoite(paikka, toinen))}">
 <style>{TYYLI}</style>
 </head>

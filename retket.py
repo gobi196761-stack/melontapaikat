@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import html
 
+import sovellus
+
 e = html.escape
 
 RETKET: dict[str, dict] = {
@@ -70,7 +72,7 @@ def sivu(tunniste: str, tyyli: str) -> str | None:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{e(r["nimi"])} – Melontapaikat</title>
-<link rel="icon" type="image/png" href="/kuvake-192.png">
+<link rel="icon" type="image/png" href="{sovellus.kuvake_osoite(192)}">
 <style>{tyyli}</style>
 </head>
 <body><main class="kuvaus">

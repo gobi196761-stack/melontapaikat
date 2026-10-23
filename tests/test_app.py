@@ -794,11 +794,13 @@ def test_asennettava_sovellus(palvelin):
     m = json.loads(runko)
     # iPhonen push-ilmoitukset vaativat Koti-valikosta omana sovelluksenaan avautuvan sivun
     assert m["display"] == "standalone" and m["start_url"] == "/" and m["name"] == "Melontatilanne"
-    assert {"/kuvake-192.png", "/kuvake-512.png"} <= {k["src"] for k in m["icons"]}
+    v = sovellus.VERSIO   # logon tiivisteestä: uusi logo -> uudet osoitteet, ei vanhaa välimuistista
+    assert len(v) == 8 and {f"/kuvake-192.png?v={v}", f"/kuvake-512.png?v={v}"} <= {k["src"] for k in m["icons"]}
     assert json.loads(pyynto("/manifest.webmanifest", "kieli=en")[2])["start_url"] == "/?kieli=en"
     sivu = pyynto("/")[2]
-    assert '<link rel="manifest" href="/manifest.webmanifest">' in sivu
-    assert '<link rel="apple-touch-icon" href="/kuvake-180.png">' in sivu
+    assert f'<link rel="manifest" href="/manifest.webmanifest?v={v}">' in sivu
+    assert f'<link rel="apple-touch-icon" href="/kuvake-180.png?v={v}">' in sivu
+    assert f'href="/manifest.webmanifest?kieli=en&amp;v={v}"' in pyynto("/", "kieli=en")[2]
     for koko in sovellus.KOOT:
         vastaus = app.app({"PATH_INFO": f"/kuvake-{koko}.png", "REQUEST_METHOD": "GET", "QUERY_STRING": ""},
                           lambda status, otsakkeet: None)
