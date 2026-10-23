@@ -1,6 +1,7 @@
 import datetime as dt
 import io
 import json
+import re
 import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -825,3 +826,11 @@ def test_halyta_kirjoittaa_yhteenvedon_lokiin(monkeypatch, capsys):
     loki = json.loads(capsys.readouterr().out.strip().removeprefix("halyta: "))
     assert status == "200 OK" and loki["tilauksia"] == 2 and loki["lahetetty"] == 1
     assert loki["kapsi"] == {"mittauksia": 5, "uusia": 5}   # Maalismaan keruu mukana yhteenvedossa
+
+
+
+def test_etusivun_nimet_linkittavat_paikkasivuille(palvelin):
+    _, _, runko = pyynto("/")
+    assert '<a href="/paikka/kipina-iijoki">Kipinä (Iijoki)</a>' in runko
+    linkit = set(re.findall(r'href="(/paikka/[a-z0-9-]+)"', runko))
+    assert linkit <= {f"/paikka/{t}" for t in app.PAIKKASIVUT}
