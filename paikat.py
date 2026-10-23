@@ -657,9 +657,10 @@ PAIKAT: tuple[Paikka, ...] = (
         # Myllykosken asemalla (7300350) ei ole havaintoja, vain SYKE:n mallin virtaama ja ennuste.
         # Rajat melojien havainnoista: 25.5.2024 n. 50 m³/s isot aallot ja stopparit; 18.5.2025
         # 28 m³/s kosket matalia ja kiviä pinnassa, mutta Hanhivirta ja Paljakat vielä hyviä.
+        # Kumpikin retki onnistui, joten parhaimmillaan (vihreä) retkien pienimmästä vedestä ylöspäin.
         {"paa": Mittari("73/q7300350y/qinlyhyt.png", lisakaavio=True, marginaali=10)},
         (
-            Kohde("Myllykoski – Koivumutka (n. 17 km, I–II+)", (25, AVOIN), (40, 60), 1.0,
+            Kohde("Myllykoski – Koivumutka (n. 17 km, I–II+)", (25, AVOIN), (28, AVOIN), 1.0,
                   huom="25.5.2024 n. 50 m³/s: isoja aaltoja ja stoppareita, välillä piti meloa ettei jäänyt "
                        "kiinni; 18.5.2025 28 m³/s: kosket matalia, kiviä pinnassa, mela osui stoppareissa "
                        "pohjaan – Hanhivirrassa ja Paljakan koskissa silti isoja aaltoja", lahde="meloja",
@@ -675,9 +676,10 @@ PAIKAT: tuple[Paikka, ...] = (
         # kertoo kevään tulvan vaiheen, ei Savinajoen omaa virtaamaa. Rajat ovat arvioita:
         # 26.5.2024 Oulankajoki 99 m³/s (melottu, 15,5 km), 18.5.2025 135 m³/s ("huomattavasti
         # isompi vesi"), 5.6.2016 Oulankajoki 17 m³/s (Piirainen: "alkukesästä laskukelpoisia").
+        # Kumpikin retki onnistui, joten parhaimmillaan (vihreä) retkien pienimmästä vedestä ylöspäin.
         {"paa": Mittari("73/q7300100y/qinlyhyt.png", lisakaavio=True, marginaali=20)},
         (
-            Kohde("Niitselyksentie – Savilampi (15,5 km, I–II)", (60, AVOIN), (90, 140), 0.9,
+            Kohde("Niitselyksentie – Savilampi (15,5 km, I–II)", (60, AVOIN), (99, AVOIN), 0.9,
                   huom="Oulankajoki 26.5.2024 99 m³/s: melottu, hyvä; 18.5.2025 135 m³/s: Savinajoessa "
                        "selvästi enemmän vettä (yläpuolinen järvi suli myöhemmin); kesällä vähävetinen",
                   lahde="arvio", kajakit=("riverrunner",)),
