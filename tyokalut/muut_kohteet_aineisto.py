@@ -329,6 +329,24 @@ def paikan_nimi(teksti: str) -> str:
     return re.sub(r',.*$', '', t).strip(" .")
 
 
+TAIVUTUS = [(r"järve(llä|ltä|n|lle)$", "järvi"), (r"joe(lla|lta|n|lle)$", "joki"), (r"joessa$", "joki"),
+            (r"kose(lla|lta|n)$", "koski"), (r"kosken$", "koski"), (r"lamme(lla|lta|n)$", "lampi"),
+            (r"puro(lla|lta|n)$", "puro"), (r"vuopio$", "vuopio")]
+
+
+def vesistonimet(teksti: str) -> list[str]:
+    """'Kosken niska Muuruejärvellä' -> ['Muuruejärvi']; 'Silta Jysmänpurolla' -> ['Jysmänpuro']."""
+    out = []
+    for sana in re.findall(r"[A-ZÄÖÅ][\wäöå-]+", teksti):
+        for kuvio, perus in TAIVUTUS:
+            if re.search(kuvio, sana):
+                sana = re.sub(kuvio, perus, sana)
+                break
+        if re.search(r"(järvi|joki|koski|lampi|puro|vesi|selkä|lahti|salmi|virta|kylä|silta|niemi|saari|ranta)$", sana.lower()):
+            out.append(sana)
+    return out
+
+
 def etaisyys(a, b) -> float:
     la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
     h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
@@ -353,7 +371,7 @@ def _nimi_osuu(ehdokas: dict, nimi: str) -> bool:
 # Alueet (etelä, länsi, pohjoinen, itä): päiväkirjan ensimmäinen osa on Savosta ja Karjalasta,
 # muun Suomen osioille alue otsikon mukaan.
 ALUEET = {
-    None: (61.7, 25.8, 64.05, 31.6),
+    None: (61.7, 25.8, 64.3, 31.6),
     "SUUREN KYMIJOEN VARRELLA": (60.4, 25.5, 61.5, 27.2),
     "PÄIJÄNTEEN LATVOILLA KESKI-SUOMESSA": (61.9, 24.5, 63.6, 26.6),
     "PÄIJÄNTEEN POHJILLA HÄMEESSÄ": (61.0, 25.3, 61.6, 26.0),
@@ -391,10 +409,16 @@ def paikanna(r: dict, valimuisti: dict) -> dict:
     for avain, nimi in [*nimet.items(), *((f"joki{i}", j) for i, j in enumerate(joet))]:
         if not nimi or len(nimi) < 3:
             continue
-        lista = [c for c in photon(nimi, valimuisti) if _nimi_osuu(c, nimi) and _alueella(c, alue)]
-        if kunnat:
-            rajattu = [c for c in lista if (c.get("city") or "").lower() in kunnat or (c.get("county") or "").lower() in kunnat]
-            lista = rajattu or lista
+        vaihtoehdot = [nimi] + ([v for v in vesistonimet(r["kentat"].get(avain, "")) if v != nimi]
+                                if avain in ("lahto", "kohde") else [])
+        lista = []
+        for n in vaihtoehdot:
+            lista = [c for c in photon(n, valimuisti) if _nimi_osuu(c, n) and _alueella(c, alue)]
+            if kunnat:
+                lista = [c for c in lista if (c.get("city") or "").lower() in kunnat
+                         or (c.get("county") or "").lower() in kunnat]
+            if lista:
+                break
         if lista:
             ehdokkaat[avain] = lista
     paras, paras_pisteet = None, -1

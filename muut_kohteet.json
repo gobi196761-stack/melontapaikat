@@ -385,12 +385,22 @@
    "Heinjoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
-  "lahto_kunta": null,
-  "kohde_kunta": null,
-  "alue": null,
+  "kohde_sijainti": [
+   62.59039,
+   27.6051
+  ],
+  "lahto_kunta": "Leppävirta",
+  "kohde_kunta": "Leppävirta",
+  "alue": [
+   62.59039,
+   27.6051
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 324,
+   "min": 266
+  }
  },
  {
   "tunniste": "siilinjoki-siilinlahti",
@@ -641,8 +651,8 @@
   "lahto_kunta": "Leppävirta",
   "kohde_kunta": "Leppävirta",
   "alue": [
-   62.39799,
-   28.27291
+   62.42233,
+   28.21751
   ],
   "vesi": null,
   "lisatiedot": [],
@@ -670,21 +680,18 @@
    "Kuolemanjoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": [
-   61.94079,
-   25.54561
-  ],
-  "lahto_kunta": "Jyväskylä",
-  "kohde_kunta": "Jyväskylä",
+  "kohde_sijainti": null,
+  "lahto_kunta": null,
+  "kohde_kunta": null,
   "alue": [
-   61.94079,
-   25.54561
+   62.63072,
+   28.18915
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 384,
-   "min": 318
+   "km": 345,
+   "min": 311
   }
  },
  {
@@ -708,21 +715,18 @@
    "Nytönjoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": [
-   61.15848,
-   24.57327
-  ],
-  "lahto_kunta": "Hämeenlinna",
-  "kohde_kunta": "Hämeenlinna",
+  "kohde_sijainti": null,
+  "lahto_kunta": "Tuusniemi",
+  "kohde_kunta": null,
   "alue": [
-   61.15848,
-   24.57327
+   62.6301,
+   28.48381
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 523,
-   "min": 437
+   "km": 352,
+   "min": 314
   }
  },
  {
@@ -782,20 +786,20 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": [
-   64.31723,
-   29.05232
+   62.69646,
+   28.28752
   ],
-  "lahto_kunta": "Kuhmo",
-  "kohde_kunta": "Kuhmo",
+  "lahto_kunta": "Kuopio",
+  "kohde_kunta": "Kuopio",
   "alue": [
-   64.32324,
-   29.01936
+   62.69646,
+   28.28752
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 224,
-   "min": 208
+   "km": 335,
+   "min": 295
   }
  },
  {
@@ -816,24 +820,24 @@
    "Lahnasjoki"
   ],
   "lahto_sijainti": [
-   62.59513,
-   26.12132
+   62.66249,
+   28.5444
   ],
   "kohde_sijainti": [
-   62.64554,
-   25.78557
+   62.51926,
+   28.69677
   ],
-  "lahto_kunta": "Konnevesi",
-  "kohde_kunta": "Äänekoski",
+  "lahto_kunta": "Tuusniemi",
+  "kohde_kunta": "Heinävesi",
   "alue": [
-   62.59513,
-   26.12132
+   62.66249,
+   28.5444
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 327,
-   "min": 274
+   "km": 344,
+   "min": 301
   }
  },
  {
@@ -857,11 +861,18 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": null,
+  "lahto_kunta": "Siilinjärvi",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   63.11817,
+   27.47722
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 263,
+   "min": 228
+  }
  },
  {
   "tunniste": "koirajarvi-suvasvesi",
@@ -883,21 +894,21 @@
    "Nytönjoki"
   ],
   "lahto_sijainti": [
-   68.7156,
-   23.70129
+   62.70312,
+   27.93473
   ],
   "kohde_sijainti": null,
-  "lahto_kunta": "Enontekiö",
+  "lahto_kunta": "Kuopio",
   "kohde_kunta": null,
   "alue": [
-   68.70268,
-   23.71182
+   62.70312,
+   27.93473
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 531,
-   "min": 457
+   "km": 324,
+   "min": 283
   }
  },
  {
@@ -920,22 +931,12 @@
    "Hoikkajoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": [
-   64.12762,
-   29.54547
-  ],
-  "lahto_kunta": "Kuhmo",
-  "kohde_kunta": "Kuhmo",
-  "alue": [
-   64.08431,
-   29.84914
-  ],
+  "kohde_sijainti": null,
+  "lahto_kunta": null,
+  "kohde_kunta": null,
+  "alue": null,
   "vesi": null,
-  "lisatiedot": [],
-  "ajo": {
-   "km": 277,
-   "min": 255
-  }
+  "lisatiedot": []
  },
  {
   "tunniste": "pirttiahon-tien-silta-juojarven-vihtalahti",
@@ -983,21 +984,24 @@
    "Palokinkosket"
   ],
   "lahto_sijainti": [
-   64.30888,
-   29.59797
+   62.61099,
+   28.59338
   ],
-  "kohde_sijainti": null,
-  "lahto_kunta": "Kuhmo",
-  "kohde_kunta": null,
+  "kohde_sijainti": [
+   62.56837,
+   28.57812
+  ],
+  "lahto_kunta": "Tuusniemi",
+  "kohde_kunta": "Heinävesi",
   "alue": [
-   64.42613,
-   29.33091
+   62.61099,
+   28.59338
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 244,
-   "min": 231
+   "km": 349,
+   "min": 315
   }
  },
  {
@@ -1134,11 +1138,18 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": null,
+  "lahto_kunta": "Siilinjärvi",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   63.24699,
+   27.68141
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 258,
+   "min": 226
+  }
  },
  {
   "tunniste": "juankoski-karjalankoski",
@@ -1273,11 +1284,18 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": null,
+  "lahto_kunta": "Kuopio",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   63.16906,
+   26.95659
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 267,
+   "min": 236
+  }
  },
  {
   "tunniste": "kolunjarvi-pielavesi",
@@ -1298,12 +1316,22 @@
    "Koivujoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   63.29094,
+   26.5296
+  ],
   "lahto_kunta": null,
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   63.29094,
+   26.5296
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 222,
+   "min": 202
+  }
  },
  {
   "tunniste": "nilakka-koskiselka",
@@ -1478,21 +1506,21 @@
    "Suurijoki"
   ],
   "lahto_sijainti": [
-   62.7051,
-   25.25827
+   62.90876,
+   27.69346
   ],
   "kohde_sijainti": null,
-  "lahto_kunta": "Uurainen",
+  "lahto_kunta": "Kuopio",
   "kohde_kunta": null,
   "alue": [
-   62.54868,
-   25.58338
+   62.95038,
+   27.21999
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 314,
-   "min": 262
+   "km": 287,
+   "min": 239
   }
  },
  {
@@ -1662,11 +1690,18 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": null,
+  "lahto_kunta": "Juuka",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   63.23403,
+   29.28787
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 312,
+   "min": 273
+  }
  },
  {
   "tunniste": "sammakkolampi-pielinen",
@@ -1687,21 +1722,21 @@
    "Vepsänjoki"
   ],
   "lahto_sijainti": [
-   64.07585,
-   27.2733
+   63.02789,
+   27.24202
   ],
   "kohde_sijainti": null,
-  "lahto_kunta": "Kajaani",
+  "lahto_kunta": "Kuopio",
   "kohde_kunta": null,
   "alue": [
-   64.07585,
-   27.2733
+   63.02789,
+   27.24202
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 177,
-   "min": 153
+   "km": 292,
+   "min": 268
   }
  },
  {
@@ -1913,24 +1948,24 @@
    "Vaahtovanjoki"
   ],
   "lahto_sijainti": [
-   62.08492,
-   25.04926
+   62.56912,
+   28.72384
   ],
   "kohde_sijainti": [
-   62.22929,
-   25.68827
+   62.46736,
+   28.26278
   ],
-  "lahto_kunta": "Jämsä",
-  "kohde_kunta": "Jyväskylä",
+  "lahto_kunta": "Heinävesi",
+  "kohde_kunta": "Leppävirta",
   "alue": [
-   62.1884,
-   25.47787
+   62.43762,
+   28.38508
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 390,
-   "min": 335
+   "km": 366,
+   "min": 334
   }
  },
  {
@@ -2085,13 +2120,23 @@
    "Heinäveden reitin eteläisin koski ennen Oravia. Kosken pystyy melomaan tarvittaessa kumpaankin suuntaan."
   ],
   "joet": [],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   62.3669,
+   28.68227
+  ],
   "kohde_sijainti": null,
-  "lahto_kunta": null,
+  "lahto_kunta": "Heinävesi",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   62.3669,
+   28.68227
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 403,
+   "min": 373
+  }
  },
  {
   "tunniste": "palokinkosket",
@@ -2189,24 +2234,24 @@
    "Petrumanjoki"
   ],
   "lahto_sijainti": [
-   62.51036,
-   28.23164
+   62.55831,
+   28.6577
   ],
   "kohde_sijainti": [
    62.51426,
    28.64067
   ],
-  "lahto_kunta": "Leppävirta",
+  "lahto_kunta": "Heinävesi",
   "kohde_kunta": "Heinävesi",
   "alue": [
-   62.51036,
-   28.23164
+   62.55831,
+   28.6577
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 377,
-   "min": 323
+   "km": 358,
+   "min": 314
   }
  },
  {
@@ -2226,13 +2271,23 @@
   "joet": [
    "Vääränjoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   62.39077,
+   29.0851
+  ],
   "kohde_sijainti": null,
-  "lahto_kunta": null,
+  "lahto_kunta": "Heinävesi",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   62.39077,
+   29.0851
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 394,
+   "min": 348
+  }
  },
  {
   "tunniste": "sulkava-kermajarvi",
@@ -2252,21 +2307,21 @@
    "Sulkavanjoki"
   ],
   "lahto_sijainti": [
-   62.45205,
-   23.54507
+   62.43367,
+   28.96746
   ],
   "kohde_sijainti": null,
-  "lahto_kunta": "Alavus",
+  "lahto_kunta": "Heinävesi",
   "kohde_kunta": null,
   "alue": [
-   62.39271,
-   23.61664
+   62.43367,
+   28.96746
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 361,
-   "min": 320
+   "km": 395,
+   "min": 360
   }
  },
  {
@@ -2288,21 +2343,24 @@
    "Maajoki"
   ],
   "lahto_sijainti": [
-   64.39008,
-   29.07436
+   62.38409,
+   28.59581
   ],
-  "kohde_sijainti": null,
-  "lahto_kunta": "Kuhmo",
-  "kohde_kunta": null,
+  "kohde_sijainti": [
+   62.42233,
+   28.21751
+  ],
+  "lahto_kunta": "Heinävesi",
+  "kohde_kunta": "Leppävirta",
   "alue": [
-   64.3945,
-   29.09627
+   62.42233,
+   28.21751
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 220,
-   "min": 215
+   "km": 402,
+   "min": 349
   }
  },
  {
@@ -2388,18 +2446,11 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Vieremä",
+  "lahto_kunta": null,
   "kohde_kunta": null,
-  "alue": [
-   63.80989,
-   27.01442
-  ],
+  "alue": null,
   "vesi": null,
-  "lisatiedot": [],
-  "ajo": {
-   "km": 175,
-   "min": 150
-  }
+  "lisatiedot": []
  },
  {
   "tunniste": "haapajarvi-salevan-viitosenlahti",
@@ -2578,26 +2629,13 @@
    "Ripatinkoski",
    "Puuskankoski"
   ],
-  "lahto_sijainti": [
-   61.65461,
-   26.66274
-  ],
-  "kohde_sijainti": [
-   61.46234,
-   26.6645
-  ],
-  "lahto_kunta": "Hirvensalmi",
-  "kohde_kunta": "Mäntyharju",
-  "alue": [
-   61.65461,
-   26.66274
-  ],
+  "lahto_sijainti": null,
+  "kohde_sijainti": null,
+  "lahto_kunta": null,
+  "kohde_kunta": null,
+  "alue": null,
   "vesi": null,
-  "lisatiedot": [],
-  "ajo": {
-   "km": 435,
-   "min": 372
-  }
+  "lisatiedot": []
  },
  {
   "tunniste": "hukkala-vartsila",
@@ -2699,15 +2737,15 @@
    "Lieksajoki"
   ],
   "lahto_sijainti": [
-   66.53493,
-   27.28343
+   62.6795,
+   30.05476
   ],
   "kohde_sijainti": null,
-  "lahto_kunta": "Kemijärvi",
+  "lahto_kunta": "Kontiolahti",
   "kohde_kunta": null,
   "alue": [
-   66.53493,
-   27.28343
+   62.6795,
+   30.05476
   ],
   "vesi": null,
   "lisatiedot": [
@@ -2722,8 +2760,8 @@
    "Lieksanjoki (Matkalahti – Siikakoski)"
   ],
   "ajo": {
-   "km": 267,
-   "min": 245
+   "km": 401,
+   "min": 363
   }
  },
  {
@@ -2746,12 +2784,22 @@
    "Somerjoki"
   ],
   "lahto_sijainti": null,
-  "kohde_sijainti": null,
+  "kohde_sijainti": [
+   62.57053,
+   28.63826
+  ],
   "lahto_kunta": null,
-  "kohde_kunta": null,
-  "alue": null,
+  "kohde_kunta": "Heinävesi",
+  "alue": [
+   62.6837,
+   28.66977
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 347,
+   "min": 310
+  }
  },
  {
   "tunniste": "saramojoen-lantisella-latvalla",
@@ -2771,21 +2819,21 @@
    "Peurajoki"
   ],
   "lahto_sijainti": [
-   64.21615,
-   29.28688
+   64.01381,
+   29.32986
   ],
   "kohde_sijainti": null,
   "lahto_kunta": "Kuhmo",
   "kohde_kunta": null,
   "alue": [
-   64.21199,
-   29.29529
+   64.01381,
+   29.32986
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 239,
-   "min": 228
+   "km": 269,
+   "min": 247
   }
  },
  {
@@ -3023,14 +3071,14 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": [
-   64.10708,
-   29.6291
+   62.93382,
+   27.36823
   ],
-  "lahto_kunta": "Kuhmo",
-  "kohde_kunta": "Kuhmo",
+  "lahto_kunta": "Kuopio",
+  "kohde_kunta": "Kuopio",
   "alue": [
-   64.10708,
-   29.6291
+   62.93382,
+   27.36823
   ],
   "vesi": null,
   "lisatiedot": [
@@ -3041,8 +3089,8 @@
    }
   ],
   "ajo": {
-   "km": 266,
-   "min": 248
+   "km": 314,
+   "min": 271
   }
  },
  {
@@ -3068,14 +3116,14 @@
   "lahto_kunta": "Kuhmo",
   "kohde_kunta": null,
   "alue": [
-   64.11542,
-   30.43221
+   63.99374,
+   30.14226
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 323,
-   "min": 343
+   "km": 297,
+   "min": 306
   }
  },
  {
@@ -3427,10 +3475,7 @@
   "joet": [
    "Hiisijoki"
   ],
-  "lahto_sijainti": [
-   64.3676,
-   28.51412
-  ],
+  "lahto_sijainti": null,
   "kohde_sijainti": null,
   "lahto_kunta": "Ristijärvi",
   "kohde_kunta": null,
@@ -3441,8 +3486,8 @@
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 183,
-   "min": 170
+   "km": 180,
+   "min": 168
   }
  },
  {
@@ -3729,21 +3774,21 @@
    "Ropsajoki"
   ],
   "lahto_sijainti": [
-   61.19629,
-   26.09003
+   66.63022,
+   26.61269
   ],
   "kohde_sijainti": null,
-  "lahto_kunta": "Heinola",
+  "lahto_kunta": "Rovaniemi",
   "kohde_kunta": null,
   "alue": [
-   61.19629,
-   26.09003
+   66.63022,
+   26.61269
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 476,
-   "min": 402
+   "km": 270,
+   "min": 235
   }
  },
  {
@@ -3821,17 +3866,27 @@
   "joet": [
    "Ounasjoki"
   ],
-  "lahto_sijainti": null,
+  "lahto_sijainti": [
+   66.58332,
+   25.65692
+  ],
   "kohde_sijainti": null,
-  "lahto_kunta": null,
+  "lahto_kunta": "Rovaniemi",
   "kohde_kunta": null,
-  "alue": null,
-  "vesi": null,
+  "alue": [
+   66.58332,
+   25.65692
+  ],
+  "vesi": "SYKE 30.9.2001: Ounasjoki, Marraskoski 122 m³/s (vuorokausiarvo)",
   "lisatiedot": [],
   "paikkasivu": [
    "/paikka/marraskoski-ounasjoki",
    "Marraskoski (Ounasjoki)"
-  ]
+  ],
+  "ajo": {
+   "km": 232,
+   "min": 200
+  }
  },
  {
   "tunniste": "ounasjokeen-jarvelta-lasketellen",
@@ -4458,9 +4513,16 @@
   "kohde_sijainti": null,
   "lahto_kunta": null,
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   67.54779,
+   29.2058
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 464,
+   "min": 419
+  }
  },
  {
   "tunniste": "nuortijoen-latvoilla",
@@ -4482,11 +4544,18 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": null,
+  "lahto_kunta": "Savukoski",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   67.77547,
+   29.04288
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 480,
+   "min": 433
+  }
  },
  {
   "tunniste": "nuortijoen-latvoilla-tulppiojoki",
@@ -4605,16 +4674,9 @@
   "kohde_sijainti": null,
   "lahto_kunta": null,
   "kohde_kunta": null,
-  "alue": [
-   68.90507,
-   25.48138
-  ],
-  "vesi": "SYKE 13.9.2020: Inarijoki, Karigasniemi 24 m³/s (vuorokausiarvo)",
-  "lisatiedot": [],
-  "ajo": {
-   "km": 613,
-   "min": 531
-  }
+  "alue": null,
+  "vesi": null,
+  "lisatiedot": []
  },
  {
   "tunniste": "kauhavajoella-kauhavan-ylajuoksullla",
@@ -4817,14 +4879,14 @@
   "lahto_kunta": "Enontekiö",
   "kohde_kunta": null,
   "alue": [
-   67.84198,
-   23.47871
+   68.38943,
+   22.84374
   ],
-  "vesi": "SYKE 24.8.2021: Muonionjoki, Muonio 92 m³/s (vuorokausiarvo)",
+  "vesi": "SYKE 24.8.2021: Muonionjoki, Kaaresuvanto 72 m³/s (vuorokausiarvo)",
   "lisatiedot": [],
   "ajo": {
-   "km": 390,
-   "min": 364
+   "km": 462,
+   "min": 385
   }
  },
  {
@@ -4846,11 +4908,11 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Jämsä",
+  "lahto_kunta": "Pello",
   "kohde_kunta": null,
   "alue": [
-   61.9489,
-   25.29579
+   66.89226,
+   23.92533
   ],
   "vesi": null,
   "lisatiedot": [],
@@ -4859,8 +4921,8 @@
    "Kattilakoski (Tornionjoki)"
   ],
   "ajo": {
-   "km": 386,
-   "min": 316
+   "km": 264,
+   "min": 232
   }
  },
  {
@@ -4960,17 +5022,17 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Kouvola",
+  "lahto_kunta": "Mikkeli",
   "kohde_kunta": null,
   "alue": [
-   61.14477,
-   26.52203
+   61.86837,
+   27.11154
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 508,
-   "min": 417
+   "km": 444,
+   "min": 385
   }
  },
  {
@@ -5188,17 +5250,17 @@
   ],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Rovaniemi",
+  "lahto_kunta": "Joroinen",
   "kohde_kunta": null,
   "alue": [
-   66.75396,
-   26.24565
+   62.1634,
+   27.83805
   ],
   "vesi": null,
   "lisatiedot": [],
   "ajo": {
-   "km": 264,
-   "min": 225
+   "km": 378,
+   "min": 309
   }
  },
  {
@@ -5489,9 +5551,16 @@
   "kohde_sijainti": null,
   "lahto_kunta": "Rautavaara",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   63.38265,
+   28.70324
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 299,
+   "min": 263
+  }
  },
  {
   "tunniste": "iso-peranka-paloranta",
@@ -5558,7 +5627,10 @@
   "kohde_sijainti": null,
   "lahto_kunta": "Salla",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   66.4555,
+   28.9798
+  ],
   "vesi": null,
   "lisatiedot": [
    {
@@ -5566,7 +5638,11 @@
     "lahde": "Metsähallitus: Oulangan melontaesite",
     "url": "https://julkaisut.metsa.fi/assets/pdf/lp/Esitteet/oulankamelonta-en.pdf"
    }
-  ]
+  ],
+  "ajo": {
+   "km": 278,
+   "min": 247
+  }
  },
  {
   "tunniste": "niemela-niitselyksentien-silta",
@@ -5924,9 +6000,12 @@
   "joet": [],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Ilomantsi-Joensuu",
+  "lahto_kunta": "Joensuu",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   62.85363,
+   30.40756
+  ],
   "vesi": null,
   "lisatiedot": [
    {
@@ -5934,7 +6013,11 @@
     "lahde": "Wikipedia: Koitajoki",
     "url": "https://en.wikipedia.org/wiki/Koitajoki"
    }
-  ]
+  ],
+  "ajo": {
+   "km": 391,
+   "min": 340
+  }
  },
  {
   "tunniste": "ammankoski",
@@ -5955,7 +6038,10 @@
   "kohde_sijainti": null,
   "lahto_kunta": "Varkaus",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   62.31241,
+   27.89823
+  ],
   "vesi": null,
   "lisatiedot": [
    {
@@ -5963,7 +6049,11 @@
     "lahde": "Valtioneuvosto: Vesi virtaa Ämmäkosken ohitusuomassa",
     "url": "https://valtioneuvosto.fi/-/1410837/vesi-virtaa-ammakosken-ohitusuomassa"
    }
-  ]
+  ],
+  "ajo": {
+   "km": 364,
+   "min": 302
+  }
  },
  {
   "tunniste": "kalajoki",
@@ -5982,11 +6072,18 @@
   "joet": [],
   "lahto_sijainti": null,
   "kohde_sijainti": null,
-  "lahto_kunta": "Haapajärvi-Nivala",
+  "lahto_kunta": "Haapajärvi",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   63.81322,
+   25.2239
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 160,
+   "min": 143
+  }
  },
  {
   "tunniste": "pyhajoki",
@@ -6043,8 +6140,15 @@
   "kohde_sijainti": null,
   "lahto_kunta": "Siikajoki",
   "kohde_kunta": null,
-  "alue": null,
+  "alue": [
+   64.71169,
+   24.97837
+  ],
   "vesi": null,
-  "lisatiedot": []
+  "lisatiedot": [],
+  "ajo": {
+   "km": 53,
+   "min": 52
+  }
  }
 ]

@@ -69,8 +69,13 @@ def _paikka(otsikko: str, nimi: str | None, piste, kunta: str | None, ajo: dict 
 def sivu(k: dict, tyyli: str) -> str:
     tiedot = [("Matka", k.get("matka")), ("Korkeusero", k.get("korkeusero")), ("Melottu", k.get("aika"))]
     tiedot_html = "".join(f"<li><b>{e(n)}:</b> {e(v)}</li>" for n, v in tiedot if v)
-    paikat = (_paikka("Lähtö", k.get("lahto"), k.get("lahto_sijainti"), k.get("lahto_kunta"), k.get("ajo"))
+    paikat = (_paikka("Lähtö", k.get("lahto"), k.get("lahto_sijainti"), k.get("lahto_kunta"),
+                      k.get("ajo") if k.get("lahto_sijainti") else None)
               + _paikka("Loppu", k.get("kohde"), k.get("kohde_sijainti"), k.get("kohde_kunta"), None))
+    if k.get("alue") and not (k.get("lahto_sijainti") and k.get("kohde_sijainti")):
+        paikat += _paikka("Reitin alue (likimääräinen)", "joen tai järven sijainti, kun lähtö- tai loppupaikkaa "
+                          "ei löytynyt kartalta nimellä", k["alue"], None,
+                          None if k.get("lahto_sijainti") else k.get("ajo"))
     paasy = _kappaleet(k.get("paasy", []))
     joet = f'<p class="meta">{e(" – ".join(k["joet"]))}</p>' if k.get("joet") else ""
     vesi = (f"<h2>Vesitilanne melontapäivänä</h2><p>{e(k['vesi'])}</p>" if k.get("vesi") else "")
