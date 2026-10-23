@@ -40,6 +40,7 @@ def tunniste(nimi: str) -> str:
 
 FSB = "https://freestylemelonta.blogspot.com/"
 TUORALA = "https://tuorala.wordpress.com/"
+RETKIPAIKKA_OULANKA = "https://retkipaikka.fi/oulangan-top-6-parhaat-packrafting-melontareitit/"
 KM_TORNIONJOKI = ("koskimelonta.com: Tornionjoki (vanhat koskiesittelyt)",
                   "https://koskimelonta.com/kosket/vanhat-koskiesittelyt/lappi/tornionjoki/")
 TUORALA_KATTILA_REF = ("Tuorala: Kattilakosken definitiivinen vedenkorkeusreferenssi (2011)",
@@ -942,15 +943,21 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "peräkkäisiin isoihin aaltoihin ja stoppareihin kiinni. Melonta kesti 2 h 30 min (12 km). "
              "18.5.2025 virtaama oli 28 m³/s ja joki aivan erilainen: kosket matalia ja kiviä lähellä pintaa tai "
              "sen yläpuolella. Hanhivirrassa ja Paljakan koskissa oli silti suhteellisen isoja aaltoja, vaikka "
-             "mela osui stoppareiden pohjassa kiviin."),
+             "mela osui stoppareiden pohjassa kiviin. Retkipaikan blogissa reitti (16 km) melottiin packraftilla "
+             "26.6.2020 virtaamalla 23 m³/s: kosket alussa hitaampia, loppua kohti vauhdikkaampia, melontaan 4–5 h. "
+             "Blogin mukaan joki ei sovi aloittelijoille, vaan vaatii koskimelonta- ja pelastustaitoja."),
             ("Muuta",
              "Metsähallituksen esitteen mukaan Kuusinkijoen melontareitti on 17,5 km. Oulangan kansallispuiston "
              "Pieni Karhunkierros on lähellä. Piiraisen melontapäiväkirjassa joesta on oma reittisivunsa "
-             "(Muut kohteet)."),
+             "(Muut kohteet). Retkipaikan mukaan reitti päättyy lähelle Venäjän rajaa, joten liian pitkälle ei "
+             "kannata laskea: lopetuspaikan tunnistaa matalasta koskesta ja mutkasta, jossa on iso hiekkasärkkä. "
+             "Kuusamon Koskimelojien reittikuvauksessa pituus on 17,7 km ja luokitus I–II+."),
         ),
         (("Retkisuunnitelma: Kuusinki- ja Savinajoki 2026 (koskikuvaukset ja melojien vesihavainnot 2024–2025)", None),
          ("Metsähallitus: Oulangan melontaesite (muut melontareitit)",
           "https://julkaisut.metsa.fi/assets/pdf/lp/Esitteet/oulankamelonta-en.pdf"),
+         ("Retkipaikka: Oulangan top-6 parhaat packrafting-melontareitit (2021)", RETKIPAIKKA_OULANKA),
+         ("Kuusamon Koskimelojat: Kuusinkijoki (2009)", "https://koskimelojat.blogspot.com/2009/05/kuusinkijoki.html"),
          ("SYKE: Myllykosken virtaama", "https://wwwi2.ymparisto.fi/i2/73/q7300350y/wqfi.html")),
     ),
     # ------------------------------------------------------------------
@@ -967,14 +974,21 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "kevään tulvan vaiheesta. 26.5.2024 (Oulankajoki 99 m³/s) reitti melottiin Niitselyksentieltä "
              "Savilammelle: 15,5 km, 3 h. 18.5.2025 (Oulankajoki 135 m³/s) Savinajoessa oli huomattavasti enemmän "
              "vettä kuin 2024, ilmeisesti koska yläpuolinen järvi suli myöhemmin. Piiraisen mukaan joen lukuisat "
-             "kosket ovat alkukesästä vesimäärältään laskukelpoisia."),
+             "kosket ovat alkukesästä vesimäärältään laskukelpoisia. Retkipaikan blogissa joki melottiin "
+             "packraftilla 24.6.2020, kun Oulankajoessa oli vain 24 m³/s: kosket olivat helppoa I-luokkaa ja "
+             "reitti sopi jopa aloittelijoille. Kajakilla näin pieni vesi on matala ja kivinen."),
             ("Muuta",
              "Metsähallituksen esitteen mukaan Savinajoen melontareitti on 14 km. Kiutakönkään yläpuolelta "
              "Oulankajoesta on löydetty mahdollisesti surffattava pieni aalto. Kiutakönkään laskeminen on "
-             "hengenvaarallista, ja Taivalköngäs ohitetaan kävellen."),
+             "hengenvaarallista, ja Taivalköngäs ohitetaan kävellen. Retkipaikan reitissä yhdistettiin patikointi ja "
+             "melonta: 6 km kävely Hautajärven luontokeskukselta Karhunkierrosta Perttumakosken laavulle, 10 km "
+             "melontaa Savilammelle ja 1 km kävely Kanjonin kurkkauksen parkkipaikalle. Kuusamon Koskimelojien "
+             "reittikuvauksessa pituus on 13 km ja luokitus I–II."),
         ),
         (("Retkisuunnitelma: Kuusinki- ja Savinajoki 2026 (koskikuvaukset ja melojien vesihavainnot 2024–2025)", None),
          ("Metsähallitus: Oulangan melontaesite", "https://julkaisut.metsa.fi/assets/pdf/lp/Esitteet/oulankamelonta-en.pdf"),
+         ("Retkipaikka: Oulangan top-6 parhaat packrafting-melontareitit (2021)", RETKIPAIKKA_OULANKA),
+         ("Kuusamon Koskimelojat: Savinajoki (2009)", "https://koskimelojat.blogspot.com/2009/05/savinajoki.html"),
          ("luontoon.fi: Oulankajoen koskimelontareitti Savilampi – Kiutaköngäs",
           "https://www.luontoon.fi/en/trails/oulankajoen-koskimelontareitti-savilampi-kiutakonkaan-leirintaalue-kuusamo-500518-en"),
          ("SYKE: Oulankajoen virtaama", "https://wwwi2.ymparisto.fi/i2/73/q7300100y/wqfi.html")),

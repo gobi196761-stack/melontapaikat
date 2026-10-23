@@ -656,14 +656,16 @@ PAIKAT: tuple[Paikka, ...] = (
         "Mittarina Myllykosken laskennallinen virtaama.",
         # Myllykosken asemalla (7300350) ei ole havaintoja, vain SYKE:n mallin virtaama ja ennuste.
         # Rajat melojien havainnoista: 25.5.2024 n. 50 m³/s isot aallot ja stopparit; 18.5.2025
-        # 28 m³/s kosket matalia ja kiviä pinnassa, mutta Hanhivirta ja Paljakat vielä hyviä.
+        # 28 m³/s kosket matalia ja kiviä pinnassa, mutta Hanhivirta ja Paljakat vielä hyviä;
+        # 26.6.2020 23 m³/s melottu packraftilla (Retkipaikka) – toimii-raja.
         # Kumpikin retki onnistui, joten parhaimmillaan (vihreä) retkien pienimmästä vedestä ylöspäin.
         {"paa": Mittari("73/q7300350y/qinlyhyt.png", lisakaavio=True, marginaali=10)},
         (
-            Kohde("Myllykoski – Koivumutka (n. 17 km, I–II+)", (25, AVOIN), (28, AVOIN), 1.0,
+            Kohde("Myllykoski – Koivumutka (n. 17 km, I–II+)", (23, AVOIN), (28, AVOIN), 1.0,
                   huom="25.5.2024 n. 50 m³/s: isoja aaltoja ja stoppareita, välillä piti meloa ettei jäänyt "
                        "kiinni; 18.5.2025 28 m³/s: kosket matalia, kiviä pinnassa, mela osui stoppareissa "
-                       "pohjaan – Hanhivirrassa ja Paljakan koskissa silti isoja aaltoja", lahde="meloja",
+                       "pohjaan – Hanhivirrassa ja Paljakan koskissa silti isoja aaltoja; 26.6.2020 23 m³/s: melottu "
+                       "packraftilla, vauhdikas (Retkipaikka)", lahde="meloja",
                   kajakit=("riverrunner",)),
         ),
     ),
@@ -673,16 +675,18 @@ PAIKAT: tuple[Paikka, ...] = (
         "Savilampeen, pudotusta 60 m reilulla 10 km:llä. Kesällä vähävetinen ja kivinen. Mittarina "
         "Oulankajoen virtaama alavirrassa (Savinajoella ei omaa asemaa).",
         # Savinajoki laskee Oulankajokeen Savilammella; Oulankajoen asema (7300100) on alavirrassa ja
-        # kertoo kevään tulvan vaiheen, ei Savinajoen omaa virtaamaa. Rajat ovat arvioita:
+        # kertoo kevään tulvan vaiheen, ei Savinajoen omaa virtaamaa. Rajat melojien havainnoista:
         # 26.5.2024 Oulankajoki 99 m³/s (melottu, 15,5 km), 18.5.2025 135 m³/s ("huomattavasti
-        # isompi vesi"), 5.6.2016 Oulankajoki 17 m³/s (Piirainen: "alkukesästä laskukelpoisia").
+        # isompi vesi"), 5.6.2016 Oulankajoki 17 m³/s (Piirainen: "alkukesästä laskukelpoisia"),
+        # 24.6.2020 24 m³/s melottu packraftilla, helppoa I-luokkaa (Retkipaikka) – toimii-raja.
         # Kumpikin retki onnistui, joten parhaimmillaan (vihreä) retkien pienimmästä vedestä ylöspäin.
         {"paa": Mittari("73/q7300100y/qinlyhyt.png", lisakaavio=True, marginaali=20)},
         (
-            Kohde("Niitselyksentie – Savilampi (15,5 km, I–II)", (60, AVOIN), (99, AVOIN), 0.9,
+            Kohde("Niitselyksentie – Savilampi (15,5 km, I–II)", (24, AVOIN), (99, AVOIN), 0.9,
                   huom="Oulankajoki 26.5.2024 99 m³/s: melottu, hyvä; 18.5.2025 135 m³/s: Savinajoessa "
-                       "selvästi enemmän vettä (yläpuolinen järvi suli myöhemmin); kesällä vähävetinen",
-                  lahde="arvio", kajakit=("riverrunner",)),
+                       "selvästi enemmän vettä (yläpuolinen järvi suli myöhemmin); 24.6.2020 24 m³/s: melottu "
+                       "packraftilla, helppoa I-luokkaa (Retkipaikka) – kajakilla matala ja kivinen",
+                  lahde="meloja", kajakit=("riverrunner",)),
         ),
     ),
     Paikka(
