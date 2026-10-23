@@ -4,7 +4,11 @@ Jokaisesta paikasta on koottu kuvaus osm.fi:n paikkasivuista, Rovaniemen Melojie
 foorumista, koskimelonta.comista, Suomen freestylemelontamaajoukkueen blogista
 (freestylemelonta.blogspot.com), Tuomas Vaaralan melontapäiväkirjasta
 (tuorala.wordpress.com), mpahkala.kapsi.fi:n melontaraportista ja muista
-lähteistä (luettu 10/2026). Tekstit ovat lähteiden tiivistelmiä omin sanoin;
+lähteistä (luettu 10/2026). Kun lähde kertoo, että kohde toimi tai oli
+parhaimmillaan tiettynä päivänä, perään on lisätty suluissa sen päivän vesitilanne
+SYKE:n hydrologiarajapinnasta (rajapinnat.ymparisto.fi, vuorokausiarvot; vedenkorkeus
+muunnettu sovelluksen kaavioiden asteikolle vertaamalla ajo.jsonin havaintoihin) tai
+Ruotsin paikoille SMHI:n korjatusta päiväarkistosta. Tekstit ovat lähteiden tiivistelmiä omin sanoin;
 vedenkorkeudet ja virtaamat ovat lähteiden lukuja ja niiden ajankohta on
 kerrottu, kun se on tiedossa. Kohteiden toimintarajat sivulle tulevat suoraan
 paikat.py:stä, joten ne eivät ole tässä tiedostossa.
@@ -122,8 +126,9 @@ KUVAUKSET: dict[str, Kuvaus] = {
             ("Kokemuksia",
              "Keväällä 2010 freestylemaajoukkue piti Koiteliä Pohjois-Pohjanmaan parhaana treenipaikkana, koska "
              "Taivalkoskella oli liikaa ja Hawa'Iilla liian vähän vettä eikä Tornionjoelle päässyt vielä. Veden "
-             "laskettua löytyi uusi Helmihontto, ja helatorstain viikonloppuna takimmaisessa portaassa oli hyvä "
-             "kärrytellä pitävässä hontossa, jossa akanvirrat olivat molemmin puolin."),
+             "laskettua löytyi uusi Helmihontto (SYKE 10.5.2010: Haukipudas 10.66 m), ja helatorstain "
+             "viikonloppuna takimmaisessa portaassa oli hyvä kärrytellä pitävässä hontossa, jossa akanvirrat "
+             "olivat molemmin puolin (SYKE 13.–16.5.2010: Haukipudas 10.61–10.54 m)."),
         ),
         (("osm.fi: Koiteli", "https://www.osm.fi/koiteli/"),
          ("Freestylemelonta-blogi: Vesitilanne ei suosi (10.5.2010)", FSB + "2010/05/vesitilanne-ei-suosi.html"),
@@ -154,14 +159,16 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "Veden laskiessa ison honton Ruotsin reuna muuttuu vaarallisen näköiseksi montuksi, ja lippoamiseen "
              "käytetyt köydet voivat aiheuttaa hankaluuksia."),
             ("Kokemuksia",
-             "25.5.2010 virtaama oli noin 2300 m³/s. Vuennonkoskessa oli talon kokoisia aaltoja ja synkkiä "
+             "25.5.2010 virtaama oli noin 2300 m³/s (SYKE 25.5.2010: Matkakoski 30.98 m). Vuennonkoskessa oli talon kokoisia aaltoja ja synkkiä "
              "pyörteitä, ja Matkakoski tarjosi blogin mukaan 'suurinta mämmiä mitä Suomesta löytyy': surffit "
              "olivat lähinnä selviytymistaistelua. Syyskuussa 2010 (27.7 m, noin 335 m³/s) Ruotsin aalto oli "
              "vaikea, ja lokakuussa (27.2 m, noin 210 m³/s) hontto oli hyvä voltteihin.\n\n"
-             "Syyssateet 2009 nostivat vettä juuri sopivasti Ruotsin aallolle: 'hyvänä päivänä se tuo hymyn "
-             "melojan suulle, huonona päivänä se murtaa parhaimmankin melojan itsetunnon'. Toukokuussa 2014 "
-             "aaltokausi avattiin heti jäiden lähdettyä Ruotsin aallossa, ja heinäkuussa 2014 sekä Ruotsin "
-             "että Suomen puolen aalto toimivat. Molempiin joutui kantamaan, mutta se oli sen arvoista."),
+             "Syyssateet 2009 nostivat vettä juuri sopivasti Ruotsin aallolle (SYKE 20.9.2009: Matkakoski "
+             "27.64 m): 'hyvänä päivänä se tuo hymyn melojan suulle, huonona päivänä se murtaa parhaimmankin "
+             "melojan itsetunnon'. Toukokuussa 2014 aaltokausi avattiin heti jäiden lähdettyä Ruotsin aallossa "
+             "(SYKE 4.–11.5.2014: Matkakoski 28.38–28.05 m), ja heinäkuussa 2014 sekä Ruotsin että Suomen "
+             "puolen aalto toimivat (SYKE 7.7.2014: Matkakoski 28.09 m). Molempiin joutui kantamaan, mutta se "
+             "oli sen arvoista."),
         ),
         (("osm.fi: Matkakoski", "https://www.osm.fi/matkakoski/"),
          ("Freestylemelonta-blogi: Matkakoski big water (25.5.2010)", FSB + "2010/05/matkakoski-big-water.html"),
@@ -215,11 +222,15 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "jalkoja keskikalliolla, vedä kajakki reilusti vesirajan yläpuolelle – maininki voi viedä kamat. "
              "Keväällä jäitä voi tulla aallon läpi."),
             ("Kokemuksia ja tulvat",
-             "Toukokuussa 2010 kausi avattiin helteessä: hevosenkengän kakkosaalto oli juuri sopivalla vedellä, "
-             "ja 17.5. ala-aalto ja mega-aalto olivat parhaimmillaan. Freestylen SM-kisat 2011 pidettiin "
-             "Kattilakoskella grillikodan hontossa, kun ala-aallosta jäi puuttumaan vain senttejä. Toukokuussa "
-             "2012 Finnvågen toimi vain päivän, koska vesi jäi ennustettua matalammalle.\n\n"
-             "Toukokuussa 2023 Tornionjoella oli mittaushistorian suurin tulva. Finnvågen oli yli kolme metriä "
+             "Toukokuussa 2010 kausi avattiin helteessä: hevosenkengän kakkosaalto oli juuri sopivalla vedellä "
+             "(SYKE 15.5.2010: Pello 78.23 m, 845 m³/s), ja 17.5. ala-aalto ja mega-aalto olivat parhaimmillaan "
+             "(SYKE 17.5.2010: Pello 78.84 m, 1290 m³/s). Seuraavana päivänä ala-aaltoon oli liikaa vettä, mutta "
+             "mega-aalto toimi vielä (SYKE 18.5.2010: Pello 79.17 m, 1550 m³/s). Freestylen SM-kisat 2011 "
+             "pidettiin Kattilakoskella grillikodan hontossa, kun ala-aallosta jäi puuttumaan vain senttejä "
+             "(SYKE 28.5.2011: Pello 78.88 m, 1325 m³/s). Toukokuussa 2012 Finnvågen toimi vain päivän, koska vesi "
+             "jäi ennustettua matalammalle (SYKE 21.5.2012: Pello 80.17 m, 2400 m³/s).\n\n"
+             "Toukokuussa 2023 Tornionjoella oli mittaushistorian suurin tulva (SYKE 18.–20.5.2023: Pello "
+             "80.53–81.39 m, 2730–3630 m³/s). Finnvågen oli yli kolme metriä "
              "korkea, mutta sille tyypillinen jatkuva pumppaaminen alkoi 3000 m³/s:n yläpuolella jopa lisääntyä, "
              "ja 3500 m³/s:llä aalto kävi välillä aggressiivisena honttona. Parhaaksi osoittautui noin "
              "2850 m³/s, mutta silloinkin maagiset paikat vaativat minuuttien surffausta ja oikeaa ajoitusta. "
@@ -273,7 +284,8 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "suojaan ensimmäisen saaren taakse pienen pudotuksen jälkeen ja sitten suoraviivaisesti "
              "vastarannalle ennen kuin virta vie liian alas. Laskun loppupuolella oli hienot korkeat aallot."),
             ("Kokemuksia",
-             "Heinäkuussa 2014 maajoukkuemelojat surffasivat 'Gladiaattori-aaltoa': hitaassa ja pienessä "
+             "Heinäkuussa 2014 maajoukkuemelojat surffasivat 'Gladiaattori-aaltoa' (SYKE 9.7.2014: Matkakoski "
+             "28.20 m): hitaassa ja pienessä "
              "aallossa onnistuivat hontto- ja aaltoliikkeet, mutta parhaiten se sopi spinnailuun. Paikka on "
              "mukava, akanvirrallinen vaihtelu Matkakosken jälkeen."),
         ),
@@ -295,7 +307,7 @@ KUVAUKSET: dict[str, Kuvaus] = {
             ("Vesimäärät",
              "Matkakosken vedenkorkeudella 28.7 m pätkällä on mukavia pelipaikkoja, mutta 28.2 m:llä ei juuri "
              "enää kannata lähteä laskemaan. Tulva-aikaan Vuennon–Matkakosken väli on 'jännä paikka'. Tuomas "
-             "Vaarala kuvasi 25.5.2010 (noin 31 m, 2300 m³/s) laskua yhdeksi Suomen parhaista isoveden "
+             "Vaarala kuvasi 25.5.2010 (noin 31 m, 2300 m³/s; SYKE 25.5.2010: Matkakoski 30.98 m) laskua yhdeksi Suomen parhaista isoveden "
              "pätkistä: alkupalaksi talon kokoisia aaltoja, isoja honttoja, jotka kierrettiin kaukaa, ja "
              "melko synkän oloisia pyörteitä."),
         ),
@@ -316,9 +328,11 @@ KUVAUKSET: dict[str, Kuvaus] = {
             ("Vesimäärät",
              "Kun Maalismaan virtaama on 600 m³/s tai vähän alle, keula alkaa kolista kiviin aallon pohjalla. "
              "850 m³/s:llä paikka on tosi hyvä ja paranee veden lisääntyessä, vaikka akanvirtaan pääsy samalla "
-             "hankaloituu. Toukokuussa 2015 virtaama pysytteli kolme päivää noin 1150 m³/s:ssa, ja blogin "
+             "hankaloituu. Toukokuussa 2015 virtaama pysytteli kolme päivää noin 1150 m³/s:ssa (SYKE 15.–17.5.2015: "
+             "Maalismaa 1136–1158 m³/s), ja blogin "
              "mukaan se vaikutti optimaaliselta: 'Aika montaa hyvää aaltoa olen päässyt melomaan, mutten vielä "
-             "koskaan näin hyvää!' Myös noin 900 m³/s (5/2015) ja 700 m³/s (5/2023) olivat hyviä. Aallon kaksi "
+             "koskaan näin hyvää!' Myös noin 900 m³/s (SYKE 11.5.2015: Maalismaa 898 m³/s) ja noin "
+             "700 m³/s (SYKE 17.5.2023: Maalismaa 720 m³/s) olivat hyviä. Aallon kaksi "
              "parasta kohtaa: vihreästä kulmasta ylös ja keskemmältä alas. Seuraavassa pohjapadossa on juhlava "
              "hontto, joka ei kuitenkaan ole vaikuttanut vaaralliselta 600–850 m³/s:n vesillä; rantaan "
              "ehtinee uida ennen sitä."),
@@ -329,9 +343,10 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "vieressä. Parkkipaikka on vanhan uoman ja voimalaitoksen alakanavan välisellä kannaksella, aallon "
              "kohdalla."),
             ("Kokemuksia",
-             "Aalto palasi toukokuussa 2012 muutaman vuoden tauon jälkeen, ja maajoukkue majoittui viikoksi "
-             "Maalismaan koululle. Kausi avattiin 28.4.2013 jäiden vielä kelluessa akanvirrassa (fullface-kypärä "
-             "tarpeen). Keväällä 2010 vesi ei noussut, ja aallonpohja jäi matalaksi."),
+             "Aalto palasi toukokuussa 2012 muutaman vuoden tauon jälkeen (SYKE 5.5.2012: Maalismaa 888 m³/s), "
+             "ja maajoukkue majoittui viikoksi Maalismaan koululle. Kausi avattiin 28.4.2013 jäiden vielä "
+             "kelluessa akanvirrassa, fullface-kypärä tarpeen (SYKE 28.4.2013: Maalismaa 789 m³/s). Keväällä "
+             "2010 vesi ei noussut, ja aallonpohja jäi matalaksi (SYKE 10.5.2010: Maalismaa 448 m³/s)."),
         ),
         (("osm.fi: Hawa'Ii", "https://www.osm.fi/hawa-ii/"),
          ("Freestylemelonta-blogi: Ison veden Hawa'Ii (18.5.2015)", FSB + "2015/05/ison-veden-hawaii.html"),
@@ -428,11 +443,12 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "vesillä pelipaikan vasen reuna muuttuu stoppariksi. Meloa voi vielä 40 m³/s:llä (laituri noin −1), "
              "vaikka pohjakosketuksia tulee.\n\n"
              "Juhannuksena 2015 virtaama oli 160 m³/s ja viikkoa myöhemmin 140 m³/s; ilmavia bluntteja riitti "
-             "molemmilla."),
+             "molemmilla (SYKE 20.6.2015: Ruunaa 155 m³/s, 27.6.2015: 139 m³/s)."),
             ("Melamerkit", NEITI_SAANNOT),
             ("Ympärivuotinen paikka",
              "Neitikoski pysyy sulana talvellakin: maajoukkuemelojat ovat avanneet kauden tammikuussa 16 asteen "
-             "pakkasessa ja meloneet maaliskuussa jäiden reunustamana. Talvella pois on lähdettävä ennen kuin "
+             "pakkasessa, ja aalto oli hyvässä kunnossa (SYKE 23.1.2011: Ruunaa 37 m³/s). Maaliskuussa he meloivat "
+             "matalalla vedellä jäiden reunustamana (SYKE 12.–20.3.2011: Ruunaa 31–32 m³/s). Talvella pois on lähdettävä ennen kuin "
              "palelee, koska kävelymatka parkkipaikalle tuntuu kylmissään pitkältä. Ruunaan retkeilykeskus on "
              "aivan vieressä."),
             ("Kisat",
@@ -465,7 +481,8 @@ KUVAUKSET: dict[str, Kuvaus] = {
         "paikalle kymmeniä melojia juhannuksen ja heinäkuun tienoilla (2010, 2011).",
         (
             ("Kosket",
-             "Paltvalsen on iso aalto, jossa heinäkuussa 2011 surffattiin viisi päivää ilman jonoa. Se toimii isollakin vedellä, "
+             "Paltvalsen on iso aalto, jossa heinäkuussa 2011 surffattiin viisi päivää ilman jonoa (SMHI "
+             "2.–7.7.2011: Gransel 312–260 m³/s). Se toimii isollakin vedellä, "
              "vaikka voi olla välillä väkivaltainen, ja sen alapuolinen pour over -hontto on karmea paikka "
              "('älköön kukaan amatöörimeloja menkö siihen'). Seuraavassa koskessa on kaksi hyvää honttoa, joista "
              "ylempi stoppari on erinomainen volttikone.\n\n"
@@ -476,9 +493,10 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "alavirtaan, auto viety ennakkoon junan ja autojen yhteiselle kombisillalle, kesti noin kolme "
              "tuntia."),
             ("Kokemuksia",
-             "Juhannus 2010: leppoisa reissu, Creeking Deltan koskia ja loppukönkään linjoja. Heinäkuussa 2011 "
-             "vesi oli korkea, ja Paltvalsen oli hyvässä mutta välillä väkivaltaisessa kunnossa. Kesäkuussa 2012 "
-             "Paltvalsen toimi suuresta vesimäärästä huolimatta oikein hyvin. Matkalla kannattaa pysähtyä "
+             "Juhannus 2010: leppoisa reissu, Creeking Deltan koskia ja loppukönkään linjoja (SMHI 25.–27.6.2010: "
+             "Gransel 208–200 m³/s). Heinäkuussa 2011 vesi oli korkea, ja Paltvalsen oli hyvässä mutta välillä "
+             "väkivaltaisessa kunnossa (SMHI 2.–7.7.2011: Gransel 312–260 m³/s). Kesäkuussa 2012 Paltvalsen toimi "
+             "suuresta vesimäärästä huolimatta oikein hyvin (SMHI 16.–17.6.2012: Gransel 428–421 m³/s). Matkalla kannattaa pysähtyä "
              "katsomaan Storforsenia – 'kerrankin koskella on nimi, joka sitä hyvin kuvastaa'."),
         ),
         (("Tuus-Melojat: Trollit 2017", "https://tuusmelojat.fi/trollit-2017/"),
@@ -724,11 +742,13 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "akanvirrat, ja alemmat könkäät ovat mukavan haastavaa laskettelua. Pikkuhontto on hyvä paikka "
              "harjoitella McNastya, ja aallossa on helppo harjoitella kalastajakuningasta."),
             ("Åretsvågen ja vesimäärät",
-             "Åretsvågen on herkkä vesimäärälle. Kesäkuussa 2012 sen 'kuuluisa seinä' toimi, ja kesäkuussa 2013 "
-             "se oli parhaimmillaan laskevalla vedellä. Toukokuussa 2013 vettä oli liikaa: Åretsvågen ei "
-             "toiminut, mutta samassa kohdassa oli pari muuta hauskaa aaltoa, ja koski näytti aivan erilaiselta "
-             "kuin matalalla. Syysvedellä (9/2010) lähes kaikki honttoliikkeet onnistuivat ykköskönkään "
-             "hontossa. Tarkat Männikön virtaamat käyntipäiviltä näkyvät kohteiden huomioissa alla."),
+             "Åretsvågen on herkkä vesimäärälle. Kesäkuussa 2012 sen 'kuuluisa seinä' toimi (SMHI 2.–3.6.2012: "
+             "Männikkö 212–191 m³/s), ja kesäkuussa 2013 se oli parhaimmillaan laskevalla vedellä (SMHI "
+             "6.–9.6.2013: Männikkö 239–226 m³/s). Toukokuussa 2013 vettä oli liikaa: Åretsvågen ei toiminut, "
+             "mutta samassa kohdassa oli pari muuta hauskaa aaltoa, ja koski näytti aivan erilaiselta kuin "
+             "matalalla (SMHI 22.–23.5.2013: Männikkö 262–266 m³/s, 27.5.2013: 311 m³/s). Syysvedellä lähes "
+             "kaikki honttoliikkeet onnistuivat ykköskönkään hontossa (SMHI 17.–19.9.2010: Männikkö "
+             "77–87 m³/s). Tarkat Männikön virtaamat käyntipäiviltä näkyvät kohteiden huomioissa alla."),
             ("Majoitus",
              "Lähistöllä on vuokrattavia mökkejä saunoineen – syksyllä huomattavasti miellyttävämpi vaihtoehto "
              "kuin kylmä teltta."),
