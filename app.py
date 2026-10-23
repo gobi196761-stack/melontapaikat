@@ -40,6 +40,7 @@ from urllib.parse import parse_qs, quote, urlencode
 import ennustearkisto
 import firestore
 import halytykset
+import kapsi
 import melonta
 import osm_sivut as osm
 import kaavio_svg
@@ -1203,6 +1204,13 @@ def _halyta(environ) -> tuple[str, dict]:
     kanta, virhe = _cron_kanta(environ)
     if virhe:
         return virhe
+    # Sivutoiminto: Maalismaan tuntimittausten keruu talteen (ei näytetä sovelluksessa)
+    kerays = kapsi.keraa(kanta, suomen_aika().isoformat(timespec="seconds"))
+    status, tulos = _halyta_kannalla(kanta)
+    return status, {**tulos, "kapsi": kerays}
+
+
+def _halyta_kannalla(kanta) -> tuple[str, dict]:
     avainpari = halytykset.avaimet(kanta)
     if not avainpari:
         return "503 Service Unavailable", {"virhe": "VAPID-avaimia ei saatu"}
@@ -1264,6 +1272,12 @@ def arkistoi(environ) -> tuple[str, dict]:
     if virhe:
         return virhe
     nyt = suomen_aika()
+    kerays = kapsi.keraa(kanta, nyt.isoformat(timespec="seconds"))   # Maalismaan tuntimittaukset talteen
+    status, tulos = _arkistoi_kannalla(kanta, nyt)
+    return status, {**tulos, "kapsi": kerays}
+
+
+def _arkistoi_kannalla(kanta, nyt: dt.datetime) -> tuple[str, dict]:
     ajot, virheet = ennustearkisto.hae_ajot()
     arkisto = ennustearkisto.kokoa(ajot, nyt, virheet)
     onnistuneet = ennustearkisto.onnistuneet(arkisto)
@@ -1276,6 +1290,19 @@ def arkistoi(environ) -> tuple[str, dict]:
         return "502 Bad Gateway", {"virhe": f"Firestore: {e}"}
     return "200 OK", {"tallennettu": f"{ennustearkisto.KOKOELMA}/{tunniste}", "asemia": len(onnistuneet),
                       "arvioita": len(arkisto["arviot"]), "varoitukset": virheet}
+
+
+def kapsi_kerays(environ) -> tuple[str, dict]:
+    """Vercel Cron (useita kertoja vuorokaudessa, ks. vercel.json): Maalismaan tuntimittaukset
+    kapsin raportista Firestoreen (kapsi.py). Yhteenveto Vercelin lokiin ("kapsi: ...")."""
+    kanta, virhe = _cron_kanta(environ)
+    if virhe:
+        status, tulos = virhe
+    else:
+        tulos = kapsi.keraa(kanta, suomen_aika().isoformat(timespec="seconds"))
+        status = "502 Bad Gateway" if "virhe" in tulos else "200 OK"
+    print("kapsi: " + json.dumps({"status": status, **tulos}, ensure_ascii=False), flush=True)
+    return status, tulos
 
 
 def _arvioasema(kaavio: str) -> str | None:
@@ -1557,6 +1584,9 @@ def app(environ, start_response):
         status, tulos = ajomatkat(parse_qs(environ.get("QUERY_STRING", "")).get("lahto", [""])[0])
         return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False),
                       AJOMATKA_CACHE if status.startswith("200") else "no-store")
+    if polku == "/api/kapsi":
+        status, tulos = kapsi_kerays(environ)
+        return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False))
     if polku == "/api/arkistoi":
         status, tulos = arkistoi(environ)
         return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False))
