@@ -43,12 +43,14 @@ import halytykset
 import kapsi
 import melonta
 import osm_sivut as osm
+import paikkasivut
 import kaavio_svg
 import kielet
 import sovellus
 import smhi_data
 import syke_data
 import syke_kaavio
+from arviointi import muotoile
 from paikat import PAIKAT, aseman_nimi, kohteen_kajakit, nakyy
 from paikkakunnat import PAIKKAKUNNAT, RUOTSI
 
@@ -393,6 +395,13 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
                      font-size:.9rem; width:11em; background:var(--tausta); color:var(--teksti); }
 .reitti { white-space:nowrap; }
 .saa { color:var(--heikko); }
+.takaisin { display:inline-block; margin-bottom:10px; font-size:.9rem; }
+.kuvaus h2 { font-size:1.1rem; margin:22px 0 6px; }
+.kuvaus p { margin:6px 0; }
+.kohteet { list-style:none; padding:0; }
+.kohteet li { border-bottom:1px solid var(--viiva); padding:8px 0; margin:0; }
+.kohteet .rajat { font-variant-numeric:tabular-nums; }
+.lahteet li { overflow-wrap:anywhere; }
 .matka, .lampotilat { margin:1px 0; }
 .kajakit { white-space:nowrap; }
 .selitykset { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
@@ -1028,7 +1037,7 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
     lampo = f'\n<div class="pieni lampotilat">{lampo}</div>' if lampo else ""
     return f"""<tr data-paikka="{e(p.nimi)}"{sijainti} data-pisteet='{pisteet_json}' data-km="{p.km_oulusta or 0}">
 <td class="sija">{sija}.</td>
-<td><div class="nimi"><a href="{e(p.url)}">{e(p.nimi)}</a>
+<td><div class="nimi"><a href="{e(paikan_osoite(p))}">{e(p.nimi)}</a>
 <button type="button" class="suosikki" aria-pressed="false" title="{k_('Lisää suosikkeihin')}">♡</button>
 <span class="tyyppi">{e(k_(p.tyyppi))}</span></div>{matka}{lampo}
 {versiot}</td>
@@ -1062,7 +1071,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     ilman_html = ""
     if ilman:
         ilman_html = (f"<h2>{k_('Ei vesikaaviota – tarkista itse')}</h2><ul>" + "".join(
-            f'<li><a href="{e(t.paikka.url)}">{e(t.paikka.nimi)}</a>: {e(t.paikka.kuvaus)}</li>'
+            f'<li><a href="{e(paikan_osoite(t.paikka))}">{e(t.paikka.nimi)}</a>: {e(t.paikka.kuvaus)}</li>'
             for t in ilman) + "</ul>")
     varoitukset = ""
     if tilanne.varoitukset:
@@ -1550,6 +1559,124 @@ def arvio_kaavio_svg(asema: str, hakija: osm.Hakija | None = None) -> str | None
 # WSGI
 # ---------------------------------------------------------------------------
 
+PAIKKASIVUT = {paikkasivut.tunniste(p.nimi): p for p in PAIKAT}
+LAHDETYYPIT = {"sivu": "lähteen kuvaus", "meloja": "paikallinen meloja", "arvio": "arvio"}
+SUUREET = {"vedenkorkeus": "vedenkorkeus", "virtaama": "virtaama", "lampotila": "lämpötila"}
+
+
+def paikan_osoite(paikka) -> str:
+    return f"/paikka/{paikkasivut.tunniste(paikka.nimi)}"
+
+
+def _mittarin_suure(mittari) -> tuple[str, str]:
+    """(suure, yksikkö) kaavion tiedostonimestä; SMHI:ltä haetaan virtaama."""
+    if mittari.smhi:
+        return "virtaama", "m3/s"
+    return syke_kaavio.suure_urlista(mittari.kaavio)
+
+
+def _rajat(raja: tuple, yksikko: str, muuttuja: str) -> str:
+    """Kohteen raja luettavassa muodossa: "107.65 m – 108.20 m", "yli 250 m³/s", "kaikilla vesillä"."""
+    ala, yla = raja
+    if ala is None and yla is None:
+        return "kaikilla vesillä"
+    luku = lambda x: muotoile(x, yksikko, muuttuja)   # noqa: E731
+    teksti = (f"alle {luku(yla)}" if ala is None else f"yli {luku(ala)}" if yla is None
+              else f"{luku(ala)} – {luku(yla)}")
+    return f"tulvaindeksi {teksti}" if muuttuja == "tulvaindeksi" else teksti
+
+
+def _mittarin_linkki(paikka, avain: str) -> str:
+    """Oma kaavio, jos sen voi piirtää ilman päivän lukemaa, muuten SYKE:n asemasivu."""
+    mittari = paikka.mittarit[avain]
+    oma = kaavion_osoite(paikka, avain)
+    if oma:
+        return oma
+    alue, asema = kaavion_asema(mittari.kaavio)
+    return f"{osm.SYKE_POHJA}{alue}/{asema}/wqfi.html"
+
+
+def paikkasivu(paikka) -> str:
+    """Paikan koostesivu: lähteistä koottu kuvaus, kohteet ja niiden rajat (paikat.py) sekä lähteet."""
+    k_ = lambda teksti: teksti   # noqa: E731  (kuvaukset ovat suomeksi)
+    kuvaus = paikkasivut.KUVAUKSET.get(paikka.nimi)
+
+    def kappaleet(teksti: str) -> str:
+        return "".join(f"<p>{e(kpl)}</p>" for kpl in teksti.split("\n\n"))
+
+    osat = [kappaleet(kuvaus.johdanto if kuvaus else paikka.kuvaus)]
+    for otsikko, teksti in (kuvaus.osiot if kuvaus else ()):
+        osat.append(f"<h2>{e(otsikko)}</h2>{kappaleet(teksti)}")
+
+    tiedot = [k_("pelipaikka") if paikka.tyyppi == "peli" else k_("retki- ja laskupätkä")]
+    if paikka.maa == "SE":
+        tiedot.append("Ruotsi")
+    if paikka.km_oulusta:
+        tiedot.append(f"~{paikka.km_oulusta} km Oulusta")
+    if paikka.sijainti:
+        lev, pit = paikka.sijainti
+        kartta = f"https://www.openstreetmap.org/?mlat={lev}&mlon={pit}#map=14/{lev}/{pit}"
+        reitti = "https://www.google.com/maps/dir/?" + urlencode(
+            {"api": 1, "destination": f"{lev},{pit}", "travelmode": "driving"})
+        tiedot.append(f'<a href="{e(kartta)}" target="_blank" rel="noopener">🗺 Kartta</a>')
+        tiedot.append(f'<a href="{e(reitti)}" target="_blank" rel="noopener">🚗 Reitti</a>')
+    tiedot_html = " · ".join(t if t.startswith("<a ") else e(t) for t in tiedot)
+
+    if paikka.kohteet:
+        rivit = []
+        for kohde in paikka.kohteet:
+            mittari = paikka.mittarit[kohde.mittari]
+            suure, yksikko = _mittarin_suure(mittari)
+            toimii = _rajat(kohde.toimii, yksikko, kohde.muuttuja)
+            paras = _rajat(kohde.paras, yksikko, kohde.muuttuja)
+            rajat = f"toimii {toimii}" + (f", parhaimmillaan {paras}" if paras != toimii else "")
+            mittari_teksti = (f'<a href="{e(_mittarin_linkki(paikka, kohde.mittari))}">'
+                              f'{e(aseman_nimi(mittari.kaavio))}</a>, {e(SUUREET.get(suure, suure))}')
+            huom = f"<br>{e(kohde.huom)}" if kohde.huom else ""
+            rivit.append(f'<li><b>{e(kohde.nimi)}</b>{_kajakit(paikka, kohde, k_)}<br>'
+                         f'<span class="rajat">{e(rajat)}</span>'
+                         f'<br><span class="pieni">mittari: {mittari_teksti} · rajat: '
+                         f'{e(LAHDETYYPIT.get(kohde.lahde, kohde.lahde))}</span>{huom}</li>')
+        kohteet = (f'<h2>Kohteet ja niiden rajat</h2><ul class="kohteet">{"".join(rivit)}</ul>'
+                   '<p class="pieni">Rajat ovat samat, joilla sovellus pisteyttää paikan. Tulvaindeksi: '
+                   '0 = keskimääräinen vuoden alivesi, 1 = keskimääräinen kevättulvan huippu. '
+                   '<a href="/">Tämän päivän tilanne ja ennuste etusivulla</a>.</p>')
+    else:
+        kohteet = ('<h2>Kohteet ja niiden rajat</h2><p>Paikalle ei ole vesikaaviota eikä lukuarvoisia '
+                   'rajoja – tarkista olosuhteet itse.</p>')
+
+    lahteet = list(kuvaus.lahteet if kuvaus else ())
+    if paikka.url not in {url for _, url in lahteet}:
+        lahteet.insert(0, ("Paikan pääsivu", paikka.url))
+    lahteet_html = "".join(f'<li><a href="{e(url)}" target="_blank" rel="noopener">{e(otsikko)}</a></li>'
+                           for otsikko, url in lahteet)
+    return f"""<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{e(paikka.nimi)} – Melontapaikat</title>
+<meta name="description" content="{e(paikka.kuvaus)}">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="{sovellus.TEEMA}">
+<link rel="icon" type="image/png" href="/kuvake-192.png">
+<link rel="apple-touch-icon" href="/kuvake-180.png">
+<style>{TYYLI}</style>
+</head>
+<body><main class="kuvaus">
+<a class="takaisin" href="/">← Kaikki paikat</a>
+<h1>{e(paikka.nimi)}</h1>
+<div class="meta">{tiedot_html}</div>
+{"".join(osat)}
+{kohteet}
+<h2>Lähteet</h2>
+<ul class="lahteet">{lahteet_html}</ul>
+<p class="pieni">Kuvaus on koottu lähteistä omin sanoin; tarkista olosuhteet aina paikan päällä. Suluissa olevat vesitiedot ovat kuvatun päivän vuorokausiarvoja SYKE:n hydrologiarajapinnasta (Ruotsin paikat: SMHI:n korjattu päiväarkisto); vedenkorkeudet on muunnettu samalle asteikolle kuin sovelluksen kaavioissa. Tornionjoen virtaama Matkakosken kohdalla on Karungin asemalta.</p>
+</main>
+</body>
+</html>"""
+
+
 def app(environ, start_response):
     polku = environ.get("PATH_INFO", "/").rstrip("/") or "/"
     metodi = environ.get("REQUEST_METHOD", "GET")
@@ -1618,6 +1745,11 @@ def app(environ, start_response):
         if kuva is None:
             return vastaa("404 Not Found", "text/plain; charset=utf-8", "Kaaviota ei löydy.\n")
         return vastaa("200 OK", "image/svg+xml; charset=utf-8", kuva, CACHE_CONTROL)
+    if polku.startswith("/paikka/"):
+        paikka = PAIKKASIVUT.get(polku.removeprefix("/paikka/"))
+        if paikka is None:
+            return vastaa("404 Not Found", "text/plain; charset=utf-8", "Paikkaa ei löydy.\n")
+        return vastaa("200 OK", "text/html; charset=utf-8", paikkasivu(paikka), "public, max-age=3600")
     if polku not in ("/", "/api"):
         return vastaa("404 Not Found", "text/plain; charset=utf-8", "Ei löydy.\n")
 
