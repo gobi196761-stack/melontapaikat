@@ -649,6 +649,7 @@ KUVAUKSET: dict[str, Kuvaus] = {
             ("Neitikosken melamerkit", NEITI_SAANNOT),
         ),
         (("osm.fi: Lieksanjoki", "https://www.osm.fi/lieksanjoki/"),
+         ("luontoon.fi: Lieksanjoen melontareitti", "https://www.luontoon.fi/en/trails/lieksanjoen-melontareitti-lieksa-526310-en"),
          ("koskimelonta.com: Lieksanjoki – Neitikoski", "https://koskimelonta.com/kosket/lieksanjoki-neitikoski/"),
          ("Ruunaan retkeilyalue", "https://ruunaa.fi/")),
     ),
@@ -759,7 +760,8 @@ KUVAUKSET: dict[str, Kuvaus] = {
          ("Tuorala: Grillausta ja veden pärsketta (2012)", TUORALA + "2012/06/04/grillausta-ja-veden-parsketta/"),
          ("Tuorala: Viikko aaltoja (2013)", TUORALA + "2013/06/11/viikko-aaltoja-4-9-5-2013/"),
          ("Forsguiden: Kalixälven, Pahakurkkio (Wayback 2004)",
-          "https://web.archive.org/web/20041116174352/http://forsguiden.com/river.asp?id=8&mode=print")),
+          "https://web.archive.org/web/20041116174352/http://forsguiden.com/river.asp?id=8&mode=print"),
+         ("Naturkartan: Pahakurkkio ravin och fors", "https://www.naturkartan.se/sv/norrbottens-lan/pahakurkkio-fors")),
     ),
     # ------------------------------------------------------------------
     "Vikaköngäs (Raudanjoki)": Kuvaus(
@@ -882,6 +884,7 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "pyyntikokoisia taimenia ja kirjolohia."),
         ),
         (("osm.fi: Kutujoki", "https://www.osm.fi/kutujoki/"),
+         ("Kalalla Kainuussa: Kutujoki", "https://kalallakainuussa.fi/kalapaikka/river-kutujoki"),
          ("Visit Vaala: Tervajoen–Kutujoen melontareitti",
           "https://visitvaala.fi/retkeilykohteet/tervajoen-kutujoen-melontareitti/")),
     ),
@@ -951,5 +954,100 @@ KUVAUKSET: dict[str, Kuvaus] = {
              "Orsskär, Punakarit, Mikkelinsaaret ja Boskäret."),
         ),
         (("osm.fi: Oulun edustan saaret", "https://www.osm.fi/oulun-edustan-saaret/"),),
+    ),
+}
+
+
+# Retkikohteiden lähtö- ja loppupaikat sekä kulkuohjeet: (rooli, kuvaus, (leveys, pituus) tai None).
+# Sijainnit OpenStreetMapista (Photon-haku), kuvaukset paikkojen lähteistä.
+LAHTO_LOPPU: dict[str, tuple[tuple[str, str, tuple[float, float] | None], ...]] = {
+    "Sanginjoki": (
+        ("Lähtö", "Koskiosuus alkaa vähän Lemmenpolun yläpuolelta Sanginjoen yläjuoksulla (osm.fi).", None),
+        ("Loppu", "Taivalkoski Sankivaaran golfkentän kupeessa Oulun Madekoskella, josta Sanginjoki laskee "
+                  "Oulujokeen. Kentälle ajetaan Mikonmäentietä.", (64.97858, 25.69972)),
+    ),
+    "Kuivajoki": (
+        ("Lähtö", "Ravaska: Kuivajoen asemankylältä Oijärven tietä noin 4 km, kunnes vasemmalla on viitta "
+                  "'Ravaska'; aja niin pitkälle kuin tietä riittää ja joki näkyy (osm.fi). Pidempi retki alkaa "
+                  "Hyrystä Kuivajoentien varresta.", (65.64133, 25.50702)),
+        ("Vaihtoehto", "Ampumarata, josta Kuivaniemeen on noin 35 km (osm.fi).", None),
+        ("Loppu", "Pelipätkä päättyy asemankylän sillalle; koko 17 km:n koskiosuus Kuivaniemeen "
+                  "(Oulu–Kemi-tien varsi).", (65.57668, 25.19504)),
+    ),
+    "Olhavajoki": (
+        ("Lähtö", "Kaihuanjärvi, Iin Kuivaniemellä. Järvestä joki pujottelee ensimmäisen kilometrin pajukoissa; "
+                  "tie käy lähellä jokea useassa kohdassa, joten vesille pääsee monesta paikasta (osm.fi).",
+         (65.573, 25.68242)),
+        ("Vaihtoehto", "Sahankoski Konttilantien sillan kohdalla.", None),
+        ("Loppu", "Olhavan koulun takana oleva urheilukenttä Oulu–Kemi-tien (vt 4) varressa noin 50 km "
+                  "Oulusta. Viimeisen kosken voi jättää väliin nousemalla maihin rautatien yläpuolella, minne "
+                  "tulee tie rantaan (osm.fi).", (65.4734, 25.4156)),
+    ),
+    "Simojoki": (
+        ("Lähtö", "Alaniemen silta noin 25 km Oulu–Kemi-tieltä Ranuan suuntaan; tiet kulkevat joen "
+                  "molemmin puolin Alaniemeen asti (osm.fi).", (65.83354, 25.28106)),
+        ("Vaihtoehto", "Kalliokoski noin 4 km Alaniemestä alaspäin: eteläpuolen tieltä kantomatkaa noin 100 m.",
+         None),
+        ("Loppu", "Simon urheilukenttä rautatie- ja maantiesillan välissä (osm.fi).", (65.6594, 25.0713)),
+    ),
+    "Lieksanjoki (Matkalahti – Siikakoski)": (
+        ("Lähtö", "Matkalahti Ruunaanjärven yläpuolella: veneenlaskuluiskat ja laituri, Matkalahdentien päässä "
+                  "(osm.fi).", (63.43411, 30.4042)),
+        ("Vaihtoehto", "Neitikoski ja Ruunaan retkeilykeskus (laavu kosken alla). Ruunaan luontokeskus on "
+                       "Naarajoella, 13 km Pankakoskelta (luontoon.fi).", (63.3903, 30.45)),
+        ("Loppu", "Siikakosken maihinnousupaikka: tie rantaan (Siikakoskentie), tulipaikka ja käymälä. "
+                  "Pisin reitti jatkuu Naarajoen sillalle (Matkalahdelta noin 30 km).", (63.33788, 30.45664)),
+    ),
+    "Liminganjoki": (
+        ("Lähtö", "Valtatie 8:n silta Limingassa; koskiosuus alkaa heti sillalta (osm.fi).", None),
+        ("Loppu", "Koskiosuus loppuu Ala-Kestilän arboretumin jälkeen; maihin kannattaa nousta vasta Vanhan "
+                  "Limingan museoalueella urheilukentän tienoilla.", (64.80537, 25.40597)),
+    ),
+    "Muhosjoki": (
+        ("Lähtö", "Yläosa: Huikolan silta. Alaosa: Murtokosken lähtöpaikka, josta on pari kilometriä pieniä "
+                  "koskia (osm.fi).", None),
+        ("Vaihtoehto", "Suokylän silta: joen upein, reilun kilometrin koskijakso alkaa sillalta (Ämmänkoski "
+                       "heti sillan alla – tarkista köngäs rannalta).", (64.78748, 26.08347)),
+        ("Loppu", "Yläosan reitti päättyy Vääräkoskelle; alaosassa maihin heti koskijakson jälkeen (Lions-klubin "
+                  "venelaiturin tienoilla) tai Hyrkäksen koululla. Tarkista nousupaikka etukäteen: penkat ovat "
+                  "korkeita ja mutaisia (osm.fi).", None),
+    ),
+    "Temmesjoki": (
+        ("Lähtö", "Haurukylän (purettu) silta Tyrnävällä, Haurukyläntien varressa (osm.fi).", (64.7156, 25.54913)),
+        ("Loppu", "Vehkamaantien silta ('Ylempi Ketunmaan silta') Limingassa.", (64.75541, 25.54362)),
+    ),
+    "Pahakurkkio (Kalixälven)": (
+        ("Lähtö", "Saarikosken mökki kosken yläpuolella on Pahakurkkion lähtöpaikka (Tuorala 2010). Pahakurkkio "
+                  "on Saittarovan kylän ulkopuolella Pajalan kunnan länsiosassa; kanjonin lähellä on "
+                  "pysäköinti, ja mökkejä ja leirintäpaikkoja vuokraa Saittarova Intresseförening. "
+                  "Alueella ei ole kaikkialla matkapuhelinkuuluvuutta (Naturkartan).", (67.33664, 22.08297)),
+        ("Loppu", "Seitsemännen könkään alapuolella kosken alla on hiekkaranta (Naturkartan); sopiva "
+                  "nousupaikka kannattaa katsoa etukäteen.", None),
+    ),
+    "Kutujoki": (
+        ("Lähtö", "Otermajärven luusua Kutujoen niskalla: riippusilta ja autiotupa (osm.fi, Visit Vaala). "
+                  "Kutujoelle mennään yleensä länsirannalta: yläjuoksulle Petäjäkosken kautta vievä metsäautotie "
+                  "erkanee Kajaani–Oulu-tieltä (vt 22) noin 200 m Autiokosken sillan länsipuolella "
+                  "(Kalalla Kainuussa).", (64.6768, 27.0596)),
+        ("Loppu", "Järvikylä Oulun ja Kajaanin välisen valtatie 22:n varressa (uimaranta); Ouluun noin 87 km.",
+         (64.59553, 26.79432)),
+    ),
+    "Tervajoki (Vaala)": (
+        ("Lähtö", "Pienanjärven luusua Vääräkoskentien varressa Vaalassa.", (64.7143, 27.2268)),
+        ("Loppu", "Otermanjärvi (Joensuunperä); reitti jatkuu halutessa Kutujokea Järvikylään.",
+         (64.65905, 27.10692)),
+    ),
+    "Oulujoki": (
+        ("Lähtö ja loppu", "osm.fi ei määrittele Oulujoelle kiinteää lähtö- tai loppupaikkaa: joki on "
+                           "säännöstelty ja melottavissa aina, ja voimalaitokset ohitetaan maitse. Koskia on "
+                           "sivujoissa (Sanginjoki, Muhosjoki).", None),
+    ),
+    "Oulun edustan saaret": (
+        ("Lähtö", "Toppilan kanavan suu: Hermanneille noin 2,5 km länteen (osm.fi).", None),
+        ("Lähtö", "Virpiniemi: Kropsun saarelle noin 1,5 km länteen.", (65.13366, 25.25064)),
+        ("Lähtö", "Martinniemi: Santapankin hiekkasärkälle noin 16 km länteen.", (65.21311, 25.30488)),
+        ("Lähtö", "Riutunkari (Hailuodon lautta): Hailuodon kierros yli 100 km; autiotuvat Vaskissa, "
+                  "Ulkokarvossa ja Sunijärvellä.", (65.00747, 25.20216)),
+        ("Loppu", "Saariretket palaavat lähtöpaikkaan.", None),
     ),
 }

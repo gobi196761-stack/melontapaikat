@@ -46,6 +46,7 @@ import osm_sivut as osm
 import paikkasivut
 import kaavio_svg
 import kielet
+import muut_kohteet
 import sovellus
 import smhi_data
 import syke_data
@@ -1059,7 +1060,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     suodattimet = "".join(
         f'<a href="{e(_osoite(tyyppi=arvo, kieli=kieli))}"{" class=valittu" if valittu == arvo else ""}>{k_(nimi)}</a>'
         for arvo, nimi in [("", "Kaikki"), ("peli", "Pelipaikat"), ("retki", "Retket"), ("ruotsi", "Ruotsi"),
-                           ("suosikit", "♥ Suosikit")])
+                           ("suosikit", "♥ Suosikit")]) + f'<a href="/muut">{k_("Muut kohteet")}</a>'
     toinen = "fi" if kieli == "en" else "en"
     vaihto = (f'<a class="kieli" href="{e(_osoite(tyyppi=valittu, kieli=toinen))}" hreflang="{toinen}" '
               f'lang="{toinen}">{LIPUT[toinen]}{"Suomeksi" if toinen == "fi" else "In English"}</a>')
@@ -1608,6 +1609,19 @@ def paikkasivu(paikka) -> str:
     for otsikko, teksti in (kuvaus.osiot if kuvaus else ()):
         osat.append(f"<h2>{e(otsikko)}</h2>{kappaleet(teksti)}")
 
+    paikat_html = ""
+    if paikka.nimi in paikkasivut.LAHTO_LOPPU:
+        rivit_ = []
+        for rooli, teksti, piste in paikkasivut.LAHTO_LOPPU[paikka.nimi]:
+            linkit = ""
+            if piste:
+                kartta_ = f"https://www.openstreetmap.org/?mlat={piste[0]}&mlon={piste[1]}#map=14/{piste[0]}/{piste[1]}"
+                ajo_ = "https://www.google.com/maps/dir/?" + urlencode(
+                    {"api": 1, "destination": f"{piste[0]},{piste[1]}", "travelmode": "driving"})
+                linkit = (f' · <a href="{e(kartta_)}" target="_blank" rel="noopener">🗺 kartta</a>'
+                          f' · <a href="{e(ajo_)}" target="_blank" rel="noopener">🚗 ajo-ohje</a>')
+            rivit_.append(f"<li><b>{e(rooli)}:</b> {e(teksti)}{linkit}</li>")
+        paikat_html = f'<h2>Lähtö- ja loppupaikka</h2><ul class="lahteet">{"".join(rivit_)}</ul>'
     tiedot = [k_("pelipaikka") if paikka.tyyppi == "peli" else k_("retki- ja laskupätkä")]
     if paikka.maa == "SE":
         tiedot.append("Ruotsi")
@@ -1668,6 +1682,7 @@ def paikkasivu(paikka) -> str:
 <h1>{e(paikka.nimi)}</h1>
 <div class="meta">{tiedot_html}</div>
 {"".join(osat)}
+{paikat_html}
 {kohteet}
 <h2>Lähteet</h2>
 <ul class="lahteet">{lahteet_html}</ul>
@@ -1745,6 +1760,13 @@ def app(environ, start_response):
         if kuva is None:
             return vastaa("404 Not Found", "text/plain; charset=utf-8", "Kaaviota ei löydy.\n")
         return vastaa("200 OK", "image/svg+xml; charset=utf-8", kuva, CACHE_CONTROL)
+    if polku == "/muut":
+        return vastaa("200 OK", "text/html; charset=utf-8", muut_kohteet.luettelo(TYYLI), "public, max-age=3600")
+    if polku.startswith("/muut/"):
+        kohde = muut_kohteet.HAKEMISTO.get(polku.removeprefix("/muut/"))
+        if kohde is None:
+            return vastaa("404 Not Found", "text/plain; charset=utf-8", "Kohdetta ei löydy.\n")
+        return vastaa("200 OK", "text/html; charset=utf-8", muut_kohteet.sivu(kohde, TYYLI), "public, max-age=3600")
     if polku.startswith("/paikka/"):
         paikka = PAIKKASIVUT.get(polku.removeprefix("/paikka/"))
         if paikka is None:
