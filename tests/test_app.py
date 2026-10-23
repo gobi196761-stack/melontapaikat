@@ -801,3 +801,25 @@ def test_asennettava_sovellus(palvelin):
         data = b"".join(vastaus)
         assert data.startswith(b"\x89PNG") and int.from_bytes(data[16:20], "big") == koko
     assert pyynto("/kuvake-64.png")[0] == "404 Not Found"
+
+
+def test_halyta_kirjoittaa_yhteenvedon_lokiin(monkeypatch, capsys):
+    """Aamun hälytysajosta jää Vercelin lokiin rivi myös epäonnistuessa."""
+    monkeypatch.delenv("CRON_SECRET", raising=False)
+    status, tulos = app.halyta({})
+    assert status.startswith("503") and tulos == {"virhe": "CRON_SECRET puuttuu"}
+    rivi = capsys.readouterr().out.strip()
+    assert rivi.startswith("halyta: ")
+    loki = json.loads(rivi.removeprefix("halyta: "))
+    assert loki["status"].startswith("503") and loki["virhe"] == "CRON_SECRET puuttuu" and "kesto_s" in loki
+
+    monkeypatch.setenv("CRON_SECRET", "salainen")
+    monkeypatch.setattr(app, "_cron_kanta", lambda environ: ("kanta", None))
+    monkeypatch.setattr(app.halytykset, "avaimet", lambda kanta: ("julk", "yks"))
+    monkeypatch.setattr(app, "hae_tilanne", lambda: app.Tilanne(paivitetty=dt.datetime(2026, 10, 23, 8, 0),
+                                                                tulokset=[], varoitukset=[], lukemia=1))
+    monkeypatch.setattr(app.halytykset, "aja", lambda *a: {"tilauksia": 2, "lahetetty": 1, "jo_ilmoitettu": 1,
+                                                           "poistettu": 0, "virheet": []})
+    status, _ = app.halyta({})
+    loki = json.loads(capsys.readouterr().out.strip().removeprefix("halyta: "))
+    assert status == "200 OK" and loki["tilauksia"] == 2 and loki["lahetetty"] == 1

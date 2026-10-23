@@ -1190,7 +1190,16 @@ def _cron_kanta(environ):
 
 
 def halyta(environ) -> tuple[str, dict]:
-    """Vercel Cron aamuisin: hälytykset paikoista, joiden pisteet nousevat tilaajan rajaan."""
+    """Vercel Cron aamuisin: hälytykset paikoista, joiden pisteet nousevat tilaajan rajaan.
+    Jokaisesta ajosta kirjoitetaan yhteenveto Vercelin lokiin (rivi alkaa "halyta:")."""
+    alku = time.monotonic()
+    status, tulos = _halyta(environ)
+    print("halyta: " + json.dumps({"status": status, "kesto_s": round(time.monotonic() - alku, 1), **tulos},
+                                  ensure_ascii=False), flush=True)
+    return status, tulos
+
+
+def _halyta(environ) -> tuple[str, dict]:
     kanta, virhe = _cron_kanta(environ)
     if virhe:
         return virhe
