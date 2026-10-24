@@ -355,11 +355,19 @@ SERVICE_WORKER = """// Melontahälytysten service worker: näyttää push-ilmoit
 self.addEventListener("push", e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (virhe) {}
+  const toiminnot = Array.isArray(d.toiminnot) ? d.toiminnot : [];
   e.waitUntil(self.registration.showNotification(d.otsikko || "Melontahälytys",
-    {body: d.teksti || "", tag: "melonta", renotify: true, data: {url: d.url || "/"}}));
+    {body: d.teksti || "", tag: d.url || "melonta", renotify: true,
+     actions: toiminnot.map(t => ({action: t.action, title: t.title})),
+     data: {url: d.url || "/", toiminnot}}));
 });
 self.addEventListener("notificationclick", e => {
   e.notification.close();
-  e.waitUntil(clients.openWindow(e.notification.data && e.notification.data.url || "/"));
+  const data = e.notification.data || {};
+  // ilmoituksen nappi (esim. ehdotuksen "Täydennä"): rajapintakutsu ylläpitäjän evästeellä, sitten sivu auki
+  const toiminto = (data.toiminnot || []).find(t => t.action === e.action);
+  const kutsu = toiminto && toiminto.api
+    ? fetch(toiminto.api, {method: "POST", credentials: "include"}).catch(() => null) : Promise.resolve();
+  e.waitUntil(kutsu.then(() => clients.openWindow(data.url || "/")));
 });
 """

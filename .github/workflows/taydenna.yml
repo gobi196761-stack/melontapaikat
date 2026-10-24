@@ -1,0 +1,59 @@
+# Ehdotuksen täydennys Claude Codella: käynnistyy ylläpitäjän "Täydennä"-napista
+# (sovellus kutsuu workflow_dispatchia, ks. ehdotukset.kaynnista_taydennys). Ohje: tyokalut/TAYDENNYS.md.
+# Salaisuudet: ANTHROPIC_API_KEY tai CLAUDE_CODE_OAUTH_TOKEN (claude setup-token) ja FIREBASE_SERVICE_ACCOUNT.
+name: Täydennä ehdotus
+
+on:
+  workflow_dispatch:
+    inputs:
+      tunniste:
+        description: Ehdotuksen tunniste
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: taydennys-${{ github.event.inputs.tunniste }}
+  cancel-in-progress: false
+
+jobs:
+  taydenna:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TUNNISTE: ${{ github.event.inputs.tunniste }}
+    steps:
+      - name: Tarkista tunniste
+        run: '[[ "$TUNNISTE" =~ ^[A-Za-z0-9_-]{16,40}$ ]] || { echo "virheellinen tunniste"; exit 1; }'
+
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Riippuvuudet
+        run: uv sync --no-dev
+
+      - name: Täydennä
+        uses: anthropics/claude-code-action@v1
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        with:
+          # jompikumpi: Anthropic API -avain (käytön mukaan) tai Claude-tilauksen tunnus (claude setup-token)
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}   # vain luku (permissions), ei GitHub-sovellusta
+          prompt: |
+            Täydennä melontapaikkasovelluksen käyttäjän ehdotus, jonka tunniste on ympäristömuuttujassa
+            TUNNISTE. Noudata tarkasti ohjetta tyokalut/TAYDENNYS.md (lue se ensin). Lopuksi aja
+            `uv run python tyokalut/taydenna_ehdotus.py tallenna taydennys.json` tai epäonnistuessa
+            `uv run python tyokalut/taydenna_ehdotus.py virhe "<syy>"`.
+          claude_args: >-
+            --max-turns 80
+            --allowedTools "Read,Write,Edit,WebFetch,WebSearch,Bash(uv run python tyokalut/taydenna_ehdotus.py:*)"
+
+      - name: Merkitse virhe, jos täydennys jäi kesken
+        if: failure()
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: uv run python tyokalut/taydenna_ehdotus.py virhe "GitHub-ajo epäonnistui (${{ github.run_id }})" || true

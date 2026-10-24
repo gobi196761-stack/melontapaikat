@@ -1886,6 +1886,7 @@ EHDOTUS_TYYLI = """
 .tila-merkki { display:inline-block; padding:1px 8px; border-radius:999px; border:1px solid var(--viiva);
                font-size:.85rem; }
 .kuvaus .muuttuu { color:var(--keski); } .kuvaus .tulossa { color:var(--hyva); }
+.kuvaus .huom { color:var(--keski); }
 .tila-odottaa { color:var(--keski); } .tila-hyvaksytty { color:var(--hyva); } .tila-hylatty { color:var(--huono); }
 .ehdotus-kaavio { width:100%; max-width:720px; border:1px solid var(--viiva); border-radius:8px; }
 """
@@ -1927,7 +1928,7 @@ def _ehdotusluukku(kieli: str) -> str:
     lista = ""
     if uudet:
         lista = (f'<p><b>{e(t["kayttajien_kohteet"])}</b></p><ul>' + "".join(
-            f'<li><a href="/ehdotus/{e(tun)}{"?kieli=en" if kieli == "en" else ""}">{e(ed.get("nimi", "?"))}</a></li>'
+            f'<li><a href="/ehdotus/{e(tun)}{"?kieli=en" if kieli == "en" else ""}">{e(ehdotukset.nimi(ed))}</a></li>'
             for tun, ed in uudet) + "</ul>")
     return (f'<details class="ehdota"><summary>{e(t["luukku"])}</summary><p>{e(t["luukku_teksti"])}</p>'
             f'<a class="nappi" href="/ehdota?laji=uusi{q}">{e(t["uusi"])}</a>'
@@ -2028,6 +2029,9 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
 {editori}
 <label for="linkit">{e(t["linkit"])}</label>
 <textarea id="linkit" name="linkit" rows="4">{arvo("linkit")}</textarea>
+<label for="yksityiset_linkit">{e(t["yksityiset_linkit"])}</label>
+<p class="ohje">{e(t["yksityiset_ohje"])}</p>
+<textarea id="yksityiset_linkit" name="yksityiset_linkit" rows="3">{arvo("yksityiset_linkit")}</textarea>
 <label for="teksti">{e(t["teksti"])}</label>
 <p class="ohje">{e(t["teksti_ohje"])}</p>
 <textarea id="teksti" name="teksti" rows="8" maxlength="{ehdotukset.TEKSTI_ENINTAAN}">{arvo("teksti")}</textarea>
@@ -2194,6 +2198,14 @@ def _ehdotuksen_sisalto(tunniste: str, ehdotus: dict, kieli: str, hakija: osm.Ha
         return (f"{'works' if en else 'toimii'} {toimii}"
                 + (f", {'at its best' if en else 'parhaimmillaan'} {paras}" if paras != toimii else ""))
 
+    tayd = ehdotukset.valmis_taydennys(ehdotus)
+
+    def alkupera(k) -> str:   # kun täydennys on tehty: kuka kohteen rajat antoi
+        if not tayd:
+            return ""
+        teksti = t["alkupera_arvio"] if k.lahde == "arvio" else t["alkupera_ehdottaja"]
+        return f' <span class="pieni">({e(teksti)})</span>'
+
     lisatyt, muutokset = [], []
     for k in (paikka.kohteet if paikka is not None else ()):
         if k.nimi not in uudet:
@@ -2206,14 +2218,35 @@ def _ehdotuksen_sisalto(tunniste: str, ehdotus: dict, kieli: str, hakija: osm.Ha
             if k.huom and k.huom != v.huom:
                 huom = (f'<br><span class="pieni">{e(t["nyt"])}: {e(v.huom) or "–"}</span>'
                         f'<br>{e(t["huom"])} → {e(k.huom)}')
-            muutokset.append(f'<li><b>{e(k.nimi)}</b><br><span class="pieni">{e(t["nyt"])}: '
+            muutokset.append(f'<li><b>{e(k.nimi)}</b>{alkupera(k)}<br><span class="pieni">{e(t["nyt"])}: '
                              f'{e(rajateksti(v, yksikko))}</span><br><span class="rajat">→ '
                              f'{e(rajateksti(k, yksikko))}</span>{huom}</li>')
         else:
-            lisatyt.append(f'<li><b>{e(k.nimi)}</b><br><span class="rajat">{e(rajateksti(k, yksikko))}</span>'
+            lisatyt.append(f'<li><b>{e(k.nimi)}</b>{alkupera(k)}<br><span class="rajat">{e(rajateksti(k, yksikko))}</span>'
                            f'{"<br>" + e(k.huom) if k.huom else ""}</li>')
     teksti = "".join(f"<p>{e(kpl)}</p>" for kpl in re.split(r"\n\s*\n", ehdotus.get("teksti") or "")
                      if kpl.strip())
+    koottu = ""
+    if tayd:   # Clauden lähteistä kokoama kuvaus, lähtö ja loppu, mittarin valinta ja lähteet
+        osa = [f"<p>{e(kpl)}</p>" for kpl in re.split(r"\n\s*\n", tayd.get("teksti") or "") if kpl.strip()]
+        paikat = []
+        for avain, otsikko in (("lahto", "lahto"), ("loppu", "loppu")):
+            if tayd.get(avain):
+                piste = tayd.get(f"{avain}_sijainti")
+                kartta = (f' · <a href="https://www.openstreetmap.org/?mlat={piste[0]}&amp;mlon={piste[1]}#map=14/'
+                          f'{piste[0]}/{piste[1]}" target="_blank" rel="noopener">🗺 {e(t["kartta"])}</a>' if piste else "")
+                paikat.append(f"<li><b>{e(t[otsikko])}:</b> {e(tayd[avain])}{kartta}</li>")
+        if paikat:
+            osa.append(f'<ul class="lahteet">{"".join(paikat)}</ul>')
+        if tayd.get("mittari_perustelu"):
+            osa.append(f'<p><b>{e(t["mittarin_valinta"])}:</b> {e(tayd["mittari_perustelu"])}</p>')
+        if tayd.get("huomiot"):
+            osa.append(f'<p class="huom"><b>{e(t["huomioita"])}:</b> {e(tayd["huomiot"])}</p>')
+        if tayd.get("lahteet"):
+            osa.append(f'<p><b>{e(t["lahteet"])}:</b></p><ul class="lahteet">' + "".join(
+                f'<li><a href="{e(l["url"])}" target="_blank" rel="nofollow noopener">{e(l["nimi"])}</a></li>'
+                if l.get("url") else f"<li>{e(l['nimi'])}</li>" for l in tayd["lahteet"]) + "</ul>")
+        koottu = "".join(osa)
     linkit = ehdotus.get("linkit") or []
     linkkiosat = [(t[otsikko], _linkkilista([l for l in linkit if l.get("laji") == laji]))
                   for laji, otsikko in (("vesi", "vesitiedot"), ("video", "videot"), ("muu", "muut_linkit"))]
@@ -2227,13 +2260,17 @@ def _ehdotuksen_sisalto(tunniste: str, ehdotus: dict, kieli: str, hakija: osm.Ha
         if lisatyt:
             lisaa.append(f'<{h2}>{e(t["kohteet_rajat"])}</{h2}><ul class="kohteet">{"".join(lisatyt)}</ul>')
         if teksti:
-            lisaa.append(f"<{h2}>{e(t['kuvaus'])}</{h2}>{teksti}")
+            lisaa.append(f"<{h2}>{e(t['ehdottajan_teksti' if tayd else 'kuvaus'])}</{h2}>{teksti}")
+        if koottu:
+            lisaa.append(f"<{h2}>{e(t['koottu'])}</{h2}>{koottu}")
         lisaa += [f'<{h2}>{e(o)}</{h2}><ul class="lahteet">{lista}</ul>' for o, lista in linkkiosat]
         if lisaa:
             osat.append(f'<{h} class="tulossa">{e(t["lisatty" if hyvaksytty else "tulossa"])}</{h}>' + "".join(lisaa))
     else:
+        if koottu:
+            osat.append(f"<{h}>{e(t['koottu'])}</{h}>{koottu}")
         if teksti:
-            osat.append(f"<{h}>{e(t['kuvaus'])}</{h}>{teksti}")
+            osat.append(f"<{h}>{e(t['ehdottajan_teksti' if tayd else 'kuvaus'])}</{h}>{teksti}")
         if lisatyt:
             osat.append(f'<{h}>{e(t["kohteet_rajat"])}</{h}><ul class="kohteet">{"".join(lisatyt)}</ul>')
         osat += [f'<{h}>{e(o)}</{h}><ul class="lahteet">{lista}</ul>' for o, lista in linkkiosat]
@@ -2256,7 +2293,7 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
         otsikko = f'{t["taydennys"]}: {ehdotus.get("paikka", "?")}'
         alku = (f'<p><a href="{e(paikan_osoite(paikka, kieli))}">{e(paikka.nimi)}</a></p>' if paikka else "")
     else:
-        otsikko, alku = ehdotus.get("nimi", "?"), ""
+        otsikko, alku = ehdotukset.nimi(ehdotus), ""
     meta = (f'<div class="meta">{e(t["esikatselu"] if tila != "hyvaksytty" else t["uusi_kohde"])} · '
             f'<span class="tila-merkki tila-{e(tila)}">{e(t["tila_" + tila])}</span></div>')
     ilmoitus = ""
@@ -2291,15 +2328,31 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
   }});
 }})();
 </script>"""
+    taydennys = ehdotus.get("taydennys") or {}
+    taydennys_tila = ""
+    if taydennys.get("tila") == "kaynnissa":
+        taydennys_tila = f'<p class="huom">{e(t["taydennys_kaynnissa"])}</p>'
+    elif taydennys.get("tila") == "valmis":
+        taydennys_tila = (f'<p class="pieni">{e(t["taydennys_valmis"])} '
+                          f'{e((taydennys.get("aika") or "")[:16].replace("T", " "))}</p>')
+    elif taydennys.get("tila") == "virhe" and yllapitaja:
+        taydennys_tila = f'<p class="virhe">{e(t["taydennys_virhe"])}: {e(taydennys.get("virhe", ""))}</p>'
     hallinta = ""
     if yllapitaja:
+        taydenna = t["taydenna_uudelleen"] if taydennys.get("tila") == "valmis" else t["taydenna_nappi"]
         hallinta = (f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele" style="margin-top:16px">'
                     f'<b>{e(t["yllapito"])}:</b> '
                     f'<button class="nappi" name="toiminto" value="hyvaksy">{e(t["hyvaksy"])}</button>'
                     f'<button class="nappi toissijainen" name="toiminto" value="hylkaa">{e(t["hylkaa"])}</button>'
-                    f' <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
-    runko = (f"<h1>{e(otsikko)}</h1>{meta}{alku}{hallinta}{ilmoitus}"
-             f"{_ehdotuksen_sisalto(tunniste, ehdotus, kieli, hakija)}")
+                    + (f'<button class="nappi toissijainen" name="toiminto" value="taydenna">{e(taydenna)}</button>'
+                       if tila == "odottaa" and taydennys.get("tila") != "kaynnissa" else "")
+                    + f' <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
+    yksityiset = ""
+    if yllapitaja and ehdotus.get("yksityiset_linkit"):   # vain ylläpitäjälle, ei linkkeinä
+        yksityiset = (f'<h2>{e(t["yksityiset_otsikko"])}</h2><ul class="lahteet">'
+                      + "".join(f"<li><code>{e(u)}</code></li>" for u in ehdotus["yksityiset_linkit"]) + "</ul>")
+    runko = (f"<h1>{e(otsikko)}</h1>{meta}{alku}{taydennys_tila}{hallinta}{ilmoitus}"
+             f"{_ehdotuksen_sisalto(tunniste, ehdotus, kieli, hakija)}{yksityiset}")
     return _sivupohja(otsikko, runko, kieli, _osoite(kieli=kieli))
 
 
@@ -2362,7 +2415,7 @@ def _ilmoita_ehdottajalle(kanta, tunniste: str, ehdotus: dict) -> None:
     hyvaksytty = ehdotus.get("tila") == "hyvaksytty"
     viesti = {"otsikko": ("Your suggestion was approved" if hyvaksytty else "Your suggestion was rejected") if en
               else ("Ehdotuksesi hyväksyttiin" if hyvaksytty else "Ehdotuksesi hylättiin"),
-              "teksti": ehdotus.get("nimi", ""), "url": f"/ehdotus/{tunniste}" + ("?kieli=en" if en else "")}
+              "teksti": ehdotukset.nimi(ehdotus), "url": f"/ehdotus/{tunniste}" + ("?kieli=en" if en else "")}
     halytykset.laheta(tilaus, viesti, avainpari)
 
 
@@ -2388,17 +2441,63 @@ def tallenna_ehdotus(kentat: dict[str, list[str]], kieli: str, ip: str) -> tuple
     laji = "täydennys" if ehdotus["laji"] == "taydenna" else "uusi kohde"
     try:
         _push_kaikille(kanta, ehdotukset.YLLAPITO, {
-            "otsikko": f"Uusi ehdotus: {ehdotus['nimi']}",
+            "otsikko": f"Uusi ehdotus: {ehdotukset.nimi(ehdotus)}",
             "teksti": f"{laji}: {len(ehdotus['kohteet'])} kohdetta, {len(ehdotus['linkit'])} linkkiä"
                       + (f" – {ehdotus['ehdottaja']}" if ehdotus.get("ehdottaja") else ""),
-            "url": f"/ehdotus/{tunniste}"})
+            "url": f"/ehdotus/{tunniste}",
+            # ilmoituksen nappi (Android, työpöytä): service worker kutsuu rajapintaa ja avaa esikatselun
+            "toiminnot": [{"action": "taydenna", "title": "🔍 Täydennä", "api": f"/api/ehdotus/{tunniste}/taydenna"}]})
     except (firestore.FirestoreVirhe, OSError):
         pass   # ehdotus on tallessa, vaikka ilmoitus epäonnistuisi
     return tunniste, ""
 
 
+def taydenna_ehdotus(tunniste: str) -> tuple[bool, str]:
+    """Ylläpitäjän "Täydennä": käynnistää Claude Code -ajon GitHub Actionsissa (ehdotukset.TYONKULKU)."""
+    kanta = _kanta()
+    ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste) if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None
+    if not ehdotus or ehdotus.get("tila") != "odottaa":
+        return False, "ehdotusta ei löydy tai se on jo käsitelty"
+    ok, viesti = ehdotukset.kaynnista_taydennys(tunniste, os.environ.get("GITHUB_TAYDENNYS_TOKEN"))
+    nyt = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    vanha = {k: v for k, v in (ehdotus.get("taydennys") or {}).items() if k not in ("tila", "virhe", "ilmoitettu")}
+    ehdotus["taydennys"] = {**vanha, "tila": "kaynnissa", "pyydetty": nyt} if ok else \
+        {**vanha, "tila": "virhe", "virhe": viesti, "pyydetty": nyt}
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
+    return ok, viesti
+
+
+def ilmoita_taydennyksesta(tunniste: str) -> bool:
+    """Kutsutaan täydennysajon lopuksi: ilmoitus ylläpitäjälle (hyväksy tai hylkää) ja ehdottajalle
+    (esikatselu valmis). Kerran täydennystä kohden; ei vaadi tunnistautumista."""
+    kanta = _kanta()
+    ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste) if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None
+    taydennys = (ehdotus or {}).get("taydennys") or {}
+    if taydennys.get("tila") != "valmis" or taydennys.get("ilmoitettu"):
+        return False
+    taydennys["ilmoitettu"] = True
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
+    nimi = ehdotukset.nimi(ehdotus)
+    try:
+        _push_kaikille(kanta, ehdotukset.YLLAPITO, {
+            "otsikko": f"Täydennetty: {nimi}", "teksti": "Esikatselu valmis – hyväksy tai hylkää.",
+            "url": f"/ehdotus/{tunniste}"})
+        avainpari = halytykset.avaimet(kanta)
+        if ehdotus.get("tilaus") and avainpari:
+            en = ehdotus.get("kieli") == "en"
+            halytykset.laheta(ehdotus["tilaus"], {
+                "otsikko": "Preview of your suggestion is ready" if en else "Ehdotuksesi esikatselu on valmis",
+                "teksti": nimi, "url": f"/ehdotus/{tunniste}" + ("?kieli=en" if en else "")}, avainpari)
+    except (firestore.FirestoreVirhe, OSError):
+        pass
+    return True
+
+
 def kasittele_ehdotus(tunniste: str, toiminto: str) -> bool:
     """Ylläpitäjän hyväksyntä tai hylkäys; ilmoittaa ehdottajalle. False = ei löytynyt."""
+    if toiminto == "taydenna":
+        taydenna_ehdotus(tunniste)
+        return True
     kanta = _kanta()
     ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste) if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None
     if not ehdotus or toiminto not in ("hyvaksy", "hylkaa"):
@@ -2435,7 +2534,7 @@ def yllapitosivu(kirjautunut: bool, virhe: str = "") -> str:
         omat = sorted(((tun, ed) for tun, ed in kaikki.items() if ed.get("tila") == tila),
                       key=lambda x: x[1].get("luotu", ""), reverse=True)
         rivit = "".join(
-            f'<li><a href="/ehdotus/{e(tun)}">{e(ed.get("nimi", "?"))}</a> <span class="pieni">· '
+            f'<li><a href="/ehdotus/{e(tun)}">{e(ehdotukset.nimi(ed))}</a> <span class="pieni">· '
             f'{"täydennys" if ed.get("laji") == "taydenna" else "uusi kohde"} · {e(ed.get("luotu", "")[:16])}'
             f'{" · " + e(ed["ehdottaja"]) if ed.get("ehdottaja") else ""}</span></li>' for tun, ed in omat)
         osat.append(f"<h2>{otsikko} ({len(omat)})</h2><ul>{rivit or '<li class=pieni>–</li>'}</ul>")
@@ -2532,6 +2631,14 @@ def ehdotus_api(polku: str, environ, metodi: str):
         if not ehdotus or (ehdotus.get("tila") == "hylatty" and not yllapitaja):
             return "404 Not Found", html_tyyppi, "Ehdotusta ei löydy.\n".encode("utf-8")
         return "200 OK", html_tyyppi, ehdotussivu(tunniste, ehdotus, kieli, yllapitaja).encode("utf-8")
+    m = re.fullmatch(r"/api/ehdotus/([A-Za-z0-9_-]+)/(taydenna|taydennys-valmis)", polku)
+    if m and metodi == "POST":
+        if m.group(2) == "taydennys-valmis":
+            return json_vastaus("200 OK", {"ilmoitettu": ilmoita_taydennyksesta(m.group(1))})
+        if not yllapitaja:
+            return json_vastaus("403 Forbidden", {"virhe": "kirjaudu ensin"})
+        ok, viesti = taydenna_ehdotus(m.group(1))
+        return json_vastaus("200 OK" if ok else "502 Bad Gateway", {"kaynnistetty": ok, "viesti": viesti})
     m = re.fullmatch(r"/api/ehdotus/([A-Za-z0-9_-]+)/tilaus", polku)
     if m and metodi == "POST":
         tilaus = ehdotukset.tarkista_push(runko_json())
