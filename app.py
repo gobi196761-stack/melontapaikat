@@ -2486,6 +2486,9 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
         taydennys_tila = f'<p class="virhe">{e(t["taydennys_virhe"])}: {e(taydennys.get("virhe", ""))}</p>'
     if taydennys.get("kaannos") == "kaynnissa" and yllapitaja:
         taydennys_tila += f'<p class="huom">{e(t["kaannos_kaynnissa"])}</p>'
+    elif taydennys.get("kaannos") == "virhe" and yllapitaja:
+        taydennys_tila += (f'<p class="virhe">{e(t["kaannos_virhe"])}: '
+                           f'{e(taydennys.get("kaannos_virhe") or "GitHub-ajo epäonnistui")}</p>')
     hallinta = ""
     if yllapitaja:
         taydenna = t["taydenna_uudelleen"] if taydennys.get("tila") == "valmis" else t["taydenna_nappi"]
@@ -2641,9 +2644,9 @@ def kaanna_ehdotus(tunniste: str) -> tuple[bool, str]:
     if not ehdotus or not ehdotukset.valmis_taydennys(ehdotus):
         return False, "ehdotuksella ei ole valmista täydennystä"
     ok, viesti = ehdotukset.kaynnista_taydennys(tunniste, os.environ.get("GITHUB_TAYDENNYS_TOKEN"), kaannos=True)
-    if ok:
-        ehdotus["taydennys"]["kaannos"] = "kaynnissa"
-        kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
+    ehdotus["taydennys"]["kaannos"] = "kaynnissa" if ok else "virhe"
+    ehdotus["taydennys"]["kaannos_virhe"] = "" if ok else viesti
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
     return ok, viesti
 
 

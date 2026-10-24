@@ -62,4 +62,8 @@ jobs:
         if: failure()
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: uv run python tyokalut/taydenna_ehdotus.py virhe "GitHub-ajo epäonnistui (${{ github.run_id }})" || true
+        run: |
+          # Clauden virheilmoitus (esim. API-avain tai saldo) näkyviin ylläpitäjälle; ei muuta tulostetta
+          SYY=$(jq -r '[(if type == "array" then .[] else . end) | select(.type == "result")][-1].result // empty' \
+                "$RUNNER_TEMP/claude-execution-output.json" 2>/dev/null | tr '\n' ' ' | head -c 300 || true)
+          uv run python tyokalut/taydenna_ehdotus.py virhe "GitHub-ajo epäonnistui (${{ github.run_id }})${SYY:+: $SYY}" || true

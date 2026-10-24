@@ -596,3 +596,10 @@ def test_kaanna_nappi(ymparisto, monkeypatch):
     assert ehdotus["taydennys"]["tila"] == "valmis" and ehdotus["taydennys"]["kaannos"] == "kaynnissa"
     sivu = pyynto(f"/ehdotus/{tunniste}", evaste=evaste)[2]
     assert "Käännös englanniksi on käynnissä." in sivu and "🌐 Käännä englanniksi" not in sivu
+    # käynnistys epäonnistuu: syy näkyy ylläpitäjälle ja nappi palaa
+    monkeypatch.setattr(ehdotukset, "kaynnista_taydennys", lambda t, token, kaannos=False: (False, "tunnus puuttuu"))
+    ehdotus["taydennys"].pop("kaannos")
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
+    pyynto(f"/ehdotus/{tunniste}/kasittele", metodi="POST", runko=lomake(toiminto="kaanna"), evaste=evaste)
+    sivu = pyynto(f"/ehdotus/{tunniste}", evaste=evaste)[2]
+    assert "Käännös epäonnistui: tunnus puuttuu" in sivu and "🌐 Käännä englanniksi" in sivu

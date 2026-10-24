@@ -639,6 +639,7 @@ TEKSTIT = {
         "palaa": "← Takaisin lomakkeelle",
         "taydenna_nappi": "🔍 Täydennä", "taydenna_uudelleen": "🔍 Täydennä uudelleen",
         "kaanna_nappi": "🌐 Käännä englanniksi", "kaannos_kaynnissa": "Käännös englanniksi on käynnissä.",
+        "kaannos_virhe": "Käännös epäonnistui",
         "taydennys_kaynnissa": "⏳ Täydennys käynnissä: Claude kokoaa tietoja lähteistä. Päivitä sivu muutaman "
                                "minuutin päästä.",
         "taydennys_valmis": "✓ Täydennetty lähteistä", "taydennys_virhe": "Täydennystä ei voitu käynnistää",
@@ -741,6 +742,7 @@ TEKSTIT = {
         "palaa": "← Back to the form",
         "taydenna_nappi": "🔍 Complete", "taydenna_uudelleen": "🔍 Complete again",
         "kaanna_nappi": "🌐 Translate to English", "kaannos_kaynnissa": "Translation to English is in progress.",
+        "kaannos_virhe": "Translation failed",
         "taydennys_kaynnissa": "⏳ Completion in progress: Claude is gathering information from sources. Reload "
                                "the page in a few minutes.",
         "taydennys_valmis": "✓ Completed from sources", "taydennys_virhe": "Completion could not be started",
