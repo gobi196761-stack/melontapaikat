@@ -425,8 +425,7 @@ li[hidden] { display:none; }
 .lahteet li { overflow-wrap:anywhere; }
 .matka, .lampotilat { margin:1px 0; }
 .kajakit { white-space:nowrap; }
-.turva { background:var(--pinta); border-left:4px solid var(--huono); border-radius:8px; padding:8px 12px;
-         margin:12px 0; }
+.turva { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
 .turva summary { color:var(--huono); font-weight:600; font-size:.92rem; }
 .turva-otsikko { display:inline; }
 .turva-otsikko + .turva-otsikko::before { content:" · "; color:var(--heikko); font-weight:400; }
