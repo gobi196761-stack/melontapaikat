@@ -129,8 +129,8 @@ def tulkitse(kentat: dict[str, list[str]], paikat: tuple[Paikka, ...], kieli: st
         ehdotus["nimi"] = paikka.nimi
     else:
         nimi = _kentta(kentat, "nimi")
-        if not nimi:
-            return None, t["virhe_nimi"]
+        if not nimi and not (kentat.get("linkit") or [""])[0].strip():
+            return None, t["virhe_nimi"]   # pelkkä linkki riittää: täydennys etsii nimen
         ehdotus["nimi"] = nimi
         ehdotus["tyyppi"] = "peli" if _kentta(kentat, "tyyppi") == "peli" else "retki"
         suure = "vedenkorkeus" if _kentta(kentat, "suure") == "vedenkorkeus" else "virtaama"
@@ -202,26 +202,140 @@ def roskaa(kentat: dict[str, list[str]], ip: str, nyt: float | None = None) -> b
 
 def _kohde(k: dict, avain: str) -> Kohde:
     return Kohde(k["nimi"], tuple(k["toimii"]), tuple(k["paras"]), 1.0, avain, huom=k.get("huom", ""),
-                 lahde="ehdotus")
+                 lahde="arvio" if k.get("arvio") else "ehdotus")
+
+
+def valmis_taydennys(ehdotus: dict) -> dict:
+    """Clauden valmis täydennys (TAYDENNYS-kentät) tai tyhjä."""
+    t = ehdotus.get("taydennys") or {}
+    return t if t.get("tila") == "valmis" else {}
+
+
+def nimi(ehdotus: dict) -> str:
+    """Ehdotuksen nimi: ehdottajan antama, täydennyksen löytämä tai ensimmäisen linkin palvelin."""
+    if ehdotus.get("nimi"):
+        return ehdotus["nimi"]
+    if valmis_taydennys(ehdotus).get("nimi"):
+        return valmis_taydennys(ehdotus)["nimi"]
+    linkit = ehdotus.get("linkit") or []
+    return urlparse(linkit[0]["url"]).hostname or "?" if linkit else "?"
+
+
+def kaikki_kohteet(ehdotus: dict) -> list[dict]:
+    """Ehdottajan kohteet ja täydennyksen lisäämät (merkitty "arvio": True); ehdottajan kohde voittaa."""
+    omat = [dict(k) for k in ehdotus.get("kohteet", [])]
+    nimet = {k["nimi"] for k in omat}
+    return omat + [{**k, "arvio": True} for k in valmis_taydennys(ehdotus).get("kohteet", [])
+                   if k.get("nimi") not in nimet]
 
 
 def paikaksi(ehdotus: dict, paikat: tuple[Paikka, ...]) -> tuple[Paikka | None, set[str]]:
     """Ehdotus Paikka-olioksi: (paikka, ehdotettujen kohteiden nimet). Täydennyksessä olemassa
-    olevan paikan kohteet, joista samanniminen ehdotus korvaa vanhan (rajakorjaus)."""
-    uudet = {k["nimi"] for k in ehdotus.get("kohteet", [])}
+    olevan paikan kohteet, joista samanniminen ehdotus korvaa vanhan (rajakorjaus). Clauden
+    täydennyksen mittari, sijainti ja kohteet otetaan mukaan, kun ehdottaja ei ole antanut niitä."""
+    kohteet_ = kaikki_kohteet(ehdotus)
+    uudet = {k["nimi"] for k in kohteet_}
+    taydennys = valmis_taydennys(ehdotus)
     if ehdotus.get("laji") == "taydenna":
         paikka = next((p for p in paikat if p.nimi == ehdotus.get("paikka")), None)
         if paikka is None:
             return None, uudet
         avain = ehdotus.get("mittari_avain") or next(iter(paikka.mittarit), "paa")
-        ehdotetut = [_kohde(k, avain) for k in ehdotus.get("kohteet", [])]
+        ehdotetut = [_kohde(k, avain) for k in kohteet_]
         vanhat = [k for k in paikka.kohteet if k.nimi not in uudet]
         return replace(paikka, kohteet=tuple(vanhat + ehdotetut)), uudet
-    mittarit = {"paa": Mittari(ehdotus["mittari"], lisakaavio=True)} if ehdotus.get("mittari") else {}
-    kohteet = tuple(_kohde(k, "paa") for k in ehdotus.get("kohteet", [])) if mittarit else ()
+    kaavio = ehdotus.get("mittari") or taydennys.get("mittari")
+    mittarit = {"paa": Mittari(kaavio, lisakaavio=True)} if kaavio else {}
+    kohteet = tuple(_kohde(k, "paa") for k in kohteet_) if mittarit else ()
     linkit = ehdotus.get("linkit") or []
-    return Paikka(ehdotus.get("nimi", "?"), linkit[0]["url"] if linkit else "", ehdotus.get("tyyppi", "retki"),
-                  None, (ehdotus.get("teksti") or "")[:300], mittarit, kohteet), uudet
+    return Paikka(nimi(ehdotus), linkit[0]["url"] if linkit else "", ehdotus.get("tyyppi", "retki"),
+                  None, (ehdotus.get("teksti") or taydennys.get("teksti") or "")[:300], mittarit, kohteet), uudet
+
+
+# ---------------------------------------------------------------------------
+# Clauden täydennys (GitHub Actions, .github/workflows/taydenna.yml; ohje tyokalut/TAYDENNYS.md)
+# ---------------------------------------------------------------------------
+
+GITHUB_REPO = "gobi196761-stack/melontapaikat"
+TYONKULKU = "taydenna.yml"
+
+
+def tarkista_taydennys(data) -> tuple[dict | None, str]:
+    """Clauden kirjoittama täydennys tallennettavaan muotoon: (täydennys, virhe)."""
+    if not isinstance(data, dict):
+        return None, "täydennyksen pitää olla JSON-olio"
+    tulos: dict = {}
+    for kentta, enintaan in (("nimi", NIMI_ENINTAAN), ("teksti", 6000), ("lahto", 600), ("loppu", 600),
+                             ("mittari_perustelu", 1000), ("huomiot", 2000)):
+        arvo = data.get(kentta) or ""
+        if not isinstance(arvo, str):
+            return None, f"{kentta}: pitää olla teksti"
+        if arvo.strip():
+            tulos[kentta] = arvo.strip()[:enintaan]
+    if data.get("mittari"):
+        kaavio = mittari_tekstista(str(data["mittari"]), str(data.get("suure") or "virtaama"))
+        if not kaavio:
+            return None, f"mittari: tuntematon asema {data['mittari']!r}"
+        tulos["mittari"] = kaavio
+    for kentta in ("sijainti", "lahto_sijainti", "loppu_sijainti"):
+        arvo = data.get(kentta)
+        if arvo:
+            try:
+                lev, pit = float(arvo[0]), float(arvo[1])
+            except (TypeError, ValueError, IndexError):
+                return None, f"{kentta}: pitää olla [leveys, pituus]"
+            if not (-90 <= lev <= 90 and -180 <= pit <= 180):
+                return None, f"{kentta}: ei koordinaatti"
+            tulos[kentta] = [lev, pit]
+    kohteet = []
+    for i, k in enumerate(data.get("kohteet") or [], 1):
+        if not isinstance(k, dict) or not str(k.get("nimi") or "").strip():
+            return None, f"kohde {i}: nimi puuttuu"
+        try:
+            toimii = [luku(str(x)) if x is not None else None for x in (k.get("toimii") or [None, None])[:2]]
+            paras = [luku(str(x)) if x is not None else None for x in (k.get("paras") or toimii)[:2]]
+        except ValueError:
+            return None, f"kohde {i}: rajat eivät ole lukuja"
+        if toimii == [None, None]:
+            return None, f"kohde {i}: toimii-raja puuttuu"
+        kohteet.append({"nimi": str(k["nimi"]).strip()[:NIMI_ENINTAAN], "toimii": toimii,
+                        "paras": paras if paras != [None, None] else toimii, "huom": str(k.get("huom") or "")[:300]})
+    if len(kohteet) > KOHTEITA_ENINTAAN:
+        return None, f"enintään {KOHTEITA_ENINTAAN} kohdetta"
+    tulos["kohteet"] = kohteet
+    lahteet = []
+    for l in data.get("lahteet") or []:
+        if isinstance(l, dict) and str(l.get("nimi") or "").strip():
+            url = str(l.get("url") or "").strip()
+            lahteet.append({"nimi": str(l["nimi"]).strip()[:200],
+                            "url": url if re.fullmatch(r"https?://\S{3,490}", url) else ""})
+    tulos["lahteet"] = lahteet[:15]
+    if not tulos.get("teksti") and not kohteet:
+        return None, "täydennyksessä pitää olla vähintään teksti tai kohteita"
+    return tulos, ""
+
+
+def kaynnista_taydennys(tunniste: str, token: str | None, avaa=None) -> tuple[bool, str]:
+    """Käynnistää GitHub Actions -ajon (workflow_dispatch), joka täydentää ehdotuksen Claude Codella."""
+    import json
+    import urllib.error
+    import urllib.request
+    if not token:
+        return False, "GITHUB_TAYDENNYS_TOKEN puuttuu Vercelin ympäristömuuttujista"
+    if not kelvollinen_tunniste(tunniste):
+        return False, "virheellinen tunniste"
+    pyynto = urllib.request.Request(
+        f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{TYONKULKU}/dispatches",
+        data=json.dumps({"ref": "main", "inputs": {"tunniste": tunniste}}).encode(), method="POST",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+                 "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "melontapaikat"})
+    try:
+        with (avaa or urllib.request.urlopen)(pyynto, timeout=20) as v:
+            return 200 <= v.status < 300, f"GitHub {v.status}"
+    except urllib.error.HTTPError as e:
+        return False, f"GitHub {e.code}: {e.read()[:200].decode('utf-8', 'replace')}"
+    except OSError as e:
+        return False, f"GitHub ei vastaa: {e}"
 
 
 # ---------------------------------------------------------------------------
@@ -313,6 +427,13 @@ TEKSTIT = {
         "virhe_jono": "Ehdotuksia on juuri nyt liikaa jonossa – yritä myöhemmin uudelleen.",
         "virhe_tallennus": "Ehdotusta ei saatu tallennettua – yritä myöhemmin uudelleen.",
         "palaa": "← Takaisin lomakkeelle",
+        "taydenna_nappi": "🔍 Täydennä", "taydenna_uudelleen": "🔍 Täydennä uudelleen",
+        "taydennys_kaynnissa": "⏳ Täydennys käynnissä: Claude kokoaa tietoja lähteistä. Päivitä sivu muutaman "
+                               "minuutin päästä.",
+        "taydennys_valmis": "✓ Täydennetty lähteistä", "taydennys_virhe": "Täydennystä ei voitu käynnistää",
+        "koottu": "Koottu lähteistä", "ehdottajan_teksti": "Ehdottajan teksti", "lahto": "Lähtö", "loppu": "Loppu",
+        "mittarin_valinta": "Mittari", "huomioita": "Huomioita", "lahteet": "Lähteet",
+        "alkupera_arvio": "arvio lähteistä", "alkupera_ehdottaja": "ehdottaja", "kartta": "kartta",
     },
     "en": {
         "luukku": "➕ Suggest a new spot or add to an existing one",
@@ -381,6 +502,13 @@ TEKSTIT = {
         "virhe_jono": "Too many suggestions are queued right now – please try again later.",
         "virhe_tallennus": "The suggestion could not be saved – please try again later.",
         "palaa": "← Back to the form",
+        "taydenna_nappi": "🔍 Complete", "taydenna_uudelleen": "🔍 Complete again",
+        "taydennys_kaynnissa": "⏳ Completion in progress: Claude is gathering information from sources. Reload "
+                               "the page in a few minutes.",
+        "taydennys_valmis": "✓ Completed from sources", "taydennys_virhe": "Completion could not be started",
+        "koottu": "Compiled from sources", "ehdottajan_teksti": "Text by the suggester", "lahto": "Put-in",
+        "loppu": "Take-out", "mittarin_valinta": "Gauge", "huomioita": "Notes", "lahteet": "Sources",
+        "alkupera_arvio": "estimate from sources", "alkupera_ehdottaja": "suggester", "kartta": "map",
     },
 }
 

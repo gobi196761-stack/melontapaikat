@@ -234,6 +234,26 @@ Sähköpostia ei kerätä.
 - Roskapostin esto: piilokenttä, enintään 5 ehdotusta tunnissa samasta
   osoitteesta ja enintään 100 odottavaa ehdotusta.
 
+### Täydennys Claude Codella (Täydennä-nappi)
+
+Kun ehdotuksessa on vain nimi tai linkki, ylläpitäjä voi painaa **Täydennä**
+(push-ilmoituksen nappi tai esikatselun ylläpitonapit). Sovellus käynnistää
+GitHub Actions -ajon `.github/workflows/taydenna.yml`, jossa Claude Code
+täydentää ehdotuksen ohjeen `tyokalut/TAYDENNYS.md` mukaan: lukee linkit ja muut
+lähteet, etsii lähtö- ja loppupaikat, lähimmän SYKE-aseman ja vesitiedot
+melontapäiviltä, arvioi rajat ja kirjoittaa kuvauksen omin sanoin. Ehdottajan
+omat tiedot säilyvät sellaisinaan. Työkalu `tyokalut/taydenna_ehdotus.py`
+tallentaa täydennyksen ehdotukseen, ja sovellus ilmoittaa ylläpitäjälle
+(hyväksy tai hylkää) ja ehdottajalle (esikatselu valmis).
+
+Asetukset (kerran):
+
+| Missä | Nimi | Arvo |
+|---|---|---|
+| GitHub: Settings → Secrets and variables → Actions | `CLAUDE_CODE_OAUTH_TOKEN` | komennon `claude setup-token` tulos (Claude-tilaus) |
+| GitHub: sama | `FIREBASE_SERVICE_ACCOUNT` | melontapaikkojen Firebase-palvelutilin JSON |
+| Vercel: Environment Variables | `GITHUB_TAYDENNYS_TOKEN` | fine-grained token, vain tämä repo, *Actions: Read and write* |
+
 ## Optimiolosuhteiden analyysi
 
 Rajat ovat sivujen kuvauksista (`paikat.py`). *Arvio* = kuvauksessa ei ole

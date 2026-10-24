@@ -112,7 +112,9 @@ def test_uusi_kohde_esikatselu_ilmoitus_ja_hyvaksynta(ymparisto):
     # ylläpitäjälle push heti
     assert lahetetyt == [(TILAUS["endpoint"], {"otsikko": "Uusi ehdotus: Kitkajoki (Käylä – Juuma)",
                                                "teksti": "uusi kohde: 1 kohdetta, 1 linkkiä – Antti",
-                                               "url": osoite})]
+                                               "url": osoite,
+                                               "toiminnot": [{"action": "taydenna", "title": "🔍 Täydennä",
+                                                              "api": f"/api/ehdotus/{tunniste}/taydenna"}]})]
     status, _, sivu = pyynto(osoite)
     assert status == "200 OK" and "odottaa hyväksyntää" in sivu and "Käylä – Juuma" in sivu
     assert "toimii yli 20 m³/s, parhaimmillaan 30 m³/s – 60 m³/s" in sivu
@@ -223,3 +225,137 @@ def test_uusi_kohde_ja_lisaa_kohde_nappi(ymparisto):
     status, _, sivu = pyynto("/ehdota", metodi="POST", runko=lomake(laji="uusi", nimi="X", k1_nimi="A",
                                                                      k1_toimii_ala="1", k2_nimi="B", k2_toimii_ala="x"))
     assert status == "400 Bad Request" and '"nimi": "B", "toimii_ala": "x"' in sivu
+
+
+TAYDENNYS = {
+    "nimi": "Aventojoki (Ollilanjärvi – Aventolampi)", "teksti": "Pieni tulvajoki.\n\nVain kokeneille.",
+    "lahto": "Ollilanjärven pysäköintipaikka", "lahto_sijainti": [66.363, 29.055],
+    "loppu": "Oulangan luontokeskus", "loppu_sijainti": [66.3683, 29.3147],
+    "mittari": "7300100", "suure": "virtaama", "mittari_perustelu": "Oulankajoki alavirrassa.",
+    "kohteet": [{"nimi": "Ollilanjärvi – Aventolampi", "toimii": [300, None], "paras": [380, 480],
+                 "huom": "rajat arvioita"},
+                {"nimi": "Oma kohde", "toimii": [1, None]}],
+    "huomiot": "Lähde vuodelta 2010.",
+    "lahteet": [{"nimi": "Kuusamon Koskimelojat", "url": "https://koskimelojat.blogspot.com/2010/07/aventojoki.html"},
+                {"nimi": "SYKE", "url": "javascript:alert(1)"}]}
+
+
+def test_tarkista_taydennys():
+    t, virhe = ehdotukset.tarkista_taydennys(TAYDENNYS)
+    assert not virhe and t["mittari"] == "73/q7300100y/qinlyhyt.png"
+    assert t["kohteet"][0] == {"nimi": "Ollilanjärvi – Aventolampi", "toimii": [300.0, None], "paras": [380.0, 480.0],
+                               "huom": "rajat arvioita"}
+    assert t["lahteet"][1]["url"] == ""   # vain http(s)-linkit
+    assert ehdotukset.tarkista_taydennys({**TAYDENNYS, "mittari": "ei asema"})[1].startswith("mittari")
+    assert ehdotukset.tarkista_taydennys({"kohteet": [{"nimi": "X", "toimii": [None, None]}]})[1].endswith(
+        "toimii-raja puuttuu")
+    assert ehdotukset.tarkista_taydennys({"lahto": "x"})[1].startswith("täydennyksessä pitää olla")
+
+
+def test_pelkka_linkki_ja_taydennys(ymparisto, monkeypatch):
+    """Pelkkä linkki kelpaa; ylläpitäjä käynnistää täydennyksen, valmis täydennys näkyy esikatselussa
+    ehdottajan tietojen rinnalla ja siitä ilmoitetaan kerran."""
+    kanta, lahetetyt = ymparisto
+    kanta.kirjoita(ehdotukset.YLLAPITO, "laite", {"endpoint": TILAUS["endpoint"], "p256dh": "x", "auth": "y"})
+    status, otsakkeet, _ = pyynto("/ehdota", metodi="POST", runko=lomake(
+        laji="uusi", linkit="https://koskimelojat.blogspot.com/2010/07/aventojoki.html",
+        k1_nimi="Oma kohde", k1_toimii_ala="250"))
+    assert status == "303 See Other"
+    osoite = otsakkeet["Location"]
+    tunniste = osoite.removeprefix("/ehdotus/")
+    assert lahetetyt[-1][1]["otsikko"] == "Uusi ehdotus: koskimelojat.blogspot.com"
+    # Täydennä: vaatii kirjautumisen; käynnistää GitHub-ajon
+    assert pyynto(f"/api/ehdotus/{tunniste}/taydenna", metodi="POST")[0] == "403 Forbidden"
+    _, ylla, _ = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))
+    evaste = ylla["Set-Cookie"].split(";")[0]
+    assert "🔍 Täydennä" in pyynto(osoite, evaste=evaste)[2]
+    kaynnistetyt = []
+    monkeypatch.setenv("GITHUB_TAYDENNYS_TOKEN", "tunnus")
+    monkeypatch.setattr(ehdotukset, "kaynnista_taydennys", lambda t, token: kaynnistetyt.append((t, token))
+                        or (True, "GitHub 204"))
+    status, _, vastaus = pyynto(f"/api/ehdotus/{tunniste}/taydenna", metodi="POST", evaste=evaste)
+    assert status == "200 OK" and json.loads(vastaus)["kaynnistetty"] and kaynnistetyt == [(tunniste, "tunnus")]
+    sivu = pyynto(osoite)[2]
+    assert "Täydennys käynnissä" in sivu
+    # Claude tallentaa täydennyksen (työkalu tekee saman) ja tuotanto ilmoittaa
+    ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste)
+    ehdotus["taydennys"] = {**ehdotukset.tarkista_taydennys(TAYDENNYS)[0], "tila": "valmis",
+                            "aika": "2026-10-24T12:00:00+00:00"}
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
+    lahetetyt.clear()
+    assert json.loads(pyynto(f"/api/ehdotus/{tunniste}/taydennys-valmis", metodi="POST")[2]) == {"ilmoitettu": True}
+    assert json.loads(pyynto(f"/api/ehdotus/{tunniste}/taydennys-valmis", metodi="POST")[2]) == {"ilmoitettu": False}
+    assert [v["otsikko"] for _, v in lahetetyt] == ["Täydennetty: Aventojoki (Ollilanjärvi – Aventolampi)"]
+    sivu = pyynto(osoite)[2]
+    assert "<h1>Aventojoki (Ollilanjärvi – Aventolampi)</h1>" in sivu and "✓ Täydennetty lähteistä" in sivu
+    assert "<h2>Koottu lähteistä</h2>" in sivu and "Pieni tulvajoki." in sivu and "Oulankajoki alavirrassa." in sivu
+    assert "<b>Lähtö:</b> Ollilanjärven pysäköintipaikka" in sivu and "openstreetmap.org/?mlat=66.363" in sivu
+    # ehdottajan kohde säilyy (ja voittaa samannimisen), täydennyksen kohde merkitään arvioksi
+    assert "Oma kohde</b> <span class=\"pieni\">(ehdottaja)</span>" in sivu and "yli 250 m³/s" in sivu
+    assert "Ollilanjärvi – Aventolampi</b> <span class=\"pieni\">(arvio lähteistä)</span>" in sivu
+    assert 'href="javascript' not in sivu
+    paikka, _ = ehdotukset.paikaksi(kanta.lue(ehdotukset.KOKOELMA, tunniste), PAIKAT)
+    assert paikka.mittarit["paa"].kaavio == "73/q7300100y/qinlyhyt.png" and len(paikka.kohteet) == 2
+
+
+def test_service_worker_napit():
+    sw = halytykset.SERVICE_WORKER
+    assert "actions: toiminnot.map" in sw and 'fetch(toiminto.api, {method: "POST", credentials: "include"})' in sw
+
+
+def test_kaynnista_taydennys():
+    pyynnot = []
+
+    class Vastaus:
+        status = 204
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def avaa(pyynto, timeout):
+        pyynnot.append(pyynto)
+        return Vastaus()
+
+    assert ehdotukset.kaynnista_taydennys("x" * 22, None) == (False, "GITHUB_TAYDENNYS_TOKEN puuttuu Vercelin "
+                                                                     "ympäristömuuttujista")
+    assert ehdotukset.kaynnista_taydennys("x" * 22, "t", avaa) == (True, "GitHub 204")
+    p = pyynnot[0]
+    assert p.full_url.endswith("/repos/gobi196761-stack/melontapaikat/actions/workflows/taydenna.yml/dispatches")
+    assert json.loads(p.data) == {"ref": "main", "inputs": {"tunniste": "x" * 22}}
+    assert p.get_header("Authorization") == "Bearer t"
+
+
+def test_tyokalu_tallenna_ja_rajaus(ymparisto, monkeypatch, tmp_path, capsys):
+    """Täydennystyökalu käsittelee vain TUNNISTE-ehdotusta ja tallentaa tarkistetun täydennyksen."""
+    import importlib.util
+    import urllib.request
+    kanta, _ = ymparisto
+    spec = importlib.util.spec_from_file_location("taydenna_ehdotus", "tyokalut/taydenna_ehdotus.py")
+    tyokalu = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tyokalu)
+    tunniste = "A" * 22
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, {"laji": "uusi", "nimi": "", "tila": "odottaa", "kohteet": [],
+                                                   "linkit": [{"url": "https://x.fi/a", "laji": "muu"}],
+                                                   "tilaus": {"endpoint": "salainen"}})
+    monkeypatch.delenv("TUNNISTE", raising=False)
+    with pytest.raises(SystemExit):
+        tyokalu.main(["lue"])
+    monkeypatch.setenv("TUNNISTE", tunniste)
+    tyokalu.main(["lue"])
+    assert "salainen" not in capsys.readouterr().out   # push-tilausta ei näytetä
+    kutsut = []
+    monkeypatch.setattr(urllib.request, "urlopen", lambda p, timeout: kutsut.append(p.full_url) or io.BytesIO(b"{}"))
+    tiedosto = tmp_path / "t.json"
+    tiedosto.write_text(json.dumps({"teksti": "x", "kohteet": [{"nimi": "K", "toimii": ["abc"]}]}), encoding="utf-8")
+    with pytest.raises(SystemExit):
+        tyokalu.main(["tallenna", str(tiedosto)])
+    tiedosto.write_text(json.dumps(TAYDENNYS), encoding="utf-8")
+    tyokalu.main(["tallenna", str(tiedosto)])
+    tallessa = kanta.lue(ehdotukset.KOKOELMA, tunniste)["taydennys"]
+    assert tallessa["tila"] == "valmis" and tallessa["mittari"] == "73/q7300100y/qinlyhyt.png"
+    assert kutsut == [f"https://melontapaikat.vercel.app/api/ehdotus/{tunniste}/taydennys-valmis"]
+    tyokalu.main(["virhe", "linkki ei aukea"])
+    assert kanta.lue(ehdotukset.KOKOELMA, tunniste)["taydennys"]["tila"] == "virhe"
