@@ -62,7 +62,7 @@ SANAT = {
     "Lisää suosikkeihin": "Add to favourites",
     "Suomeksi": "Suomeksi",
     "In English": "In English",
-    "🔔 Hälytys hyvistä oloista": "🔔 Alert for good conditions",
+    "🔔 Hälytys kohteen toimivuudesta": "🔔 Alert when a spot is running",
     "Ilmoitus puhelimeen, kun valitsemasi paikan tai kohteen ehto täyttyy tänään tai ennusteessa. Tarkistus joka aamu; samasta ehdosta uudelleen vasta, kun se on välillä lakannut täyttymästä.":
         "A notification to your phone when the condition you chose for a spot or feature is met today or in the forecast. Checked every morning; the same condition again only after it has stopped being met in between.",
     "Kohde": "Feature",

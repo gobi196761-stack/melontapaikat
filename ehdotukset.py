@@ -560,13 +560,13 @@ def on_yllapitaja(evasteet: str, salasana: str | None) -> bool:
 
 TEKSTIT = {
     "fi": {
-        "luukku": "Ehdota uutta kohdetta tai täydennä paikkaa",
+        "luukku": "Ehdota uutta kohdetta tai täydennä vanhaa",
         "luukku_teksti": "Tiedätkö paikan, jota sovelluksessa ei ole, tai pelipaikan rajat paremmin? Lähetä "
                          "ehdotus: linkit, oma teksti ja kohteiden toiminta-alueet ja optimit. Näet heti "
                          "esikatselun päivän tilanteesta, ja ehdotus julkaistaan, kun ylläpitäjä on hyväksynyt sen.",
         "uusi": "Uusi kohde", "taydenna": "Täydennä paikkaa",
         "kayttajien_kohteet": "Käyttäjien ehdottamat kohteet",
-        "lomake_otsikko": "Ehdota uutta kohdetta tai täydennä paikkaa",
+        "lomake_otsikko": "Ehdota uutta kohdetta tai täydennä vanhaa",
         "lomake_ohje": "Ehdotus tarkistetaan ennen julkaisua. Lähettämisen jälkeen näet esikatselun, jossa on "
                        "päivän tilanne ehdottamillasi rajoilla. Sähköpostia ei kysytä: voit tilata "
                        "esikatselusivulla ilmoituksen, kun ehdotus on käsitelty.",
