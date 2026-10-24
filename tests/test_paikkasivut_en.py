@@ -31,3 +31,15 @@ def test_englanninkielinen_paikkasivu():
     fi = pyynto("/paikka/kuusinkijoki")[2]
     assert '<html lang="fi">' in fi and "<b>Lähtö:</b>" in fi and 'href="/paikka/kuusinkijoki?kieli=en"' in fi
 
+
+
+def test_paikkasivuilla_ei_vesi_fi_linkkeja():
+    """Mittarit ja vesitietolähteet osoittavat sovelluksen omiin kaavioihin, eivät vesi.fi:hin."""
+    for p in PAIKAT:
+        for kieli in ("", "kieli=en"):
+            sivu = pyynto(f"/paikka/{paikkasivut.tunniste(p.nimi)}", kieli)[2]
+            assert "wqfi.html" not in sivu and "vesi.fi" not in sivu, p.nimi
+    sivu = pyynto("/paikka/kuusinkijoki")[2]
+    assert 'href="/kaavio/syke/73/q7300350y/qinlyhyt?paikka=Kuusinkijoki">Myllykosken virtaama' in sivu
+    assert 'href="/kaavio/syke/73/q7300350y/qinlyhyt?paikka=Kuusinkijoki&amp;kieli=en"' in pyynto(
+        "/paikka/kuusinkijoki", "kieli=en")[2]

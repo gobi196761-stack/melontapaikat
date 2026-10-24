@@ -27,7 +27,7 @@ välimuistiin (Cache-Control: s-maxage). Näin vain harva pyyntö odottaa.
 from __future__ import annotations
 
 import datetime as dt
-import hashlib
+import re
 import hmac
 import html
 import json
@@ -38,6 +38,8 @@ import time
 from dataclasses import dataclass, field
 from urllib.parse import parse_qs, quote, urlencode
 
+import arviointi
+import ehdotukset
 import ennustearkisto
 import firestore
 import halytykset
@@ -419,21 +421,13 @@ li[hidden] { display:none; }
 .lahteet li { overflow-wrap:anywhere; }
 .matka, .lampotilat { margin:1px 0; }
 .kajakit { white-space:nowrap; }
-.turva-tausta { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:50; display:flex;
-               align-items:center; justify-content:center; padding:16px; }
-.turva-tausta[hidden] { display:none; }
-.turva { position:relative; background:var(--tausta); color:var(--teksti); border-radius:12px; max-width:520px;
-         width:100%; max-height:90vh; overflow:auto; padding:16px 18px 14px; border-top:6px solid var(--huono);
-         box-shadow:0 8px 30px rgba(0,0,0,.35); }
-.turva h2 { margin:0 28px 8px 0; font-size:1.15rem; }
-.turva h3 { margin:12px 0 4px; font-size:1rem; color:var(--huono); }
+.turva { background:var(--pinta); border-left:4px solid var(--huono); border-radius:8px; padding:8px 12px;
+         margin:12px 0; }
+.turva summary { color:var(--huono); font-weight:600; font-size:.92rem; }
+.turva-otsikko { display:inline; }
+.turva-otsikko + .turva-otsikko::before { content:" · "; color:var(--heikko); font-weight:400; }
+.turva h3 { margin:10px 0 2px; font-size:.95rem; color:var(--huono); }
 .turva p { margin:0 0 6px; line-height:1.45; }
-.turva-sulje { position:absolute; top:6px; right:8px; border:0; background:none; font-size:1.6rem;
-               line-height:1; color:var(--heikko); cursor:pointer; padding:4px 8px; }
-.turva-aika { height:4px; background:var(--viiva); border-radius:2px; overflow:hidden; margin:10px 0; }
-.turva-aika span { display:block; height:100%; width:100%; background:var(--huono); }
-.turva-ok { display:block; margin-left:auto; padding:6px 18px; border-radius:6px; border:1px solid var(--teksti);
-            background:var(--teksti); color:var(--tausta); font-weight:600; cursor:pointer; }
 .selitykset { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
 .selitykset ul { display:flex; flex-wrap:wrap; gap:4px 16px; list-style:none; padding:0; margin:6px 0; }
 .selitykset p { margin:4px 0 0; }
@@ -1095,63 +1089,22 @@ def _lukumaara(n: int, k_) -> str:
     return f"{n} {k_('paikka') if n == 1 else k_('paikkaa')}"
 
 
-def _turvaikkuna(tilanne: Tilanne, kieli: str) -> str:
-    """Sovelluksen avautuessa esiin ponnahtava varoitus (kylmä vesi, maatuuli, matala merivesi).
-    Sulkeutuu itsestään lukemiseen riittävän ajan jälkeen tai sulkunapista; ei uudelleen samassa
-    istunnossa, ellei varoitus muutu."""
+def _turvaosio(tilanne: Tilanne, kieli: str) -> str:
+    """Turvallisuusvaroitukset (kylmä vesi, maatuuli, matala merivesi) avattavana osiona
+    merkintöjen yläpuolella: kiinni ollessa näkyvät varoitusten otsikot punaisella, avattuna
+    koko teksti. Ei mitään, kun varoitettavaa ei ole."""
     joet = [l.veden_lampotila for t in tilanne.tulokset if t.paikka.maa == "FI"
             for l in t.lukemat.values() if l is not None and l.veden_lampotila is not None]
     viestit = turvallisuus.viestit(tilanne.turva, joet, kieli, _ajankohta)
     if not viestit:
         return ""
     en = kieli == "en"
-    avain = hashlib.sha256("".join(o + t for o, t in viestit).encode()).hexdigest()[:10]
-    osiot = "".join(f"<h3>{e(o)}</h3><p>{e(t)}</p>" for o, t in viestit)
-    return f"""<div id="turva" class="turva-tausta" hidden data-avain="{avain}">
-<div class="turva" role="alertdialog" aria-modal="true" aria-labelledby="turva-otsikko">
-<button type="button" class="turva-sulje" aria-label="{"Close" if en else "Sulje"}">×</button>
-<h2 id="turva-otsikko">{"Before you go out on the water" if en else "Ennen vesille lähtöä"}</h2>
-{osiot}
-<p class="pieni">{"Sources: Finnish Meteorological Institute (Oulu Toppila), SYKE." if en else
-                  "Lähteet: Ilmatieteen laitos (Oulu Toppila), SYKE."}</p>
-<div class="turva-aika"><span></span></div>
-<button type="button" class="turva-ok">{"Got it" if en else "Selvä"}</button>
-</div>
-</div>
-<script>
-(() => {{
-  const ikkuna = document.getElementById("turva");
-  let avain = null;
-  try {{ avain = sessionStorage.getItem("melonta-turva"); }} catch (e) {{}}
-  if (!ikkuna || avain === ikkuna.dataset.avain) return;
-  let ajastin = null;
-  const sulje = () => {{
-    clearTimeout(ajastin);
-    ikkuna.hidden = true;
-    try {{ sessionStorage.setItem("melonta-turva", ikkuna.dataset.avain); }} catch (e) {{}}
-  }};
-  // lukuaika: 6 s + noin 4 sanaa sekunnissa, enintään minuutti
-  const sanoja = ikkuna.querySelector(".turva").textContent.split(/\\s+/).length;
-  const kesto = Math.min(60000, 6000 + sanoja * 250);
-  const palkki = ikkuna.querySelector(".turva-aika span");
-  ikkuna.hidden = false;
-  palkki.style.transition = "none";
-  palkki.style.width = "100%";
-  requestAnimationFrame(() => requestAnimationFrame(() => {{
-    palkki.style.transition = "width " + kesto + "ms linear";
-    palkki.style.width = "0";
-  }}));
-  ajastin = setTimeout(sulje, kesto);
-  // koskettaminen tai hiiren vieminen ikkunaan pysäyttää sulkeutumisen
-  ikkuna.querySelector(".turva").addEventListener("pointerdown", () => {{
-    clearTimeout(ajastin);
-    palkki.parentElement.hidden = true;
-  }});
-  ikkuna.querySelectorAll(".turva-sulje, .turva-ok").forEach(b => b.addEventListener("click", sulje));
-  ikkuna.addEventListener("click", ev => {{ if (ev.target === ikkuna) sulje(); }});
-  document.addEventListener("keydown", ev => {{ if (ev.key === "Escape") sulje(); }});
-}})();
-</script>"""
+    otsikot = "".join(f'<span class="turva-otsikko">{e(o)}</span>' for o, _ in viestit)
+    tekstit = "".join(f"<h3>{e(o)}</h3><p>{e(t)}</p>" for o, t in viestit)
+    lahde = ("Sources: Finnish Meteorological Institute (Oulu Toppila), SYKE." if en else
+             "Lähteet: Ilmatieteen laitos (Oulu Toppila), SYKE.")
+    return (f'<details class="turva"><summary>{otsikot}</summary>{tekstit}'
+            f'<p class="pieni">{lahde}</p></details>')
 
 
 def _osoite(**parametrit) -> str:
@@ -1212,9 +1165,10 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div>
 <div class="meta">{k_("osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet")} ·
 {k_("päivitetty klo")} {tilanne.paivitetty:%H.%M}</div>
+{_turvaosio(tilanne, kieli)}
 {_selitykset(kieli)}
+{_ehdotusluukku(kieli)}
 {_halytysosio(k_)}
-{_turvaikkuna(tilanne, kieli)}
 <nav>{suodattimet}<button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button>
 <label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
 placeholder="{k_("esim. Rovaniemi")}"></label>
@@ -1550,6 +1504,12 @@ def syke_kaavio_svg(polku: str, hakija: osm.Hakija | None = None, paikan_nimi: s
     asema = _arvioasema(mittari.kaavio)
     if asema:
         return _arvio_kaavio(paikka, avain, mittari, asema, hakija, otsikko, kieli)
+    return _mittarin_svg(paikka, avain, mittari, hakija, otsikko, kieli, kuvasta, nyt)
+
+
+def _mittarin_svg(paikka, avain: str, mittari, hakija: osm.Hakija, otsikko: str, kieli: str = "fi",
+                  kuvasta: bool = False, nyt: dt.datetime | None = None) -> str | None:
+    """SYKE-mittarin kaavio paikan kohteiden rajoineen: ajo.jsonista tai SYKE:n kuvasta."""
     ajo = None
     if not kuvasta:
         ajo = _hae_json(hakija, osm.kaavio_url(syke_data.ajo_avain(mittari.kaavio)))
@@ -1708,13 +1668,21 @@ def _rajat(raja: tuple, yksikko: str, muuttuja: str, kieli: str = "fi") -> str:
 
 
 def _mittarin_linkki(paikka, avain: str, kieli: str = "fi") -> str:
-    """Oma kaavio, jos sen voi piirtää ilman päivän lukemaa, muuten SYKE:n asemasivu."""
+    """Mittarin oma kaaviosivu (ei vesi.fi:tä). Muistissa olevan tilanteen lukemasta tiedetään,
+    piirretäänkö kaavio ajo.jsonista vai SYKE:n kuvasta; ilman sitä kaaviosivu kokeilee ensin
+    ajo.jsonia ja sitten kuvaa."""
     mittari = paikka.mittarit[avain]
-    oma = kaavion_osoite(paikka, avain, kieli=kieli)
+    lukema = None
+    if _tilanne:
+        tulos = next((t for t in _tilanne[1].tulokset if t.paikka.nimi == paikka.nimi), None)
+        lukema = tulos.lukemat.get(avain) if tulos else None
+    oma = kaavion_osoite(paikka, avain, lukema, kieli)
     if oma:
         return oma
-    alue, asema = kaavion_asema(mittari.kaavio)
-    return f"{osm.SYKE_POHJA}{alue}/{asema}/wqfi.html"
+    parametrit = {"paikka": paikka.nimi, **({"kieli": kieli} if kieli != "fi" else {})}
+    if lukema is not None:   # esim. lämpötila: sarjat SYKE:n kuvasta
+        parametrit["lahde"] = "kuva"
+    return f"/kaavio/syke/{mittari.kaavio.removesuffix('.png')}?{urlencode(parametrit)}"
 
 
 # Paikkasivun kiinteät tekstit englanniksi (kuvaukset: paikkasivut_en.py)
@@ -1835,8 +1803,14 @@ def paikkasivu(paikka, kieli: str = "fi") -> str:
     lahteet = list(paikkasivut.KUVAUKSET[paikka.nimi].lahteet if paikka.nimi in paikkasivut.KUVAUKSET else ())
     if paikka.url not in {url for _, url in lahteet}:
         lahteet.insert(0, (k_("Paikan pääsivu"), paikka.url))
-    lahteet_html = "".join(f'<li><a href="{e(url)}" target="_blank" rel="noopener">{e(otsikko)}</a></li>'
-                           if url else f"<li>{e(otsikko)}</li>" for otsikko, url in lahteet)
+    def lahde(otsikko: str, url: str | None) -> str:
+        if not url:
+            return f"<li>{e(otsikko)}</li>"
+        if url.startswith("/"):   # sovelluksen oma sivu (esim. mittarin kaavio): samaan ikkunaan
+            url += "&kieli=en" if en and url.startswith("/kaavio/") else ""
+            return f'<li><a href="{e(url)}">{e(otsikko)}</a></li>'
+        return f'<li><a href="{e(url)}" target="_blank" rel="noopener">{e(otsikko)}</a></li>'
+    lahteet_html = "".join(lahde(otsikko, url) for otsikko, url in lahteet)
     loppu = (k_("loppuhuomautus") if en else
              "Kuvaus on koottu lähteistä omin sanoin; tarkista olosuhteet aina paikan päällä. Suluissa olevat "
              "vesitiedot ovat kuvatun päivän vuorokausiarvoja SYKE:n hydrologiarajapinnasta (Ruotsin paikat: "
@@ -1868,12 +1842,654 @@ def paikkasivu(paikka, kieli: str = "fi") -> str:
 {paikat_html}
 {retkilinkit}
 {kohteet}
+{_kayttajien_lisaykset(paikka, kieli)}
 <h2>{k_("Lähteet")}</h2>
 <ul class="lahteet">{lahteet_html}</ul>
 <p class="pieni">{loppu}</p>
 </main>
 </body>
 </html>"""
+
+
+# ---------------------------------------------------------------------------
+# Käyttäjien ehdotukset (ehdotukset.py): lomake, esikatselu, ylläpito ja ilmoitukset
+# ---------------------------------------------------------------------------
+
+LAHDETYYPIT["ehdotus"] = "käyttäjän ehdotus"
+PAIKKASIVU_EN["käyttäjän ehdotus"] = "user suggestion"
+EHDOTUS_VALIMUISTI_S = 600
+_ehdotukset: tuple[float, dict[str, dict]] | None = None
+
+EHDOTUS_TYYLI = """
+.ehdota { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
+.ehdota ul { margin:6px 0; padding-left:18px; }
+.nappi { display:inline-block; padding:6px 14px; margin:4px 6px 4px 0; border-radius:6px; text-decoration:none;
+         border:1px solid var(--teksti); background:var(--teksti); color:var(--tausta); font-weight:600;
+         cursor:pointer; font-size:.92rem; }
+.nappi.toissijainen { background:none; color:var(--teksti); }
+.lomake label { display:block; margin:10px 0 2px; font-weight:600; font-size:.92rem; }
+.lomake input[type=text], .lomake select, .lomake textarea { width:100%; max-width:560px; padding:6px 8px;
+  border:1px solid var(--viiva); border-radius:6px; background:var(--tausta); color:var(--teksti); font:inherit; }
+.lomake textarea { min-height:90px; }
+.lomake fieldset { border:1px solid var(--viiva); border-radius:8px; margin:10px 0; padding:6px 10px 10px; }
+.lomake legend { font-weight:600; font-size:.92rem; }
+.rajat-rivi { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.rajat-rivi input { width:7em !important; }
+.lomake .ohje { color:var(--heikko); font-size:.85rem; margin:2px 0; }
+.lomake .piilo { position:absolute; left:-9999px; }
+.virhe { color:var(--huono); font-weight:600; }
+.tila-merkki { display:inline-block; padding:1px 8px; border-radius:999px; border:1px solid var(--viiva);
+               font-size:.85rem; }
+.kuvaus .muuttuu { color:var(--keski); } .kuvaus .tulossa { color:var(--hyva); }
+.tila-odottaa { color:var(--keski); } .tila-hyvaksytty { color:var(--hyva); } .tila-hylatty { color:var(--huono); }
+.ehdotus-kaavio { width:100%; max-width:720px; border:1px solid var(--viiva); border-radius:8px; }
+"""
+
+
+def _kanta():
+    try:
+        return firestore.Firestore.ymparistosta()
+    except (ValueError, KeyError, OSError):
+        return None
+
+
+def kaikki_ehdotukset(pakota: bool = False) -> dict[str, dict]:
+    """Firestoren ehdotukset (tunniste -> ehdotus), muistissa EHDOTUS_VALIMUISTI_S sekuntia."""
+    global _ehdotukset
+    if not pakota and _ehdotukset and time.monotonic() - _ehdotukset[0] < EHDOTUS_VALIMUISTI_S:
+        return _ehdotukset[1]
+    kanta = _kanta()
+    if not kanta:
+        return {}
+    try:
+        kaikki = kanta.listaa(ehdotukset.KOKOELMA)
+    except (firestore.FirestoreVirhe, OSError):
+        return _ehdotukset[1] if _ehdotukset else {}
+    _ehdotukset = (time.monotonic(), kaikki)
+    return kaikki
+
+
+def hyvaksytyt_ehdotukset() -> list[tuple[str, dict]]:
+    return sorted(((t, e) for t, e in kaikki_ehdotukset().items() if e.get("tila") == "hyvaksytty"),
+                  key=lambda x: x[1].get("kasitelty") or x[1].get("luotu") or "")
+
+
+def _ehdotusluukku(kieli: str) -> str:
+    """Etusivun avattava luukku merkintöjen alla: linkit lomakkeelle ja hyväksytyt uudet kohteet."""
+    t = ehdotukset.tekstit(kieli)
+    q = "&kieli=en" if kieli == "en" else ""
+    uudet = [(tun, ed) for tun, ed in hyvaksytyt_ehdotukset() if ed.get("laji") == "uusi"]
+    lista = ""
+    if uudet:
+        lista = (f'<p><b>{e(t["kayttajien_kohteet"])}</b></p><ul>' + "".join(
+            f'<li><a href="/ehdotus/{e(tun)}{"?kieli=en" if kieli == "en" else ""}">{e(ed.get("nimi", "?"))}</a></li>'
+            for tun, ed in uudet) + "</ul>")
+    return (f'<details class="ehdota"><summary>{e(t["luukku"])}</summary><p>{e(t["luukku_teksti"])}</p>'
+            f'<a class="nappi" href="/ehdota?laji=uusi{q}">{e(t["uusi"])}</a>'
+            f'<a class="nappi toissijainen" href="/ehdota?laji=taydenna{q}">{e(t["taydenna"])}</a>{lista}</details>')
+
+
+def _sivupohja(otsikko: str, runko: str, kieli: str, takaisin: str = "/") -> str:
+    t = ehdotukset.tekstit(kieli)
+    return f"""<!doctype html>
+<html lang="{kieli}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{e(otsikko)} – {"Paddling spots" if kieli == "en" else "Melontapaikat"}</title>
+<link rel="icon" type="image/png" href="{sovellus.kuvake_osoite(192)}">
+<style>{TYYLI}{EHDOTUS_TYYLI}</style>
+</head>
+<body><main class="kuvaus">
+<a class="takaisin" href="{e(takaisin)}">{e(t["takaisin"])}</a>
+{runko}
+</main>
+</body>
+</html>"""
+
+
+def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: str = "",
+                  kentat: dict[str, list[str]] | None = None) -> str:
+    """Lomake /ehdota: uusi kohde tai täydennys; virheen jälkeen kentät täytetään uudelleen."""
+    t = ehdotukset.tekstit(kieli)
+    kentat = kentat or {}
+    arvo = lambda nimi, oletus="": e((kentat.get(nimi) or [oletus])[0])   # noqa: E731
+    laji = arvo("laji", laji) if kentat else laji
+    paikan_nimi = arvo("paikka", paikan_nimi) if kentat else paikan_nimi
+    paikat = sorted(PAIKAT, key=lambda p: p.nimi)
+    paikka_valinnat = "".join(
+        f'<option value="{e(p.nimi)}"{" selected" if p.nimi == html.unescape(paikan_nimi) else ""}>{e(p.nimi)}</option>'
+        for p in paikat)
+    mittarit = {p.nimi: {a: aseman_nimi(m.kaavio) for a, m in p.mittarit.items()} for p in paikat}
+    kohteet = {p.nimi: [k.nimi for k in p.kohteet] for p in paikat}
+    rivit = []
+    for i in range(1, ehdotukset.KOHTEITA_ENINTAAN + 1):
+        rivit.append(f"""<fieldset><legend>{e(t["kohde"])} {i}</legend>
+<label for="k{i}_nimi">{e(t["kohteen_nimi"])}</label>
+<input type="text" id="k{i}_nimi" name="k{i}_nimi" maxlength="100" list="kohdenimet" value="{arvo(f"k{i}_nimi")}">
+<div class="rajat-rivi"><span>{e(t["toimii"])}</span>
+<input type="text" inputmode="decimal" name="k{i}_toimii_ala" placeholder="{e(t["ala"])}" value="{arvo(f"k{i}_toimii_ala")}">–
+<input type="text" inputmode="decimal" name="k{i}_toimii_yla" placeholder="{e(t["yla"])}" value="{arvo(f"k{i}_toimii_yla")}"></div>
+<div class="rajat-rivi"><span>{e(t["optimi"])}</span>
+<input type="text" inputmode="decimal" name="k{i}_paras_ala" placeholder="{e(t["ala"])}" value="{arvo(f"k{i}_paras_ala")}">–
+<input type="text" inputmode="decimal" name="k{i}_paras_yla" placeholder="{e(t["yla"])}" value="{arvo(f"k{i}_paras_yla")}"></div>
+<label for="k{i}_huom">{e(t["huom"])}</label>
+<input type="text" id="k{i}_huom" name="k{i}_huom" maxlength="300" value="{arvo(f"k{i}_huom")}">
+</fieldset>""")
+    virhe_html = f'<p class="virhe">{e(t["virhe_otsikko"])}: {e(virhe)}</p>' if virhe else ""
+    tyyppi = arvo("tyyppi", "retki")
+    suure = arvo("suure", "virtaama")
+    runko = f"""<h1>{e(t["lomake_otsikko"])}</h1>
+<p>{e(t["lomake_ohje"])}</p>
+{virhe_html}
+<form class="lomake" method="post" action="/ehdota{"?kieli=en" if kieli == "en" else ""}">
+<label>{e(t["laji"])}</label>
+<label style="font-weight:400"><input type="radio" name="laji" value="uusi"{" checked" if laji != "taydenna" else ""}> {e(t["uusi"])}</label>
+<label style="font-weight:400"><input type="radio" name="laji" value="taydenna"{" checked" if laji == "taydenna" else ""}> {e(t["taydenna"])}</label>
+<div id="osa-taydenna">
+<label for="paikka">{e(t["paikka"])}</label>
+<select id="paikka" name="paikka">{paikka_valinnat}</select>
+<label for="mittari_avain">{e(t["paikan_mittari"])}</label>
+<select id="mittari_avain" name="mittari_avain"></select>
+</div>
+<div id="osa-uusi">
+<label for="nimi">{e(t["nimi"])}</label>
+<input type="text" id="nimi" name="nimi" maxlength="100" value="{arvo("nimi")}">
+<label for="tyyppi">{e(t["tyyppi"])}</label>
+<select id="tyyppi" name="tyyppi"><option value="retki"{" selected" if tyyppi == "retki" else ""}>{e(t["retki"])}</option>
+<option value="peli"{" selected" if tyyppi == "peli" else ""}>{e(t["peli"])}</option></select>
+<label for="mittari">{e(t["mittari"])}</label>
+<input type="text" id="mittari" name="mittari" maxlength="300" value="{arvo("mittari")}">
+<p class="ohje">{e(t["mittari_ohje"])}</p>
+<label for="suure">{e(t["suure"])}</label>
+<select id="suure" name="suure"><option value="virtaama"{" selected" if suure == "virtaama" else ""}>{e(t["virtaama"])}</option>
+<option value="vedenkorkeus"{" selected" if suure == "vedenkorkeus" else ""}>{e(t["vedenkorkeus"])}</option></select>
+<label for="sijainti">{e(t["sijainti"])}</label>
+<input type="text" id="sijainti" name="sijainti" maxlength="300" value="{arvo("sijainti")}">
+</div>
+<h2>{e(t["kohteet"])}</h2>
+<p class="ohje">{e(t["kohteet_ohje"])}</p>
+<datalist id="kohdenimet"></datalist>
+{"".join(rivit)}
+<label for="linkit">{e(t["linkit"])}</label>
+<textarea id="linkit" name="linkit" rows="4">{arvo("linkit")}</textarea>
+<label for="teksti">{e(t["teksti"])}</label>
+<p class="ohje">{e(t["teksti_ohje"])}</p>
+<textarea id="teksti" name="teksti" rows="8" maxlength="{ehdotukset.TEKSTI_ENINTAAN}">{arvo("teksti")}</textarea>
+<label for="ehdottaja">{e(t["ehdottaja"])}</label>
+<input type="text" id="ehdottaja" name="ehdottaja" maxlength="100" value="{arvo("ehdottaja")}">
+<div class="piilo" aria-hidden="true"><label for="verkkosivu">Verkkosivu</label>
+<input type="text" id="verkkosivu" name="verkkosivu" tabindex="-1" autocomplete="off"></div>
+<p class="ohje">{e(t["tietosuoja"])}</p>
+<button class="nappi" type="submit">{e(t["laheta"])}</button>
+</form>
+<script type="application/json" id="mittarit">{json.dumps(mittarit, ensure_ascii=False).replace("</", "<\\/")}</script>
+<script type="application/json" id="kohteet">{json.dumps(kohteet, ensure_ascii=False).replace("</", "<\\/")}</script>
+<script>
+(() => {{
+  const mittarit = JSON.parse(document.getElementById("mittarit").textContent);
+  const kohteet = JSON.parse(document.getElementById("kohteet").textContent);
+  const paikka = document.getElementById("paikka"), avain = document.getElementById("mittari_avain");
+  const valittu = {json.dumps(arvo("mittari_avain"))};
+  function paivita() {{
+    const taydenna = document.querySelector('input[name="laji"]:checked').value === "taydenna";
+    document.getElementById("osa-taydenna").hidden = !taydenna;
+    document.getElementById("osa-uusi").hidden = taydenna;
+    avain.length = 0;
+    Object.entries(mittarit[paikka.value] || {{}}).forEach(([a, n]) => avain.add(new Option(n, a, false, a === valittu)));
+    document.getElementById("kohdenimet").replaceChildren(...(taydenna ? kohteet[paikka.value] || [] : [])
+      .map(n => new Option(n)));
+  }}
+  document.querySelectorAll('input[name="laji"]').forEach(r => r.addEventListener("change", paivita));
+  paikka.addEventListener("change", paivita);
+  paivita();
+}})();
+</script>"""
+    return _sivupohja(t["lomake_otsikko"], runko, kieli, _osoite(kieli=kieli))
+
+
+def _ehdotuksen_lukemat(paikka, hakija: osm.Hakija) -> dict:
+    """Paikan mittareiden tämän päivän lukemat: muistissa olevasta tilanteesta tai ajo.jsonista."""
+    lukemat = {}
+    for avain, mittari in paikka.mittarit.items():
+        lukema = None
+        if _tilanne:
+            lukema = next((t.lukemat[a] for t in _tilanne[1].tulokset for a, m in t.paikka.mittarit.items()
+                           if m.kaavio == mittari.kaavio and t.lukemat.get(a) is not None), None)
+        if lukema is None and not mittari.smhi:
+            ajo = _hae_json(hakija, osm.kaavio_url(syke_data.ajo_avain(mittari.kaavio)))
+            lukema = syke_data.lukema_ajosta(mittari.kaavio, ajo)
+        if lukema is not None:
+            lukemat[avain] = lukema
+    return lukemat
+
+
+def _linkkilista(linkit: list[dict]) -> str:
+    return "".join(f'<li><a href="{e(l["url"])}" target="_blank" rel="nofollow ugc noopener">{e(l["url"])}</a></li>'
+                   for l in linkit)
+
+
+def _ehdotuksen_sisalto(tunniste: str, ehdotus: dict, kieli: str, hakija: osm.Hakija | None = None,
+                        tilanne_mukaan: bool = True, otsikkotaso: int = 2) -> str:
+    """Ehdotuksen osat: päivän tilanne, kuvaus, kohteet rajoineen ja linkit. Täydennyksessä omina
+    osioinaan "Muuttuu" (rajakorjaukset: nykyinen -> ehdotettu) ja "Tulossa lisää" (uudet kohteet,
+    teksti ja linkit); hyväksytyssä "Muutettu" ja "Lisätty"."""
+    t = ehdotukset.tekstit(kieli)
+    en = kieli == "en"
+    paikka, uudet = ehdotukset.paikaksi(ehdotus, PAIKAT)
+    osat = []
+    if tilanne_mukaan and paikka is not None:
+        osat.append(f"<h{otsikkotaso}>{e(t['paivan_tilanne'])}</h{otsikkotaso}>")
+        if not paikka.mittarit:
+            osat.append(f"<p>{e(t['ei_mittaria'])}</p>")
+        else:
+            lukemat = _ehdotuksen_lukemat(paikka, hakija or osm.Hakija(aikaraja=15))
+            if not lukemat:
+                osat.append(f"<p>{e(t['ei_dataa'])}</p>")
+            else:
+                for l in lukemat.values():
+                    osat.append(f"<p>{e(t['mittari_arvo'])}: {e(kielet.kaanna(melonta.kuvaa_lukema(l), kieli))}</p>")
+                tulos = arviointi.arvioi(paikka, lukemat) if paikka.kohteet else None
+                if tulos and tulos.kohteet:
+                    osat.append("<ul>" + "".join(
+                        f"<li>{melonta._tila_merkki(k.tila)} <b>{e(k.kohde.nimi)}</b>"
+                        f"{' <span class=pieni>(' + e(t['uusi_merkki']) + ')</span>' if k.kohde.nimi in uudet else ''}: "
+                        f"{e(kielet.kaanna(k.selitys, kieli))}</li>"
+                        for k in sorted(tulos.kohteet, key=lambda k: k.pisteet, reverse=True)) + "</ul>")
+                    if tulos.pisteet is not None:
+                        osat.append(f"<p><b>{e(t['pisteet'])}: {tulos.pisteet:.0f}</b></p>")
+                avain = next((k.mittari for k in paikka.kohteet if k.nimi in uudet), next(iter(paikka.mittarit)))
+                if not paikka.mittarit[avain].smhi:
+                    osat.append(f'<img class="ehdotus-kaavio" alt="" loading="lazy" '
+                                f'src="/kaavio/ehdotus/{e(tunniste)}{"?kieli=en" if en else ""}">')
+    h, h2 = f"h{otsikkotaso}", f"h{otsikkotaso + 1}"
+    taydennys = ehdotus.get("laji") == "taydenna"
+    vanhat = {}
+    if taydennys:
+        alkuperainen = next((p for p in PAIKAT if p.nimi == ehdotus.get("paikka")), None)
+        vanhat = {k.nimi: k for k in alkuperainen.kohteet} if alkuperainen else {}
+
+    def rajateksti(k, yksikko: str) -> str:
+        toimii, paras = _rajat(k.toimii, yksikko, k.muuttuja, kieli), _rajat(k.paras, yksikko, k.muuttuja, kieli)
+        return (f"{'works' if en else 'toimii'} {toimii}"
+                + (f", {'at its best' if en else 'parhaimmillaan'} {paras}" if paras != toimii else ""))
+
+    lisatyt, muutokset = [], []
+    for k in (paikka.kohteet if paikka is not None else ()):
+        if k.nimi not in uudet:
+            continue
+        mittari = paikka.mittarit.get(k.mittari)
+        _, yksikko = _mittarin_suure(mittari) if mittari else ("", "")
+        if k.nimi in vanhat:   # rajakorjaus: nykyinen -> ehdotettu
+            v = vanhat[k.nimi]
+            huom = ""
+            if k.huom and k.huom != v.huom:
+                huom = (f'<br><span class="pieni">{e(t["nyt"])}: {e(v.huom) or "–"}</span>'
+                        f'<br>{e(t["huom"])} → {e(k.huom)}')
+            muutokset.append(f'<li><b>{e(k.nimi)}</b><br><span class="pieni">{e(t["nyt"])}: '
+                             f'{e(rajateksti(v, yksikko))}</span><br><span class="rajat">→ '
+                             f'{e(rajateksti(k, yksikko))}</span>{huom}</li>')
+        else:
+            lisatyt.append(f'<li><b>{e(k.nimi)}</b><br><span class="rajat">{e(rajateksti(k, yksikko))}</span>'
+                           f'{"<br>" + e(k.huom) if k.huom else ""}</li>')
+    teksti = "".join(f"<p>{e(kpl)}</p>" for kpl in re.split(r"\n\s*\n", ehdotus.get("teksti") or "")
+                     if kpl.strip())
+    linkit = ehdotus.get("linkit") or []
+    linkkiosat = [(t[otsikko], _linkkilista([l for l in linkit if l.get("laji") == laji]))
+                  for laji, otsikko in (("vesi", "vesitiedot"), ("video", "videot"), ("muu", "muut_linkit"))]
+    linkkiosat = [(o, lista) for o, lista in linkkiosat if lista]
+    if taydennys:
+        hyvaksytty = ehdotus.get("tila") == "hyvaksytty"
+        if muutokset:
+            osat.append(f'<{h} class="muuttuu">{e(t["muutettu" if hyvaksytty else "muuttuu"])}</{h}>'
+                        f'<p class="pieni">{e(t["muuttuu_ohje"])}</p><ul class="kohteet">{"".join(muutokset)}</ul>')
+        lisaa = []
+        if lisatyt:
+            lisaa.append(f'<{h2}>{e(t["kohteet_rajat"])}</{h2}><ul class="kohteet">{"".join(lisatyt)}</ul>')
+        if teksti:
+            lisaa.append(f"<{h2}>{e(t['kuvaus'])}</{h2}>{teksti}")
+        lisaa += [f'<{h2}>{e(o)}</{h2}><ul class="lahteet">{lista}</ul>' for o, lista in linkkiosat]
+        if lisaa:
+            osat.append(f'<{h} class="tulossa">{e(t["lisatty" if hyvaksytty else "tulossa"])}</{h}>' + "".join(lisaa))
+    else:
+        if teksti:
+            osat.append(f"<{h}>{e(t['kuvaus'])}</{h}>{teksti}")
+        if lisatyt:
+            osat.append(f'<{h}>{e(t["kohteet_rajat"])}</{h}><ul class="kohteet">{"".join(lisatyt)}</ul>')
+        osat += [f'<{h}>{e(o)}</{h}><ul class="lahteet">{lista}</ul>' for o, lista in linkkiosat]
+    if ehdotus.get("sijainti"):
+        lev, pit = ehdotus["sijainti"]
+        osat.append(f'<p><a href="https://www.openstreetmap.org/?mlat={lev}&amp;mlon={pit}#map=13/{lev}/{pit}" '
+                    f'target="_blank" rel="noopener">🗺 {lev:.5f}, {pit:.5f}</a></p>')
+    if ehdotus.get("ehdottaja"):
+        osat.append(f'<p class="pieni">{e(t["ehdottaja_nimi"])}: {e(ehdotus["ehdottaja"])}</p>')
+    return "".join(osat)
+
+
+def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = False,
+                hakija: osm.Hakija | None = None) -> str:
+    """Ehdotuksen esikatselu tai julkaistu sivu /ehdotus/<tunniste>."""
+    t = ehdotukset.tekstit(kieli)
+    tila = ehdotus.get("tila", "odottaa")
+    if ehdotus.get("laji") == "taydenna":
+        paikka = next((p for p in PAIKAT if p.nimi == ehdotus.get("paikka")), None)
+        otsikko = f'{t["taydennys"]}: {ehdotus.get("paikka", "?")}'
+        alku = (f'<p><a href="{e(paikan_osoite(paikka, kieli))}">{e(paikka.nimi)}</a></p>' if paikka else "")
+    else:
+        otsikko, alku = ehdotus.get("nimi", "?"), ""
+    meta = (f'<div class="meta">{e(t["esikatselu"] if tila != "hyvaksytty" else t["uusi_kohde"])} · '
+            f'<span class="tila-merkki tila-{e(tila)}">{e(t["tila_" + tila])}</span></div>')
+    ilmoitus = ""
+    if tila == "odottaa":
+        vapid = halytykset.avaimet(uudelleen=False)
+        ilmoitus = f'<p class="pieni">{e(t["tallenna_linkki"])}</p>'
+        if vapid:
+            ilmoitus += f"""<p><button class="nappi toissijainen" type="button" id="ilmoita" hidden>{e(t["ilmoita"])}</button>
+<span id="ilmoitus-tila" class="pieni"></span></p>
+<script>
+(() => {{
+  const nappi = document.getElementById("ilmoita"), tila = document.getElementById("ilmoitus-tila");
+  if (!("serviceWorker" in navigator && "PushManager" in window && "Notification" in window)) return;
+  nappi.hidden = false;
+  const avain = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - s.length % 4) % 4)),
+                                     c => c.charCodeAt(0));
+  nappi.addEventListener("click", async () => {{
+    try {{
+      if (await Notification.requestPermission() !== "granted") throw new Error("–");
+      const r = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      const tilaus = await r.pushManager.getSubscription()
+        || await r.pushManager.subscribe({{userVisibleOnly: true, applicationServerKey: avain({json.dumps(vapid[0])})}});
+      const v = await fetch("/api/ehdotus/{tunniste}/tilaus", {{method: "POST",
+        headers: {{"Content-Type": "application/json"}}, body: JSON.stringify({{tilaus: tilaus.toJSON()}})}});
+      if (!v.ok) throw new Error("HTTP " + v.status);
+      nappi.hidden = true;
+      tila.textContent = {json.dumps(t["ilmoitus_tilattu"])};
+    }} catch (virhe) {{
+      tila.textContent = {json.dumps(t["ilmoitus_virhe"])} + " (" + virhe.message + ")";
+    }}
+  }});
+}})();
+</script>"""
+    hallinta = ""
+    if yllapitaja:
+        hallinta = (f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele" style="margin-top:16px">'
+                    f'<b>{e(t["yllapito"])}:</b> '
+                    f'<button class="nappi" name="toiminto" value="hyvaksy">{e(t["hyvaksy"])}</button>'
+                    f'<button class="nappi toissijainen" name="toiminto" value="hylkaa">{e(t["hylkaa"])}</button>'
+                    f' <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
+    runko = (f"<h1>{e(otsikko)}</h1>{meta}{alku}{hallinta}{ilmoitus}"
+             f"{_ehdotuksen_sisalto(tunniste, ehdotus, kieli, hakija)}")
+    return _sivupohja(otsikko, runko, kieli, _osoite(kieli=kieli))
+
+
+def _kayttajien_lisaykset(paikka, kieli: str) -> str:
+    """Paikkasivun osio hyväksytyistä täydennyksistä (kohteet, linkit, teksti)."""
+    t = ehdotukset.tekstit(kieli)
+    omat = [(tun, ed) for tun, ed in hyvaksytyt_ehdotukset()
+            if ed.get("laji") == "taydenna" and ed.get("paikka") == paikka.nimi]
+    if not omat:
+        return ""
+    osat = []
+    for tun, ed in omat:
+        sisalto = _ehdotuksen_sisalto(tun, ed, kieli, tilanne_mukaan=False, otsikkotaso=3)
+        osat.append(f'<div class="lisays">{sisalto}<p class="pieni"><a href="/ehdotus/{e(tun)}'
+                    f'{"?kieli=en" if kieli == "en" else ""}">{e(t["lisaysta"])} →</a></p></div>')
+    return f"<h2>{e(t['kayttajien_lisaykset'])}</h2>" + "".join(osat)
+
+
+def ehdotuksen_kaavio(tunniste: str, kieli: str, hakija: osm.Hakija | None = None) -> str | None:
+    """Ehdotuksen mittarin kaavio ehdotetuin rajoin (/kaavio/ehdotus/<tunniste>)."""
+    if not ehdotukset.kelvollinen_tunniste(tunniste):
+        return None
+    kanta = _kanta()
+    ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste) if kanta else None
+    if not ehdotus:
+        return None
+    paikka, uudet = ehdotukset.paikaksi(ehdotus, PAIKAT)
+    if paikka is None or not paikka.mittarit:
+        return None
+    avain = next((k.mittari for k in paikka.kohteet if k.nimi in uudet), next(iter(paikka.mittarit)))
+    mittari = paikka.mittarit[avain]
+    if mittari.smhi:
+        return None
+    hakija = hakija or osm.Hakija(aikaraja=20)
+    otsikko = f"{paikka.nimi} – {kielet.kaanna('mittari', kieli)} {aseman_nimi(mittari.kaavio)}"
+    return _mittarin_svg(paikka, avain, mittari, hakija, otsikko, kieli)
+
+
+def _push_kaikille(kanta, kokoelma: str, viesti: dict) -> int:
+    """Lähettää viestin kokoelman push-tilauksille; vanhentuneet poistetaan. Palauttaa onnistuneet."""
+    avainpari = halytykset.avaimet(kanta)
+    if not avainpari:
+        return 0
+    onnistui = 0
+    for tun, tilaus in kanta.listaa(kokoelma).items():
+        tila = halytykset.laheta(tilaus, viesti, avainpari)
+        if tila in (404, 410):
+            kanta.poista(kokoelma, tun)
+        elif 200 <= tila < 300:
+            onnistui += 1
+    return onnistui
+
+
+def _ilmoita_ehdottajalle(kanta, tunniste: str, ehdotus: dict) -> None:
+    tilaus = ehdotus.get("tilaus")
+    avainpari = halytykset.avaimet(kanta)
+    if not tilaus or not avainpari:
+        return
+    en = ehdotus.get("kieli") == "en"
+    hyvaksytty = ehdotus.get("tila") == "hyvaksytty"
+    viesti = {"otsikko": ("Your suggestion was approved" if hyvaksytty else "Your suggestion was rejected") if en
+              else ("Ehdotuksesi hyväksyttiin" if hyvaksytty else "Ehdotuksesi hylättiin"),
+              "teksti": ehdotus.get("nimi", ""), "url": f"/ehdotus/{tunniste}" + ("?kieli=en" if en else "")}
+    halytykset.laheta(tilaus, viesti, avainpari)
+
+
+def tallenna_ehdotus(kentat: dict[str, list[str]], kieli: str, ip: str) -> tuple[str | None, str]:
+    """Lomakkeen tallennus: (tunniste, '') tai (None, virhe). Ilmoittaa ylläpitäjille."""
+    t = ehdotukset.tekstit(kieli)
+    if ehdotukset.roskaa(kentat, ip):
+        return None, t["virhe_jono"]
+    ehdotus, virhe = ehdotukset.tulkitse(kentat, PAIKAT, kieli)
+    if not ehdotus:
+        return None, virhe
+    kanta = _kanta()
+    if not kanta:
+        return None, t["virhe_tallennus"]
+    try:
+        odottavia = sum(1 for x in kaikki_ehdotukset(pakota=True).values() if x.get("tila") == "odottaa")
+        if odottavia >= ehdotukset.ODOTTAVIA_ENINTAAN:
+            return None, t["virhe_jono"]
+        tunniste = ehdotukset.uusi_tunniste()
+        kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
+    except (firestore.FirestoreVirhe, OSError):
+        return None, t["virhe_tallennus"]
+    laji = "täydennys" if ehdotus["laji"] == "taydenna" else "uusi kohde"
+    try:
+        _push_kaikille(kanta, ehdotukset.YLLAPITO, {
+            "otsikko": f"Uusi ehdotus: {ehdotus['nimi']}",
+            "teksti": f"{laji}: {len(ehdotus['kohteet'])} kohdetta, {len(ehdotus['linkit'])} linkkiä"
+                      + (f" – {ehdotus['ehdottaja']}" if ehdotus.get("ehdottaja") else ""),
+            "url": f"/ehdotus/{tunniste}"})
+    except (firestore.FirestoreVirhe, OSError):
+        pass   # ehdotus on tallessa, vaikka ilmoitus epäonnistuisi
+    return tunniste, ""
+
+
+def kasittele_ehdotus(tunniste: str, toiminto: str) -> bool:
+    """Ylläpitäjän hyväksyntä tai hylkäys; ilmoittaa ehdottajalle. False = ei löytynyt."""
+    kanta = _kanta()
+    ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste) if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None
+    if not ehdotus or toiminto not in ("hyvaksy", "hylkaa"):
+        return False
+    ehdotus["tila"] = "hyvaksytty" if toiminto == "hyvaksy" else "hylatty"
+    ehdotus["kasitelty"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    try:
+        _ilmoita_ehdottajalle(kanta, tunniste, ehdotus)
+    except OSError:
+        pass
+    ehdotus.pop("tilaus", None)   # ilmoitus lähetetty: tilausta ei säilytetä
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
+    kaikki_ehdotukset(pakota=True)
+    return True
+
+
+def yllapitosivu(kirjautunut: bool, virhe: str = "") -> str:
+    """Ylläpito: kirjautuminen, ehdotusten lista ja push-ilmoitusten tilaus tälle laitteelle."""
+    salasana = os.environ.get("YLLAPITO_SALASANA")
+    if not salasana:
+        runko = ("<h1>Ylläpito</h1><p>Ylläpito ei ole käytössä: aseta Vercelin ympäristömuuttuja "
+                 "<code>YLLAPITO_SALASANA</code>.</p>")
+        return _sivupohja("Ylläpito", runko, "fi")
+    if not kirjautunut:
+        runko = (f'<h1>Ylläpito</h1>{f"<p class=virhe>{e(virhe)}</p>" if virhe else ""}'
+                 '<form class="lomake" method="post" action="/yllapito"><label for="salasana">Salasana</label>'
+                 '<input type="password" id="salasana" name="salasana" autocomplete="current-password" '
+                 'style="max-width:300px;padding:6px 8px">'
+                 '<p><button class="nappi" type="submit">Kirjaudu</button></p></form>')
+        return _sivupohja("Ylläpito", runko, "fi")
+    kaikki = kaikki_ehdotukset(pakota=True)
+    osat = []
+    for tila, otsikko in (("odottaa", "Odottaa hyväksyntää"), ("hyvaksytty", "Hyväksytyt"), ("hylatty", "Hylätyt")):
+        omat = sorted(((tun, ed) for tun, ed in kaikki.items() if ed.get("tila") == tila),
+                      key=lambda x: x[1].get("luotu", ""), reverse=True)
+        rivit = "".join(
+            f'<li><a href="/ehdotus/{e(tun)}">{e(ed.get("nimi", "?"))}</a> <span class="pieni">· '
+            f'{"täydennys" if ed.get("laji") == "taydenna" else "uusi kohde"} · {e(ed.get("luotu", "")[:16])}'
+            f'{" · " + e(ed["ehdottaja"]) if ed.get("ehdottaja") else ""}</span></li>' for tun, ed in omat)
+        osat.append(f"<h2>{otsikko} ({len(omat)})</h2><ul>{rivit or '<li class=pieni>–</li>'}</ul>")
+    vapid = halytykset.avaimet(uudelleen=False)
+    tilaus = ""
+    if vapid:
+        tilaus = f"""<p><button class="nappi" type="button" id="tilaa">🔔 Ilmoitukset uusista ehdotuksista tälle laitteelle</button>
+<span id="tilaus-tila" class="pieni"></span></p>
+<script>
+(() => {{
+  const nappi = document.getElementById("tilaa"), tila = document.getElementById("tilaus-tila");
+  const avain = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - s.length % 4) % 4)),
+                                     c => c.charCodeAt(0));
+  nappi.addEventListener("click", async () => {{
+    try {{
+      if (!("serviceWorker" in navigator && "PushManager" in window)) throw new Error("selain ei tue");
+      if (await Notification.requestPermission() !== "granted") throw new Error("ei lupaa");
+      const r = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      const t = await r.pushManager.getSubscription()
+        || await r.pushManager.subscribe({{userVisibleOnly: true, applicationServerKey: avain({json.dumps(vapid[0])})}});
+      const v = await fetch("/api/yllapito/tilaus", {{method: "POST", headers: {{"Content-Type": "application/json"}},
+                                                     body: JSON.stringify({{tilaus: t.toJSON()}})}});
+      if (!v.ok) throw new Error("HTTP " + v.status);
+      tila.textContent = "Tilattu – saat ilmoituksen jokaisesta uudesta ehdotuksesta.";
+    }} catch (virhe) {{ tila.textContent = "Tilaus epäonnistui: " + virhe.message; }}
+  }});
+}})();
+</script>"""
+    runko = ("<h1>Ylläpito: ehdotukset</h1>" + tilaus + "".join(osat)
+             + '<form method="post" action="/yllapito"><input type="hidden" name="ulos" value="1">'
+               '<button class="nappi toissijainen" type="submit">Kirjaudu ulos</button></form>')
+    return _sivupohja("Ylläpito", runko, "fi")
+
+
+def ehdotus_api(polku: str, environ, metodi: str):
+    """POST-reitit ja ehdotussivut: palauttaa (status, otsakkeet, runko) tai None, jos polku ei kuulu tänne."""
+    kysely = parse_qs(environ.get("QUERY_STRING", ""))
+    kieli = kielet.kieli(kysely)
+    salasana = os.environ.get("YLLAPITO_SALASANA")
+    yllapitaja = ehdotukset.on_yllapitaja(environ.get("HTTP_COOKIE", ""), salasana)
+    html_tyyppi = [("Content-Type", "text/html; charset=utf-8"), ("Cache-Control", "no-store")]
+
+    def runko_lomake() -> dict[str, list[str]]:
+        try:
+            pituus = int(environ.get("CONTENT_LENGTH") or 0)
+        except ValueError:
+            pituus = 0
+        if not 0 < pituus <= 30000:
+            return {}
+        return parse_qs(environ["wsgi.input"].read(pituus).decode("utf-8", errors="replace"), keep_blank_values=True)
+
+    def runko_json():
+        try:
+            pituus = int(environ.get("CONTENT_LENGTH") or 0)
+            return json.loads(environ["wsgi.input"].read(pituus)) if 0 < pituus <= 4096 else None
+        except (ValueError, KeyError):
+            return None
+
+    def ohjaa(osoite: str, evaste: str | None = None):
+        otsakkeet = [("Location", osoite), ("Cache-Control", "no-store"), ("Content-Length", "0")]
+        if evaste:
+            otsakkeet.append(("Set-Cookie", evaste))
+        return "303 See Other", otsakkeet, b""
+
+    def json_vastaus(status: str, data: dict):
+        return status, [("Content-Type", "application/json; charset=utf-8"), ("Cache-Control", "no-store")], \
+            json.dumps(data, ensure_ascii=False).encode("utf-8")
+
+    if polku == "/ehdota":
+        if metodi == "POST":
+            kentat = runko_lomake()
+            ip = (environ.get("HTTP_X_FORWARDED_FOR") or environ.get("REMOTE_ADDR") or "").split(",")[0].strip()
+            tunniste, virhe = tallenna_ehdotus(kentat, kieli, ip)
+            if tunniste:
+                return ohjaa(f"/ehdotus/{tunniste}" + ("?kieli=en" if kieli == "en" else ""))
+            return "400 Bad Request", html_tyyppi, ehdotuslomake(kieli, virhe=virhe, kentat=kentat).encode("utf-8")
+        laji = (kysely.get("laji") or ["uusi"])[0]
+        return "200 OK", html_tyyppi, ehdotuslomake(kieli, "taydenna" if laji == "taydenna" else "uusi",
+                                                    (kysely.get("paikka") or [""])[0]).encode("utf-8")
+    m = re.fullmatch(r"/ehdotus/([A-Za-z0-9_-]+)(/kasittele)?", polku)
+    if m:
+        tunniste = m.group(1)
+        if m.group(2):
+            if metodi != "POST" or not yllapitaja:
+                return "403 Forbidden", html_tyyppi, b"Ei oikeutta."
+            toiminto = (runko_lomake().get("toiminto") or [""])[0]
+            if not kasittele_ehdotus(tunniste, toiminto):
+                return "404 Not Found", html_tyyppi, b"Ehdotusta ei loydy."
+            return ohjaa(f"/ehdotus/{tunniste}")
+        kanta = _kanta()
+        ehdotus = (kanta.lue(ehdotukset.KOKOELMA, tunniste)
+                   if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None)
+        if not ehdotus or (ehdotus.get("tila") == "hylatty" and not yllapitaja):
+            return "404 Not Found", html_tyyppi, "Ehdotusta ei löydy.\n".encode("utf-8")
+        return "200 OK", html_tyyppi, ehdotussivu(tunniste, ehdotus, kieli, yllapitaja).encode("utf-8")
+    m = re.fullmatch(r"/api/ehdotus/([A-Za-z0-9_-]+)/tilaus", polku)
+    if m and metodi == "POST":
+        tilaus = ehdotukset.tarkista_push(runko_json())
+        kanta = _kanta()
+        tunniste = m.group(1)
+        ehdotus = (kanta.lue(ehdotukset.KOKOELMA, tunniste)
+                   if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None)
+        if not tilaus or not ehdotus or ehdotus.get("tila") != "odottaa":
+            return json_vastaus("400 Bad Request", {"virhe": "virheellinen tilaus tai ehdotus"})
+        ehdotus["tilaus"] = tilaus
+        kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
+        return json_vastaus("200 OK", {"tilattu": True})
+    if polku == "/api/yllapito/tilaus" and metodi == "POST":
+        tilaus = ehdotukset.tarkista_push(runko_json())
+        kanta = _kanta()
+        if not yllapitaja:
+            return json_vastaus("403 Forbidden", {"virhe": "kirjaudu ensin"})
+        if not tilaus or not kanta:
+            return json_vastaus("400 Bad Request", {"virhe": "virheellinen tilaus"})
+        kanta.kirjoita(ehdotukset.YLLAPITO, halytykset.tunniste(tilaus["endpoint"]), tilaus)
+        halytykset.laheta(tilaus, {"otsikko": "Ylläpidon ilmoitukset käytössä",
+                                   "teksti": "Saat ilmoituksen uusista ehdotuksista.", "url": "/yllapito"},
+                          halytykset.avaimet(kanta))
+        return json_vastaus("200 OK", {"tilattu": True})
+    if polku == "/yllapito":
+        if metodi == "POST":
+            kentat = runko_lomake()
+            if kentat.get("ulos"):
+                return ohjaa("/yllapito", f"{ehdotukset.EVASTE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict")
+            annettu = (kentat.get("salasana") or [""])[0]
+            if salasana and hmac.compare_digest(annettu.encode(), salasana.encode()):
+                return ohjaa("/yllapito", f"{ehdotukset.EVASTE}={ehdotukset.kirjautumisavain(salasana)}; Path=/; "
+                                          "Max-Age=7776000; HttpOnly; Secure; SameSite=Strict")
+            time.sleep(1)   # hidastaa arvailua
+            return "403 Forbidden", html_tyyppi, yllapitosivu(False, "Väärä salasana.").encode("utf-8")
+        return "200 OK", html_tyyppi, yllapitosivu(yllapitaja).encode("utf-8")
+    return None
 
 
 def app(environ, start_response):
@@ -1891,6 +2507,13 @@ def app(environ, start_response):
     if polku == "/api/halytys":
         status, tulos = halytys_api(environ, metodi)
         return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False))
+    ehdotusvastaus = ehdotus_api(polku, environ, metodi)
+    if ehdotusvastaus:
+        status, otsakkeet, runko = ehdotusvastaus
+        if not any(n == "Content-Length" for n, _ in otsakkeet):
+            otsakkeet = otsakkeet + [("Content-Length", str(len(runko)))]
+        start_response(status, otsakkeet)
+        return [b"" if metodi == "HEAD" else runko]
     if metodi not in ("GET", "HEAD"):
         return vastaa("405 Method Not Allowed", "text/plain; charset=utf-8", "Vain GET.\n")
     if polku == "/manifest.webmanifest":
@@ -1933,7 +2556,8 @@ def app(environ, start_response):
         # kaavion muoto: pysty (oletus, puhelin) tai vaaka (sivun JS lisää leveällä näytöllä)
         muoto = kaavio_svg.muoto.set(parse_qs(environ.get("QUERY_STRING", "")).get("muoto", ["pysty"])[0])
         try:
-            kuva = (smhi_kaavio_svg(kaavio, paikan_nimi=paikan_nimi, kieli=kieli) if kaavio.startswith("smhi/")
+            kuva = (ehdotuksen_kaavio(kaavio.removeprefix("ehdotus/"), kieli) if kaavio.startswith("ehdotus/")
+                    else smhi_kaavio_svg(kaavio, paikan_nimi=paikan_nimi, kieli=kieli) if kaavio.startswith("smhi/")
                     else syke_kaavio_svg(kaavio.removeprefix("syke/"), paikan_nimi=paikan_nimi, kieli=kieli,
                                          kuvasta=kuvasta)
                     if kaavio.startswith("syke/") else None)

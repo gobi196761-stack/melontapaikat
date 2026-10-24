@@ -212,6 +212,28 @@ välillä lakannut täyttymästä.
   `VAPID_SUBJECT` (esim. `mailto:oma@osoite.fi`) on push-palvelulle annettava
   yhteystieto.
 
+## Ehdota uutta kohdetta tai täydennä paikkaa
+
+Etusivun luukusta (merkintöjen alla) pääsee lomakkeelle `/ehdota` (`ehdotukset.py`):
+uusi kohde (nimi, SYKE-aseman numero tai kaavion linkki, sijainti) tai täydennys
+olemassa olevaan paikkaan, kohteet toimii- ja optimirajoineen (olemassa olevan
+kohteen nimellä rajakorjaus), vesitieto-, video- ja muut linkit sekä oma teksti.
+Sähköpostia ei kerätä.
+
+- Ehdotus tallentuu Firestoreen (kokoelma `ehdotukset`), ja ehdottaja ohjataan
+  esikatseluun `/ehdotus/<salainen tunniste>`: päivän tilanne ja kaavio
+  ehdotetuilla rajoilla (`/kaavio/ehdotus/<tunniste>`). Esikatselusta voi tilata
+  push-ilmoituksen käsittelystä.
+- Ylläpitäjä kirjautuu sivulla `/yllapito` salasanalla, joka asetetaan Vercelin
+  ympäristömuuttujaan **`YLLAPITO_SALASANA`**, ja tilaa sieltä push-ilmoitukset
+  uusista ehdotuksista (puhelin tai tietokoneen selain). Ilmoituksesta pääsee
+  esikatseluun, jossa on Hyväksy- ja Hylkää-napit.
+- Hyväksytyt uudet kohteet listataan etusivun luukussa ja täydennykset paikkasivun
+  osiossa "Käyttäjien lisäykset". Pisteytykseen ja hälytyksiin ne lisätään
+  erikseen `paikat.py`:hyn.
+- Roskapostin esto: piilokenttä, enintään 5 ehdotusta tunnissa samasta
+  osoitteesta ja enintään 100 odottavaa ehdotusta.
+
 ## Optimiolosuhteiden analyysi
 
 Rajat ovat sivujen kuvauksista (`paikat.py`). *Arvio* = kuvauksessa ei ole
