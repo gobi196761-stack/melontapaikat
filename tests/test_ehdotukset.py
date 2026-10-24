@@ -506,12 +506,13 @@ def test_muut_kohteet_ei_esta_uutta_paikkaa(ymparisto):
     nimet = [p.nimi for p in app.kaikki_paikat()]
     assert "Kitkajoki (Käylä – Juuma)" in nimet and "Kitkajoen reitti" not in nimet
     sivu = pyynto(f"/ehdotus/{'C' * 22}")[2]
-    assert "<h2>Melontapäiväkirjasta (Muut kohteet)</h2>" in sivu and kitka["kuvaus"][0][:40] in sivu
-    assert muut_kohteet.LAHDE in sivu and "Piirainen</a>" not in sivu   # päiväkirjaa ei linkitetä
+    # Muut kohteet vain linkkinä: ei päiväkirjan tekstiä eikä lähdettä
+    assert f'Sama reitti Muut kohteet -listassa: <a href="/muut/{kitka["tunniste"]}">' in sivu
+    assert kitka["kuvaus"][0][:40] not in sivu and muut_kohteet.LAHDE not in sivu
     # odottava: tieto Muista kohteista ei ole kaksoiskappalevaroitus
     kanta.data[ehdotukset.KOKOELMA]["C" * 22]["tila"] = "odottaa"
     sivu = pyynto(f"/ehdotus/{'C' * 22}")[2]
-    assert "ℹ️ Sama reitti on Muut kohteet -listassa" in sivu
+    assert "ℹ️" not in sivu and f'href="/muut/{kitka["tunniste"]}"' in sivu
     assert '(Muut kohteet)</a> <span class="pieni">' not in sivu   # Muut kohteet ei ole varoituslistassa
     kanta.data[ehdotukset.KOKOELMA]["D" * 22]["tila"] = "odottaa"
     assert "siitä ei tehdä pisteytettävää" in pyynto(f"/ehdotus/{'D' * 22}")[2]
@@ -596,3 +597,10 @@ def test_kaanna_nappi(ymparisto, monkeypatch):
     assert ehdotus["taydennys"]["tila"] == "valmis" and ehdotus["taydennys"]["kaannos"] == "kaynnissa"
     sivu = pyynto(f"/ehdotus/{tunniste}", evaste=evaste)[2]
     assert "Käännös englanniksi on käynnissä." in sivu and "🌐 Käännä englanniksi" not in sivu
+    # käynnistys epäonnistuu: syy näkyy ylläpitäjälle ja nappi palaa
+    monkeypatch.setattr(ehdotukset, "kaynnista_taydennys", lambda t, token, kaannos=False: (False, "tunnus puuttuu"))
+    ehdotus["taydennys"].pop("kaannos")
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
+    pyynto(f"/ehdotus/{tunniste}/kasittele", metodi="POST", runko=lomake(toiminto="kaanna"), evaste=evaste)
+    sivu = pyynto(f"/ehdotus/{tunniste}", evaste=evaste)[2]
+    assert "Käännös epäonnistui: tunnus puuttuu" in sivu and "🌐 Käännä englanniksi" in sivu
