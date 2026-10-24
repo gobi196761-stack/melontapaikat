@@ -90,8 +90,8 @@ def test_tulkitse_virheet():
     assert tulkitse(laji="uusi", nimi="X")[1] == "Anna ainakin yksi kohde, linkki tai teksti."
     ehdotus, virhe = tulkitse(laji="uusi", nimi="Kitkajoki", mittari="7300350", k1_nimi="Käylä – Juuma",
                               k1_toimii_ala="25,5", linkit="https://youtu.be/a\nhttps://koskimelojat.blogspot.com/x")
-    assert not virhe and ehdotus["kohteet"] == [{"nimi": "Käylä – Juuma", "toimii": [25.5, None],
-                                                 "paras": [25.5, None], "huom": ""}]
+    assert not virhe and ehdotus["kohteet"] == [{"nimi": "Käylä – Juuma", "huom": "", "rajat": {
+        "virtaama": {"toimii": [25.5, None], "paras": [25.5, None]}}}]   # vanha lomakemuoto -> virtaama
     assert [l["laji"] for l in ehdotus["linkit"]] == ["video", "muu"]
 
 
@@ -159,7 +159,8 @@ def test_taydennys_paikkasivulle(ymparisto):
     # omat osiot: mitä muuttuu (nykyinen -> ehdotettu) ja mitä on tulossa lisää
     muuttuu = sivu.split('<h2 class="muuttuu">Muuttuu</h2>')[1].split('<h2 class="tulossa">')[0]
     tulossa = sivu.split('<h2 class="tulossa">Tulossa lisää</h2>')[1]
-    assert vanha.nimi in muuttuu and "→ toimii 107.60 m – 108.20 m" in muuttuu and "nyt: toimii" in muuttuu
+    assert vanha.nimi in muuttuu and "→ vedenkorkeus m: toimii 107.60 m – 108.20 m" in muuttuu
+    assert "nyt: toimii" in muuttuu
     assert "Uusi aalto" not in muuttuu and "Uusi aalto" in tulossa and "vain matalalla" in tulossa
     assert "<h3>Videot</h3>" in tulossa and "youtube.com/watch?v=abc" in tulossa
     paikkasivu = f"/paikka/{app.paikkasivut.tunniste(KIPINA.nimi)}"
@@ -224,7 +225,7 @@ def test_uusi_kohde_ja_lisaa_kohde_nappi(ymparisto):
     # virheen jälkeen lisätyt kohteet palaavat listaan
     status, _, sivu = pyynto("/ehdota", metodi="POST", runko=lomake(laji="uusi", nimi="X", k1_nimi="A",
                                                                      k1_toimii_ala="1", k2_nimi="B", k2_toimii_ala="x"))
-    assert status == "400 Bad Request" and '"nimi": "B", "toimii_ala": "x"' in sivu
+    assert status == "400 Bad Request" and '"nimi": "B", "huom": ""' in sivu   # lisätyt palaavat listaan
 
 
 TAYDENNYS = {
@@ -243,12 +244,14 @@ TAYDENNYS = {
 def test_tarkista_taydennys():
     t, virhe = ehdotukset.tarkista_taydennys(TAYDENNYS)
     assert not virhe and t["mittari"] == "73/q7300100y/qinlyhyt.png"
-    assert t["kohteet"][0] == {"nimi": "Ollilanjärvi – Aventolampi", "toimii": [300.0, None], "paras": [380.0, 480.0],
-                               "huom": "rajat arvioita"}
+    assert t["kohteet"][0] == {"nimi": "Ollilanjärvi – Aventolampi", "huom": "rajat arvioita",
+                               "rajat": {"virtaama": {"toimii": [300.0, None], "paras": [380.0, 480.0]}}}
     assert t["lahteet"][1]["url"] == ""   # vain http(s)-linkit
     assert ehdotukset.tarkista_taydennys({**TAYDENNYS, "mittari": "ei asema"})[1].startswith("mittari")
-    assert ehdotukset.tarkista_taydennys({"kohteet": [{"nimi": "X", "toimii": [None, None]}]})[1].endswith(
-        "toimii-raja puuttuu")
+    # rajat ilman tunnettua suuretta hylätään; kohde ilman rajoja kelpaa
+    assert "suure puuttuu" in ehdotukset.tarkista_taydennys({"kohteet": [{"nimi": "X", "toimii": [1, None]}]})[1]
+    assert ehdotukset.tarkista_taydennys({"kohteet": [{"nimi": "X"}]})[0]["kohteet"] == [
+        {"nimi": "X", "rajat": {}, "huom": ""}]
     assert ehdotukset.tarkista_taydennys({"lahto": "x"})[1].startswith("täydennyksessä pitää olla")
 
 
@@ -295,7 +298,7 @@ def test_pelkka_linkki_ja_taydennys(ymparisto, monkeypatch):
     assert "Ollilanjärvi – Aventolampi</b> <span class=\"pieni\">(arvio lähteistä)</span>" in sivu
     assert 'href="javascript' not in sivu
     paikka, _ = ehdotukset.paikaksi(kanta.lue(ehdotukset.KOKOELMA, tunniste), PAIKAT)
-    assert paikka.mittarit["paa"].kaavio == "73/q7300100y/qinlyhyt.png" and len(paikka.kohteet) == 2
+    assert paikka.mittarit["virtaama"].kaavio == "73/q7300100y/qinlyhyt.png" and len(paikka.kohteet) == 2
 
 
 def test_service_worker_napit():
@@ -377,7 +380,7 @@ def test_yksityiset_linkit(ymparisto):
     assert f"<code>{yksityinen}</code>" in sivu and f'href="{yksityinen}"' not in sivu
     # pelkkä yksityinen linkki riittää uudeksi kohteeksi
     assert ehdotukset.tulkitse({"laji": ["uusi"], "yksityiset_linkit": [yksityinen]}, PAIKAT)[0]
-    assert "Linkit vain sivun rakentamiseen" in pyynto("/ehdota")[2]
+    assert "Ei-julkaistavat linkit" in pyynto("/ehdota")[2]
     # täydennys ei saa julkaista yksityistä linkkiä
     assert ehdotukset.tarkista_taydennys({**TAYDENNYS, "lahteet": [{"nimi": "FB", "url": yksityinen}]},
                                          [yksityinen])[1].startswith("yksityistä linkkiä")
@@ -414,7 +417,7 @@ def test_hyvaksytty_uusi_kohde_listassa(ymparisto, monkeypatch):
     paikat = app.kaikki_paikat()
     uusi = paikat[-1]
     assert len(paikat) == len(PAIKAT) + 1 and uusi.nimi == "Aventojoki" and uusi.url == f"/ehdotus/{tunniste}"
-    assert uusi.mittarit["paa"].kaavio == "73/q7300100y/qinlyhyt.png" and uusi.sijainti == (66.363, 29.055)
+    assert uusi.mittarit["virtaama"].kaavio == "73/q7300100y/qinlyhyt.png" and uusi.sijainti == (66.363, 29.055)
     assert app.paikan_osoite(uusi, "en") == f"/ehdotus/{tunniste}?kieli=en"
     assert "Aventojoki" in halytykset.valittavat(paikat)
     # laskenta ottaa sen mukaan ja laskee uudelleen, kun hyväksyttyjen joukko muuttuu
@@ -469,9 +472,9 @@ def test_uusi_kohde_muunnetaan_taydennykseksi(ymparisto):
                                                "kohteet": [{"nimi": "Y", "toimii": [1, None], "paras": [1, None]}],
                                                "linkit": []}, KIPINA)
     paikka, _ = ehdotukset.paikaksi(toinen, PAIKAT)
-    assert toinen["mittari_avain"] == ehdotukset.LISAMITTARI
-    assert paikka.mittarit[ehdotukset.LISAMITTARI].kaavio == "73/q7300100y/qinlyhyt.png"
-    assert next(k for k in paikka.kohteet if k.nimi == "Y").mittari == ehdotukset.LISAMITTARI
+    assert toinen["lisamittarit"] == {"virtaama": "73/q7300100y/qinlyhyt.png"}
+    assert paikka.mittarit[f"{ehdotukset.LISAMITTARI}_virtaama"].kaavio == "73/q7300100y/qinlyhyt.png"
+    assert next(k for k in paikka.kohteet if k.nimi == "Y").mittari == f"{ehdotukset.LISAMITTARI}_virtaama"
 
 
 def test_muut_kohteet_ei_esta_uutta_paikkaa(ymparisto):
@@ -501,3 +504,34 @@ def test_muut_kohteet_ei_esta_uutta_paikkaa(ymparisto):
     kanta.data[ehdotukset.KOKOELMA]["D" * 22]["tila"] = "odottaa"
     assert "siitä ei tehdä pisteytettävää" in pyynto(f"/ehdotus/{'D' * 22}")[2]
     assert json.dumps(muut_kohteet.KOHTEET, sort_keys=True) == ennen
+
+
+def test_rajat_suureittain(ymparisto):
+    """Kohteelle rajat virtaamana, vedenkorkeutena, molempina tai ei lainkaan; avoimet rajat sallitaan."""
+    kentat = {"laji": ["uusi"], "nimi": ["Testijoki"], "mittari_virtaama": ["7300100"],
+              "k1_nimi": ["Molemmat"], "k1_q_toimii_ala": ["20"], "k1_w_paras_yla": ["1,5"],
+              "k2_nimi": ["Vain vedenkorkeus"], "k2_w_toimii_yla": ["2"],
+              "k3_nimi": ["Ei rajoja"], "k3_huom": ["kokeiltava"]}
+    ehdotus, virhe = ehdotukset.tulkitse(kentat, PAIKAT)
+    assert not virhe and ehdotus["mittari_virtaama"] == "73/q7300100y/qinlyhyt.png"
+    k1, k2, k3 = ehdotus["kohteet"]
+    assert k1["rajat"] == {"virtaama": {"toimii": [20.0, None], "paras": [20.0, None]},
+                           "vedenkorkeus": {"toimii": [None, 1.5], "paras": [None, 1.5]}}   # pelkkä optimi käy
+    assert k2["rajat"] == {"vedenkorkeus": {"toimii": [None, 2.0], "paras": [None, 2.0]}} and k3["rajat"] == {}
+    paikka, _ = ehdotukset.paikaksi(ehdotus, PAIKAT)
+    # pisteytetään vain kohteet, joiden suureelle on mittari (tässä virtaama)
+    assert [k.nimi for k in paikka.kohteet] == ["Molemmat"] and paikka.kohteet[0].mittari == "virtaama"
+    ehdotus["mittari_vedenkorkeus"] = "73/w7300100y/wlyhyt.png"
+    paikka, _ = ehdotukset.paikaksi(ehdotus, PAIKAT)
+    assert [(k.nimi, k.mittari) for k in paikka.kohteet] == [("Molemmat", "virtaama"), ("Vain vedenkorkeus", "vedenkorkeus")]
+    # esikatselu näyttää kaikki rajat yksikköineen ja kertoo, miksi kohdetta ei pisteytetä
+    _, otsakkeet, _ = pyynto("/ehdota", metodi="POST", runko=lomake(**{k: v[0] for k, v in kentat.items()}))
+    sivu = pyynto(otsakkeet["Location"])[2]
+    assert "virtaama m³/s: toimii yli 20 m³/s; vedenkorkeus m: toimii alle 1.50 m" in sivu
+    assert "Vain vedenkorkeus</b> <span class=\"pieni\">(ei pisteytetä: mittari puuttuu)</span>" in sivu
+    assert "Ei rajoja</b> <span class=\"pieni\">(ei pisteytetä: rajat puuttuvat)</span>" in sivu
+    # lomakkeen järjestys: nimi, linkit, kohteet (yksikön valinta), mittarit
+    lomake_ = pyynto("/ehdota")[2]
+    assert lomake_.index('id="nimi"') < lomake_.index('id="linkit"') < lomake_.index('id="yksityiset_linkit"') \
+        < lomake_.index('id="yksikko-q"') < lomake_.index('id="yksikko-w"') < lomake_.index('id="mittari_virtaama"')
+    assert "Molempia linkkejä käytetään sivun rakentamiseen" in lomake_

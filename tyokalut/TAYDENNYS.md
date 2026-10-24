@@ -81,11 +81,11 @@ välitä ympäristömuuttujia.
   "loppu": "Oulangan luontokeskus …",
   "loppu_sijainti": [66.3683, 29.3147],
   "sijainti": [66.38, 29.15],
-  "mittari": "7300100",
-  "suure": "virtaama",
+  "mittarit": {"virtaama": "7300100"},
   "mittari_perustelu": "Aventojoella ei ole omaa asemaa; Oulankajoki alavirrassa.",
   "kohteet": [
-    {"nimi": "Ollilanjärvi – Aventolampi (13 km, I–IV-)", "toimii": [300, null], "paras": [380, 480],
+    {"nimi": "Ollilanjärvi – Aventolampi (13 km, I–IV-)",
+     "rajat": {"virtaama": {"toimii": [300, null], "paras": [380, 480]}},
      "huom": "Melottu 16.5.2010 Oulankajoen 440 m³/s:lla; rajat arvioita."}
   ],
   "huomiot": "Ristiriidat, epävarmuudet ja puutteet.",
@@ -95,8 +95,11 @@ välitä ympäristömuuttujia.
 }
 ```
 
-- `nimi` vain, jos ehdottaja ei antanut nimeä. `mittari`: SYKE-aseman 7-numeroinen tunnus tai
-  kaavion osoite; `suure` = `virtaama` tai `vedenkorkeus` (rajat samassa yksikössä: m³/s tai m).
-- `kohteet`: enintään 6, vain ne, joita ehdottaja ei antanut. `null` = ei rajaa siihen suuntaan.
-  Täydennyksessä (laji `taydenna`) kohteet koskevat olemassa olevan paikan mittaria; olemassa olevan
-  kohteen nimellä ehdotat rajakorjausta – tee niin vain hyvällä perusteella.
+- `nimi` vain, jos ehdottaja ei antanut nimeä.
+- `mittarit`: suureittain `virtaama` (m³/s) ja/tai `vedenkorkeus` (m); arvona SYKE-aseman 7-numeroinen
+  tunnus tai kaavion osoite. Ehdottajan antamia mittareita ei vaihdeta.
+- `kohteet`: enintään 6, vain ne, joita ehdottaja ei antanut. `rajat` suureittain: `virtaama`,
+  `vedenkorkeus`, molemmat tai `{}` (ei rajoja). `null` = avoin raja; pelkkä `paras` käy myös
+  toimii-alueeksi. Kohde pisteytetään sillä suureella, jolle on mittari (virtaama ensin).
+  Täydennyksessä (laji `taydenna`) rajat paikan mittarin suureessa; olemassa olevan kohteen nimellä
+  ehdotat rajakorjausta – tee niin vain hyvällä perusteella.

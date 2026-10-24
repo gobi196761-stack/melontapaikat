@@ -1887,6 +1887,8 @@ EHDOTUS_TYYLI = """
                        border-radius:6px; background:var(--tausta); color:var(--linkki); cursor:pointer; }
 .lomake .lisaa-kohde:disabled { color:var(--heikko); cursor:default; }
 .kohdelista { margin:8px 0; padding-left:18px; }
+.lomake label.valinta { font-weight:400; margin:4px 0; }
+.yksikon-rajat { margin:2px 0 8px 22px; }
 .kohdelista button { border:0; background:none; color:var(--huono); cursor:pointer; font-size:1rem; padding:0 6px; }
 .virhe { color:var(--huono); font-weight:600; }
 .tila-merkki { display:inline-block; padding:1px 8px; border-radius:999px; border:1px solid var(--viiva);
@@ -2038,7 +2040,9 @@ def _sivupohja(otsikko: str, runko: str, kieli: str, takaisin: str = "/") -> str
 
 def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: str = "",
                   kentat: dict[str, list[str]] | None = None) -> str:
-    """Lomake /ehdota: uusi kohde tai täydennys; virheen jälkeen kentät täytetään uudelleen."""
+    """Lomake /ehdota: nimi, linkit (julkaistavat ja ei-julkaistavat), kohteet rajoineen suureittain
+    (virtaama, vedenkorkeus, molemmat tai ei kumpaakaan), mittarit ja sijainti, oma teksti.
+    Virheen jälkeen kentät täytetään uudelleen."""
     t = ehdotukset.tekstit(kieli)
     kentat = kentat or {}
     arvo = lambda nimi, oletus="": e((kentat.get(nimi) or [oletus])[0])   # noqa: E731
@@ -2050,22 +2054,29 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
         for p in paikat)
     mittarit = {p.nimi: {a: aseman_nimi(m.kaavio) for a, m in p.mittarit.items()} for p in paikat}
     kohteet = {p.nimi: [k.nimi for k in p.kohteet] for p in paikat}
+    rajakentat = [f"{lyh}_{x}" for lyh in ("q", "w") for x in ("toimii_ala", "toimii_yla", "paras_ala", "paras_yla")]
     # aiemmin lisätyt kohteet (virheen jälkeen lomake täytetään uudelleen)
     lisatyt = []
     for i in range(1, ehdotukset.KOHTEITA_ENINTAAN + 1):
-        rivi = {x: (kentat.get(f"k{i}_{x}") or [""])[0]
-                for x in ("nimi", "toimii_ala", "toimii_yla", "paras_ala", "paras_yla", "huom")}
+        rivi = {x: (kentat.get(f"k{i}_{x}") or [""])[0] for x in ["nimi", "huom", *rajakentat]}
         if any(v.strip() for v in rivi.values()):
             lisatyt.append(rivi)
+
+    def rajarivit(lyh: str) -> str:
+        return (f'<div class="rajat-rivi"><span>{e(t["toimii"])}</span>'
+                f'<input type="text" inputmode="decimal" id="kohde-{lyh}_toimii_ala" placeholder="{e(t["ala"])}">–'
+                f'<input type="text" inputmode="decimal" id="kohde-{lyh}_toimii_yla" placeholder="{e(t["yla"])}"></div>'
+                f'<div class="rajat-rivi"><span>{e(t["optimi"])}</span>'
+                f'<input type="text" inputmode="decimal" id="kohde-{lyh}_paras_ala" placeholder="{e(t["ala"])}">–'
+                f'<input type="text" inputmode="decimal" id="kohde-{lyh}_paras_yla" placeholder="{e(t["yla"])}"></div>')
     editori = f"""<fieldset class="kohde-editori"><legend>{e(t["kohde"])}</legend>
 <label for="kohde-nimi"><span class="vain-taydenna">{e(t["kohteen_nimi"])}</span><span class="vain-uusi">{e(t["kohteen_nimi_uusi"])}</span></label>
 <input type="text" id="kohde-nimi" maxlength="100" list="kohdenimet">
-<div class="rajat-rivi"><span>{e(t["toimii"])}</span>
-<input type="text" inputmode="decimal" id="kohde-toimii_ala" placeholder="{e(t["ala"])}">–
-<input type="text" inputmode="decimal" id="kohde-toimii_yla" placeholder="{e(t["yla"])}"></div>
-<div class="rajat-rivi"><span>{e(t["optimi"])}</span>
-<input type="text" inputmode="decimal" id="kohde-paras_ala" placeholder="{e(t["ala"])}">–
-<input type="text" inputmode="decimal" id="kohde-paras_yla" placeholder="{e(t["yla"])}"></div>
+<p class="ohje" style="margin-top:8px">{e(t["yksikot"])}</p>
+<label class="valinta"><input type="checkbox" id="yksikko-q"> {e(t["yksikko_q"])}</label>
+<div id="rajat-q" class="yksikon-rajat" hidden>{rajarivit("q")}</div>
+<label class="valinta"><input type="checkbox" id="yksikko-w"> {e(t["yksikko_w"])}</label>
+<div id="rajat-w" class="yksikon-rajat" hidden>{rajarivit("w")}</div>
 <label for="kohde-huom">{e(t["huom"])}</label>
 <input type="text" id="kohde-huom" maxlength="300">
 <p><button type="button" class="lisaa-kohde" id="lisaa-kohde">{e(t["lisaa_kohde"])}</button>
@@ -2075,7 +2086,6 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
 <div id="kohdekentat"></div>"""
     virhe_html = f'<p class="virhe">{e(t["virhe_otsikko"])}: {e(virhe)}</p>' if virhe else ""
     tyyppi = arvo("tyyppi", "retki")
-    suure = arvo("suure", "virtaama")
     runko = f"""<h1>{e(t["lomake_otsikko"])}</h1>
 <p>{e(t["lomake_ohje"])}</p>
 {virhe_html}
@@ -2095,24 +2105,28 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
 <label for="tyyppi">{e(t["tyyppi"])}</label>
 <select id="tyyppi" name="tyyppi"><option value="retki"{" selected" if tyyppi == "retki" else ""}>{e(t["retki"])}</option>
 <option value="peli"{" selected" if tyyppi == "peli" else ""}>{e(t["peli"])}</option></select>
-<label for="mittari">{e(t["mittari"])}</label>
-<input type="text" id="mittari" name="mittari" maxlength="300" value="{arvo("mittari")}">
-<p class="ohje">{e(t["mittari_ohje"])}</p>
-<label for="suure">{e(t["suure"])}</label>
-<select id="suure" name="suure"><option value="virtaama"{" selected" if suure == "virtaama" else ""}>{e(t["virtaama"])}</option>
-<option value="vedenkorkeus"{" selected" if suure == "vedenkorkeus" else ""}>{e(t["vedenkorkeus"])}</option></select>
-<label for="sijainti">{e(t["sijainti"])}</label>
-<input type="text" id="sijainti" name="sijainti" maxlength="300" value="{arvo("sijainti")}">
 </div>
-<h2><span class="vain-taydenna">{e(t["kohteet"])}</span><span class="vain-uusi">{e(t["rajat_uusi"])}</span></h2>
-<p class="ohje"><span class="vain-taydenna">{e(t["kohteet_ohje"])}</span><span class="vain-uusi">{e(t["rajat_uusi_ohje"])}</span></p>
-<datalist id="kohdenimet"></datalist>
-{editori}
+<h2>{e(t["linkit_otsikko"])}</h2>
+<p class="ohje">{e(t["linkit_ohje"])}</p>
 <label for="linkit">{e(t["linkit"])}</label>
 <textarea id="linkit" name="linkit" rows="4">{arvo("linkit")}</textarea>
 <label for="yksityiset_linkit">{e(t["yksityiset_linkit"])}</label>
 <p class="ohje">{e(t["yksityiset_ohje"])}</p>
 <textarea id="yksityiset_linkit" name="yksityiset_linkit" rows="3">{arvo("yksityiset_linkit")}</textarea>
+<h2><span class="vain-taydenna">{e(t["kohteet"])}</span><span class="vain-uusi">{e(t["rajat_uusi"])}</span></h2>
+<p class="ohje"><span class="vain-taydenna">{e(t["kohteet_ohje"])}</span><span class="vain-uusi">{e(t["rajat_uusi_ohje"])}</span></p>
+<datalist id="kohdenimet"></datalist>
+{editori}
+<div id="osa-uusi-mittarit">
+<h2>{e(t["mittarit_otsikko"])}</h2>
+<label for="mittari_virtaama">{e(t["mittari_virtaama"])}</label>
+<input type="text" id="mittari_virtaama" name="mittari_virtaama" maxlength="300" value="{arvo("mittari_virtaama")}">
+<label for="mittari_vedenkorkeus">{e(t["mittari_vedenkorkeus"])}</label>
+<input type="text" id="mittari_vedenkorkeus" name="mittari_vedenkorkeus" maxlength="300" value="{arvo("mittari_vedenkorkeus")}">
+<p class="ohje">{e(t["mittari_ohje"])}</p>
+<label for="sijainti">{e(t["sijainti"])}</label>
+<input type="text" id="sijainti" name="sijainti" maxlength="300" value="{arvo("sijainti")}">
+</div>
 <label for="teksti">{e(t["teksti"])}</label>
 <p class="ohje">{e(t["teksti_ohje"])}</p>
 <textarea id="teksti" name="teksti" rows="8" maxlength="{ehdotukset.TEKSTI_ENINTAAN}">{arvo("teksti")}</textarea>
@@ -2135,6 +2149,7 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
     const taydenna = document.querySelector('input[name="laji"]:checked').value === "taydenna";
     document.getElementById("osa-taydenna").hidden = !taydenna;
     document.getElementById("osa-uusi").hidden = taydenna;
+    document.getElementById("osa-uusi-mittarit").hidden = taydenna;
     document.querySelectorAll(".vain-uusi").forEach(x => {{ x.hidden = taydenna; }});
     document.querySelectorAll(".vain-taydenna").forEach(x => {{ x.hidden = !taydenna; }});
     avain.length = 0;
@@ -2145,24 +2160,36 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
   }}
   // Kohteet kuten hyvien olojen hälytyksen ehdot: kentät täytetään, "+ Lisää kohde" siirtää kohteen
   // tekstinä listaan (✕ poistaa) ja tyhjentää kentät seuraavalle; enintään {ehdotukset.KOHTEITA_ENINTAAN} kohdetta.
-  // Lomakkeen mukana kohteet lähtevät piilokenttinä k1_..k{ehdotukset.KOHTEITA_ENINTAAN}_.
-  const KENTAT = ["nimi", "toimii_ala", "toimii_yla", "paras_ala", "paras_yla", "huom"];
+  // Rajat suureittain (q = virtaama m³/s, w = vedenkorkeus m): kumpikin, toinen tai ei kumpaakaan;
+  // avoin ala- tai yläraja sallitaan. Lomakkeen mukana kohteet lähtevät piilokenttinä k1_..k{ehdotukset.KOHTEITA_ENINTAAN}_.
+  const RAJAT = {json.dumps(rajakentat)}, KENTAT = ["nimi", "huom", ...RAJAT];
   const ENINTAAN = {ehdotukset.KOHTEITA_ENINTAAN}, T = {json.dumps({x: t[x] for x in (
-      "toimii", "optimi", "poista_kohde", "virhe_kohteen_nimi", "virhe_rajat", "virhe_luku", "virhe_jarjestys",
-      "kohteita_enintaan", "paikan_nimi")}, ensure_ascii=False)};
+      "toimii", "optimi", "poista_kohde", "virhe_kohteen_nimi", "virhe_luku", "virhe_jarjestys",
+      "kohteita_enintaan", "paikan_nimi", "yksikko_q", "yksikko_w", "ei_rajoja")}, ensure_ascii=False)};
   let lista = {json.dumps(lisatyt, ensure_ascii=False)};
   const kentta = k => document.getElementById("kohde-" + k);
+  const valinta = lyh => document.getElementById("yksikko-" + lyh);
   const lisaa = document.getElementById("lisaa-kohde"), virhe = document.getElementById("kohde-virhe");
   const luku = v => v.trim() === "" ? null : Number(v.trim().replace(",", ".").replace("−", "-"));
   const uusi = () => document.querySelector('input[name="laji"]:checked').value === "uusi";
   const vali = (a, b) => a && b ? a + "–" + b : a ? "≥ " + a : b ? "≤ " + b : "";
+  ["q", "w"].forEach(lyh => valinta(lyh).addEventListener("change", () => {{
+    document.getElementById("rajat-" + lyh).hidden = !valinta(lyh).checked;
+  }}));
+  function rajateksti(k) {{
+    const osat = ["q", "w"].map(lyh => {{
+      const toimii = vali(k[lyh + "_toimii_ala"], k[lyh + "_toimii_yla"]), optimi = vali(k[lyh + "_paras_ala"], k[lyh + "_paras_yla"]);
+      if (!toimii && !optimi) return "";
+      return T["yksikko_" + lyh] + ": " + [toimii && T.toimii.toLowerCase() + " " + toimii,
+                                         optimi && T.optimi.toLowerCase() + " " + optimi].filter(Boolean).join(", ");
+    }}).filter(Boolean);
+    return osat.length ? osat.join("; ") : T.ei_rajoja;
+  }}
   function nayta() {{
     const ul = document.getElementById("kohdelista");
     ul.replaceChildren(...lista.map((k, i) => {{
       const li = document.createElement("li"), pois = document.createElement("button");
-      const optimi = vali(k.paras_ala, k.paras_yla);
-      li.textContent = (k.nimi || T.paikan_nimi) + ": " + T.toimii.toLowerCase() + " " + vali(k.toimii_ala, k.toimii_yla)
-        + (optimi ? ", " + T.optimi.toLowerCase() + " " + optimi : "") + (k.huom ? " · " + k.huom : "");
+      li.textContent = (k.nimi || T.paikan_nimi) + ": " + rajateksti(k) + (k.huom ? " · " + k.huom : "");
       pois.type = "button"; pois.textContent = "✕"; pois.title = pois.ariaLabel = T.poista_kohde;
       pois.addEventListener("click", () => {{ lista.splice(i, 1); nayta(); }});
       li.append(pois);
@@ -2181,28 +2208,30 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
     lisaa.disabled = lista.length >= ENINTAAN;
     virhe.textContent = lisaa.disabled ? T.kohteita_enintaan.replace("{{n}}", ENINTAAN) : "";
   }}
-  function lisaaKohde(hiljaa) {{
+  function lisaaKohde() {{
     const k = Object.fromEntries(KENTAT.map(x => [x, kentta(x).value.trim()]));
+    ["q", "w"].forEach(lyh => {{ if (!valinta(lyh).checked) RAJAT.filter(x => x.startsWith(lyh)).forEach(x => {{ k[x] = ""; }}); }});
     if (!KENTAT.some(x => k[x])) return true;   // tyhjä: ei lisättävää
-    const n = lista.length + 1, rajat = [k.toimii_ala, k.toimii_yla, k.paras_ala, k.paras_yla].map(luku);
+    const n = lista.length + 1;
     let ongelma = "";
     if (lista.length >= ENINTAAN) ongelma = T.kohteita_enintaan.replace("{{n}}", ENINTAAN);
     else if (!k.nimi && !(uusi() && n === 1)) ongelma = T.virhe_kohteen_nimi.replace("{{n}}", n);
-    else if (rajat.some(v => v !== null && isNaN(v))) ongelma = T.virhe_luku.replace("{{n}}", n);
-    else if (rajat[0] === null && rajat[1] === null) ongelma = T.virhe_rajat.replace("{{n}}", n);
-    else if ((rajat[0] !== null && rajat[1] !== null && rajat[0] > rajat[1])
-             || (rajat[2] !== null && rajat[3] !== null && rajat[2] > rajat[3])) ongelma = T.virhe_jarjestys.replace("{{n}}", n);
-    if (ongelma) {{ if (!hiljaa) virhe.textContent = ongelma; return false; }}
+    else if (RAJAT.some(x => k[x] && isNaN(luku(k[x])))) ongelma = T.virhe_luku.replace("{{n}}", n);
+    else if (["q_toimii", "q_paras", "w_toimii", "w_paras"].some(r => {{
+      const a = luku(k[r + "_ala"]), b = luku(k[r + "_yla"]);
+      return a !== null && b !== null && a > b;
+    }})) ongelma = T.virhe_jarjestys.replace("{{n}}", n);
+    if (ongelma) {{ virhe.textContent = ongelma; return false; }}
     lista.push(k);
     KENTAT.forEach(x => {{ kentta(x).value = ""; }});
     nayta();
     kentta("nimi").focus();
     return true;
   }}
-  lisaa.addEventListener("click", () => lisaaKohde(false));
+  lisaa.addEventListener("click", lisaaKohde);
   // kentissä oleva, listaan lisäämätön kohde otetaan mukaan lähetettäessä
   document.querySelector("form.lomake").addEventListener("submit", ev => {{
-    if (!lisaaKohde(false)) ev.preventDefault();
+    if (!lisaaKohde()) ev.preventDefault();
   }});
   nayta();
   document.querySelectorAll('input[name="laji"]').forEach(r => r.addEventListener("change", paivita));
@@ -2281,30 +2310,50 @@ def _ehdotuksen_sisalto(tunniste: str, ehdotus: dict, kieli: str, hakija: osm.Ha
 
     tayd = ehdotukset.valmis_taydennys(ehdotus)
 
-    def alkupera(k) -> str:   # kun täydennys on tehty: kuka kohteen rajat antoi
+    def alkupera(arvio: bool) -> str:   # kun täydennys on tehty: kuka kohteen rajat antoi
         if not tayd:
             return ""
-        teksti = t["alkupera_arvio"] if k.lahde == "arvio" else t["alkupera_ehdottaja"]
+        teksti = t["alkupera_arvio"] if arvio else t["alkupera_ehdottaja"]
         return f' <span class="pieni">({e(teksti)})</span>'
 
+    def suureiden_rajat(rajat: dict) -> str:
+        """Kaikki annetut rajat yksikköineen: 'virtaama m³/s: toimii yli 20 m³/s; vedenkorkeus m: …'."""
+        osat = []
+        for suure in ehdotukset.SUUREET:
+            if suure in rajat:
+                toimii, paras = rajat[suure]
+                yksikko = ehdotukset.YKSIKOT[suure]
+                teksti = _rajat(tuple(toimii), yksikko, "arvo", kieli)
+                optimi = _rajat(tuple(paras), yksikko, "arvo", kieli)
+                osat.append(f"{t['yksikko_q' if suure == 'virtaama' else 'yksikko_w']}: "
+                            f"{'works' if en else 'toimii'} {teksti}"
+                            + (f", {'at its best' if en else 'parhaimmillaan'} {optimi}" if optimi != teksti else ""))
+        return "; ".join(osat) or t["ei_rajoja"]
+
+    pisteytettavat = {k.nimi for k in (paikka.kohteet if paikka is not None else ()) if k.nimi in uudet}
+    oletus = ehdotukset.oletussuure(ehdotus, PAIKAT)
     lisatyt, muutokset = [], []
-    for k in (paikka.kohteet if paikka is not None else ()):
-        if k.nimi not in uudet:
-            continue
-        mittari = paikka.mittarit.get(k.mittari)
-        _, yksikko = _mittarin_suure(mittari) if mittari else ("", "")
-        if k.nimi in vanhat:   # rajakorjaus: nykyinen -> ehdotettu
-            v = vanhat[k.nimi]
+    for k in ehdotukset.kaikki_kohteet(ehdotus) if paikka is not None else ():
+        rajat = ehdotukset.kohteen_rajat(k, oletus)
+        huomautus = ""
+        if k["nimi"] not in pisteytettavat:   # ei rajoja tai ei mittaria rajojen suureelle
+            syy = t["syy_rajat"] if not rajat else t["syy_mittari"]
+            huomautus = f' <span class="pieni">({e(t["ei_pisteyteta"].format(syy=syy))})</span>'
+        if k["nimi"] in vanhat:   # rajakorjaus: nykyinen -> ehdotettu
+            v = vanhat[k["nimi"]]
+            mittari = paikka.mittarit.get(v.mittari)
+            _, yksikko = _mittarin_suure(mittari) if mittari else ("", "")
             huom = ""
-            if k.huom and k.huom != v.huom:
+            if k.get("huom") and k["huom"] != v.huom:
                 huom = (f'<br><span class="pieni">{e(t["nyt"])}: {e(v.huom) or "–"}</span>'
-                        f'<br>{e(t["huom"])} → {e(k.huom)}')
-            muutokset.append(f'<li><b>{e(k.nimi)}</b>{alkupera(k)}<br><span class="pieni">{e(t["nyt"])}: '
-                             f'{e(rajateksti(v, yksikko))}</span><br><span class="rajat">→ '
-                             f'{e(rajateksti(k, yksikko))}</span>{huom}</li>')
+                        f'<br>{e(t["huom"])} → {e(k["huom"])}')
+            muutokset.append(f'<li><b>{e(k["nimi"])}</b>{alkupera(k.get("arvio"))}{huomautus}<br>'
+                             f'<span class="pieni">{e(t["nyt"])}: {e(rajateksti(v, yksikko))}</span><br>'
+                             f'<span class="rajat">→ {e(suureiden_rajat(rajat))}</span>{huom}</li>')
         else:
-            lisatyt.append(f'<li><b>{e(k.nimi)}</b>{alkupera(k)}<br><span class="rajat">{e(rajateksti(k, yksikko))}</span>'
-                           f'{"<br>" + e(k.huom) if k.huom else ""}</li>')
+            lisatyt.append(f'<li><b>{e(k["nimi"])}</b>{alkupera(k.get("arvio"))}{huomautus}<br>'
+                           f'<span class="rajat">{e(suureiden_rajat(rajat))}</span>'
+                           f'{"<br>" + e(k["huom"]) if k.get("huom") else ""}</li>')
     teksti = "".join(f"<p>{e(kpl)}</p>" for kpl in re.split(r"\n\s*\n", ehdotus.get("teksti") or "")
                      if kpl.strip())
     koottu = ""
