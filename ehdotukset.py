@@ -142,12 +142,15 @@ def tulkitse(kentat: dict[str, list[str]], paikat: tuple[Paikka, ...], kieli: st
         sijainti = sijainti_tekstista(_kentta(kentat, "sijainti", 300))
         ehdotus["sijainti"] = list(sijainti) if sijainti else None
     kohteet = []
-    for i in range(1, KOHTEITA_ENINTAAN + 1):
+    # uutena kohteena ehdotetaan yksi paikka kerrallaan: vain ensimmäinen rivi (nimi = paikan nimi,
+    # ellei toista anneta); täydennyksessä useita kohteita
+    for i in range(1, (1 if laji == "uusi" else KOHTEITA_ENINTAAN) + 1):
         nimi = _kentta(kentat, f"k{i}_nimi")
         arvot = [_kentta(kentat, f"k{i}_{x}", 20) for x in ("toimii_ala", "toimii_yla", "paras_ala", "paras_yla")]
         huom = _kentta(kentat, f"k{i}_huom", 300)
         if not nimi and not any(arvot) and not huom:
             continue
+        nimi = nimi or (ehdotus["nimi"] if laji == "uusi" else "")
         try:
             ta, ty, pa, py = (luku(a) for a in arvot)
         except ValueError:
@@ -262,6 +265,11 @@ TEKSTIT = {
         "suure": "Mittarin suure", "virtaama": "virtaama (m³/s)", "vedenkorkeus": "vedenkorkeus (m)",
         "paikan_mittari": "Mittari", "sijainti": "Sijainti (koordinaatit tai karttalinkki, vapaaehtoinen)",
         "kohteet": "Pelipaikat tai laskuosuudet ja niiden rajat",
+        "rajat_uusi": "Paikan toiminta-alue ja optimi",
+        "rajat_uusi_ohje": "Yksi paikka kerrallaan: anna paikan rajat mittarin yksikössä. Toimii = alue, jolla "
+                           "paikka toimii; optimi = paras alue (tyhjä = sama kuin toimii). Jätä toinen pää "
+                           "tyhjäksi, jos rajaa ei ole. Muut pelipaikat voit lisätä myöhemmin täydennyksenä.",
+        "kohteen_nimi_uusi": "Kohteen tarkempi nimi (vapaaehtoinen, oletus = paikan nimi)",
         "kohteet_ohje": "Rajat mittarin yksikössä. Toimii = alue, jolla kohde toimii; optimi = paras alue "
                         "(tyhjä = sama kuin toimii). Jätä toinen pää tyhjäksi, jos rajaa ei ole (esim. vain "
                         "alaraja). Olemassa olevan kohteen nimellä korjaat sen rajoja.",
@@ -321,6 +329,11 @@ TEKSTIT = {
         "suure": "Gauge quantity", "virtaama": "discharge (m³/s)", "vedenkorkeus": "water level (m)",
         "paikan_mittari": "Gauge", "sijainti": "Location (coordinates or a map link, optional)",
         "kohteet": "Play spots or river sections and their limits",
+        "rajat_uusi": "Working range and optimum of the spot",
+        "rajat_uusi_ohje": "One spot at a time: give the spot's limits in the gauge's unit. Works = the range "
+                           "where the spot works; optimum = the best range (empty = same as works). Leave one end "
+                           "empty if there is no limit. You can add other play spots later as an addition.",
+        "kohteen_nimi_uusi": "More specific name of the feature (optional, default = name of the spot)",
         "kohteet_ohje": "Limits in the gauge's unit. Works = the range where the feature works; optimum = the "
                         "best range (empty = same as works). Leave one end empty if there is no limit (e.g. "
                         "only a lower limit). Use the name of an existing feature to correct its limits.",

@@ -204,3 +204,16 @@ def test_skriptit_ja_sijainti(ymparisto, tmp_path):
             tiedosto.write_text(osa.split("</script>")[0], encoding="utf-8")
             tulos = subprocess.run([node, "--check", str(tiedosto)], capture_output=True, text=True)
             assert tulos.returncode == 0, tulos.stderr
+
+
+def test_uusi_kohde_vain_yksi_paikka(ymparisto):
+    """Uutena kohteena vain yksi paikka: muut rivit ohitetaan, kohteen nimi on oletuksena paikan nimi."""
+    kentat = {"laji": ["uusi"], "nimi": ["Aventojoki"], "mittari": ["7300350"], "k1_toimii_ala": ["10"],
+              "k2_nimi": ["Toinen"], "k2_toimii_ala": ["5"]}
+    ehdotus, virhe = ehdotukset.tulkitse(kentat, PAIKAT)
+    assert not virhe and [k["nimi"] for k in ehdotus["kohteet"]] == ["Aventojoki"]
+    kentat["k1_nimi"] = ["Aventojoki, alaosa"]
+    assert [k["nimi"] for k in ehdotukset.tulkitse(kentat, PAIKAT)[0]["kohteet"]] == ["Aventojoki, alaosa"]
+    sivu = pyynto("/ehdota")[2]
+    assert '<fieldset class="ensimmainen">' in sivu and sivu.count('<fieldset class="lisarivi">') == 5
+    assert "Paikan toiminta-alue ja optimi" in sivu and "Yksi paikka kerrallaan" in sivu

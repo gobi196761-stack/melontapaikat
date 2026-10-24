@@ -1965,8 +1965,8 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
     kohteet = {p.nimi: [k.nimi for k in p.kohteet] for p in paikat}
     rivit = []
     for i in range(1, ehdotukset.KOHTEITA_ENINTAAN + 1):
-        rivit.append(f"""<fieldset><legend>{e(t["kohde"])} {i}</legend>
-<label for="k{i}_nimi">{e(t["kohteen_nimi"])}</label>
+        rivit.append(f"""<fieldset class="{"ensimmainen" if i == 1 else "lisarivi"}"><legend>{e(t["kohde"])} {i}</legend>
+<label for="k{i}_nimi"><span class="vain-taydenna">{e(t["kohteen_nimi"])}</span><span class="vain-uusi">{e(t["kohteen_nimi_uusi"])}</span></label>
 <input type="text" id="k{i}_nimi" name="k{i}_nimi" maxlength="100" list="kohdenimet" value="{arvo(f"k{i}_nimi")}">
 <div class="rajat-rivi"><span>{e(t["toimii"])}</span>
 <input type="text" inputmode="decimal" name="k{i}_toimii_ala" placeholder="{e(t["ala"])}" value="{arvo(f"k{i}_toimii_ala")}">–
@@ -2008,8 +2008,8 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
 <label for="sijainti">{e(t["sijainti"])}</label>
 <input type="text" id="sijainti" name="sijainti" maxlength="300" value="{arvo("sijainti")}">
 </div>
-<h2>{e(t["kohteet"])}</h2>
-<p class="ohje">{e(t["kohteet_ohje"])}</p>
+<h2><span class="vain-taydenna">{e(t["kohteet"])}</span><span class="vain-uusi">{e(t["rajat_uusi"])}</span></h2>
+<p class="ohje"><span class="vain-taydenna">{e(t["kohteet_ohje"])}</span><span class="vain-uusi">{e(t["rajat_uusi_ohje"])}</span></p>
 <datalist id="kohdenimet"></datalist>
 {"".join(rivit)}
 <label for="linkit">{e(t["linkit"])}</label>
@@ -2036,6 +2036,11 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
     const taydenna = document.querySelector('input[name="laji"]:checked').value === "taydenna";
     document.getElementById("osa-taydenna").hidden = !taydenna;
     document.getElementById("osa-uusi").hidden = taydenna;
+    // uusi kohde: yksi paikka kerrallaan (vain ensimmäinen rivi, ei rivin otsikkoa)
+    document.querySelectorAll("fieldset.lisarivi").forEach(f => {{ f.hidden = !taydenna; f.disabled = !taydenna; }});
+    document.querySelector("fieldset.ensimmainen legend").hidden = !taydenna;
+    document.querySelectorAll(".vain-uusi").forEach(x => {{ x.hidden = taydenna; }});
+    document.querySelectorAll(".vain-taydenna").forEach(x => {{ x.hidden = !taydenna; }});
     avain.length = 0;
     Object.entries(mittarit[paikka.value] || {{}}).forEach(([a, n]) => avain.add(new Option(n, a, false, a === valittu)));
     document.getElementById("kohdenimet").replaceChildren(...(taydenna ? kohteet[paikka.value] || [] : [])
