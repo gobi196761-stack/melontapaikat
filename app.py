@@ -425,8 +425,7 @@ li[hidden] { display:none; }
 .lahteet li { overflow-wrap:anywhere; }
 .matka, .lampotilat { margin:1px 0; }
 .kajakit { white-space:nowrap; }
-.turva { background:var(--pinta); border-left:4px solid var(--huono); border-radius:8px; padding:8px 12px;
-         margin:12px 0; }
+.turva { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
 .turva summary { color:var(--huono); font-weight:600; font-size:.92rem; }
 .turva-otsikko { display:inline; }
 .turva-otsikko + .turva-otsikko::before { content:" · "; color:var(--heikko); font-weight:400; }
@@ -438,6 +437,17 @@ li[hidden] { display:none; }
 .kajakki { width:26px; height:20.8px; vertical-align:-6px; margin-left:3px; color:var(--linkki); }
 .ukkonen { color:var(--huono) !important; font-weight:700; }
 .tyyppi { font-weight:400; font-size:.85rem; color:var(--heikko); margin-left:2px; }
+.ehdota { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
+.ehdota ul { margin:6px 0; padding-left:18px; }
+.ehdota summary { font-size:.95rem; color:var(--teksti); margin:0; }
+.lamppu { display:inline-block; animation:syty 2.4s ease-in-out 1s 2; }
+@keyframes syty { 0%, 100% { filter:grayscale(1) brightness(.8); }
+                  40%, 70% { filter:none; text-shadow:0 0 6px #ffd23f, 0 0 14px #ffd23f; } }
+@media (prefers-reduced-motion: reduce) { .lamppu { animation:none; } }
+.nappi { display:inline-block; padding:6px 14px; margin:4px 6px 4px 0; border-radius:6px; text-decoration:none;
+         border:1px solid var(--teksti); background:var(--teksti); color:var(--tausta); font-weight:600;
+         cursor:pointer; font-size:.92rem; }
+.nappi.toissijainen { background:none; color:var(--teksti); }
 .halytys { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
 .halytys summary { font-size:.95rem; color:var(--teksti); margin:0; }
 .halytys p { margin:8px 0 0; }
@@ -1165,10 +1175,8 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <style>{TYYLI}</style>
 </head>
 <body><main>
-<div class="otsake"><h1>{k_("Melontapaikkojen tilanne")} {tilanne.paivitetty:%d.%m.%Y}</h1>{vaihto}</div>
+<div class="otsake"><h1>{k_("Melontapaikkojen tilanne")} {tilanne.paivitetty:%d.%m.%Y} {k_("klo")} {tilanne.paivitetty:%H.%M}</h1>{vaihto}</div>
 <div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div>
-<div class="meta">{k_("osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet")} ·
-{k_("päivitetty klo")} {tilanne.paivitetty:%H.%M}</div>
 {_turvaosio(tilanne, kieli)}
 {_selitykset(kieli)}
 {_ehdotusluukku(kieli)}
@@ -1867,12 +1875,6 @@ EHDOTUS_VALIMUISTI_S = 120   # hyväksytty kohde näkyy listassa viimeistään n
 _ehdotukset: tuple[float, dict[str, dict]] | None = None
 
 EHDOTUS_TYYLI = """
-.ehdota { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
-.ehdota ul { margin:6px 0; padding-left:18px; }
-.nappi { display:inline-block; padding:6px 14px; margin:4px 6px 4px 0; border-radius:6px; text-decoration:none;
-         border:1px solid var(--teksti); background:var(--teksti); color:var(--tausta); font-weight:600;
-         cursor:pointer; font-size:.92rem; }
-.nappi.toissijainen { background:none; color:var(--teksti); }
 .lomake label { display:block; margin:10px 0 2px; font-weight:600; font-size:.92rem; }
 .lomake input[type=text], .lomake select, .lomake textarea { width:100%; max-width:560px; padding:6px 8px;
   border:1px solid var(--viiva); border-radius:6px; background:var(--tausta); color:var(--teksti); font:inherit; }
@@ -2009,7 +2011,7 @@ def _ehdotusluukku(kieli: str) -> str:
         lista = (f'<p><b>{e(t["kayttajien_kohteet"])}</b></p><ul>' + "".join(
             f'<li><a href="/ehdotus/{e(tun)}{"?kieli=en" if kieli == "en" else ""}">{e(ehdotukset.nimi(ed))}</a></li>'
             for tun, ed in uudet) + "</ul>")
-    return (f'<details class="ehdota"><summary>{e(t["luukku"])}</summary><p>{e(t["luukku_teksti"])}</p>'
+    return (f'<details class="ehdota"><summary><span class="lamppu" aria-hidden="true">💡</span> {e(t["luukku"])}</summary><p>{e(t["luukku_teksti"])}</p>'
             f'<a class="nappi" href="/ehdota?laji=uusi{q}">{e(t["uusi"])}</a>'
             f'<a class="nappi toissijainen" href="/ehdota?laji=taydenna{q}">{e(t["taydenna"])}</a>{lista}</details>')
 
