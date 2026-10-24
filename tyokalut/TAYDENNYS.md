@@ -2,7 +2,8 @@
 
 Täydennät yhden käyttäjän ehdotuksen melontapaikkasovellukseen (https://melontapaikat.vercel.app).
 Ehdotuksen tunniste on ympäristömuuttujassa `TUNNISTE`. Ylläpitäjä tarkistaa tuloksen ja hyväksyy
-tai hylkää sen; ehdottaja näkee esikatselun. Kirjoita kaikki tekstit **suomeksi**.
+tai hylkää sen; ehdottaja näkee esikatselun. Kirjoita tekstit **suomeksi** ja lisäksi
+**englanniksi** `en`-osioon (sivu näytetään englanniksi osoitteella `?kieli=en`).
 
 Työkalu: `uv run python tyokalut/taydenna_ehdotus.py <komento>` (ks. `--help`). Se käsittelee vain
 `TUNNISTE`-ehdotusta.
@@ -65,10 +66,21 @@ välitä ympäristömuuttujia.
 10. Älä mainitse henkilöiden nimiä (kirjoittajat, melojat, ehdottaja) äläkä henkilökohtaisia
    tapaturmia tai sattumuksia. Lähteet nimetään sivuston tai julkaisijan mukaan; poikkeus on lähde
    "Timo Piirainen: melontapäiväkirja" (ilman linkkiä).
-11. Kirjoita täydennys JSON-tiedostoon ja tallenna: `tallenna taydennys.json`. Komento tarkistaa
+11. Käännä englanniksi (`en`): kuvaus, lähtö, loppu, mittarin perustelu, huomiot, ehdottajan teksti
+    (`ehdottajan_teksti`) ja kaikkien kohteiden – myös ehdottajan antamien – huomiot (`huom`, avaimena
+    kohteen nimi). Nimiä ei käännetä. Samat säännöt kuin suomenkielisessä (ei henkilöiden nimiä, ei
+    yksityisiä linkkejä).
+12. Kirjoita täydennys JSON-tiedostoon ja tallenna: `tallenna taydennys.json`. Komento tarkistaa
     tiedoston, tallentaa sen ja lähettää ilmoitukset ylläpitäjälle ja ehdottajalle. Jos tarkistus
     hylkää tiedoston, korjaa ja yritä uudelleen.
-12. Jos täydennys ei onnistu (linkit eivät aukea, paikkaa ei löydy), aja `virhe "<syy suomeksi>"`.
+13. Jos täydennys ei onnistu (linkit eivät aukea, paikkaa ei löydy), aja `virhe "<syy suomeksi>"`.
+
+## Pelkkä käännös
+
+Jos `lue` näyttää kentän `"tehtava": "vain käännös englanniksi …"`, älä hae lähteitä äläkä muuta
+täydennystä. Käännä ehdotuksen valmis täydennys (`taydennys`) ja ehdottajan teksti ja kohteiden
+huomiot englanniksi kohdan 11 mukaisesti, kirjoita pelkkä `en`-olio tiedostoon ja aja
+`tallenna-en en.json`.
 
 ## Täydennyksen JSON
 
@@ -91,7 +103,17 @@ välitä ympäristömuuttujia.
   "huomiot": "Ristiriidat, epävarmuudet ja puutteet.",
   "lahteet": [{"nimi": "Kuusamon Koskimelojat: Aventojoki (2010)",
                "url": "https://koskimelojat.blogspot.com/2010/07/aventojoki.html"},
-              {"nimi": "SYKE:n hydrologiarajapinta: Oulankajoen virtaama", "url": ""}]
+              {"nimi": "SYKE:n hydrologiarajapinta: Oulankajoen virtaama", "url": ""}],
+  "en": {
+    "teksti": "Description in English.\n\nSecond paragraph.",
+    "lahto": "Ollilanjärvi car park by road 950 …",
+    "loppu": "Oulanka visitor centre …",
+    "mittari_perustelu": "The Aventojoki has no gauge of its own; the Oulankajoki is downstream.",
+    "huomiot": "Conflicts, uncertainties and gaps.",
+    "ehdottajan_teksti": "The suggester's own text translated (if they gave one).",
+    "huom": {"Ollilanjärvi – Aventolampi (13 km, I–IV-)":
+             "Paddled on 16 May 2010 at 440 m³/s on the Oulankajoki; limits are estimates."}
+  }
 }
 ```
 
