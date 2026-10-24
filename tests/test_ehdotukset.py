@@ -111,9 +111,7 @@ def test_uusi_kohde_esikatselu_ilmoitus_ja_hyvaksynta(ymparisto):
     assert kanta.lue(ehdotukset.KOKOELMA, tunniste)["tila"] == "odottaa"
     # ylläpitäjälle push heti
     assert lahetetyt == [(TILAUS["endpoint"], {"otsikko": "Uusi ehdotus: Kitkajoki (Käylä – Juuma)",
-                                               "teksti": "uusi kohde: 1 kohdetta, 1 linkkiä – Antti ⚠️ "
-                                                         "mahdollisesti sama kuin Kajakilla kahden Kuusamon "
-                                                         "kylän väliä (Muut kohteet)",
+                                               "teksti": "uusi kohde: 1 kohdetta, 1 linkkiä – Antti",
                                                "url": osoite,
                                                "toiminnot": [{"action": "taydenna", "title": "🔍 Täydennä",
                                                               "api": f"/api/ehdotus/{tunniste}/taydenna"}]})]
@@ -402,7 +400,8 @@ def test_kaksoiskappaleet(ymparisto):
     # esikatselussa varoitus
     _, otsakkeet, _ = pyynto("/ehdota", metodi="POST", runko=lomake(laji="uusi", nimi="Kitkajoki", teksti="t"))
     sivu = pyynto(otsakkeet["Location"])[2]
-    assert "⚠️ Mahdollisesti jo olemassa" in sivu and 'href="/muut/' in sivu
+    # tieto, ei varoitus; ilman mittaria ja rajoja siitä ei tehdä pisteytettävää paikkaa
+    assert "ℹ️ Ehdotuksessa ei ole mittaria ja rajoja" in sivu and 'href="/muut/' in sivu
 
 
 def test_hyvaksytty_uusi_kohde_listassa(ymparisto, monkeypatch):
@@ -473,3 +472,32 @@ def test_uusi_kohde_muunnetaan_taydennykseksi(ymparisto):
     assert toinen["mittari_avain"] == ehdotukset.LISAMITTARI
     assert paikka.mittarit[ehdotukset.LISAMITTARI].kaavio == "73/q7300100y/qinlyhyt.png"
     assert next(k for k in paikka.kohteet if k.nimi == "Y").mittari == ehdotukset.LISAMITTARI
+
+
+def test_muut_kohteet_ei_esta_uutta_paikkaa(ymparisto):
+    """Muissa kohteissa oleva reitti: pisteytettävästä ehdotuksesta tulee paikka ja päiväkirjan tiedot
+    kuvaukseen; ilman mittaria ja rajoja paikkaa ei tehdä. Muut kohteet -lista ei muutu."""
+    import muut_kohteet
+    kanta, _ = ymparisto
+    ennen = json.dumps(muut_kohteet.KOHTEET, sort_keys=True)
+    kitka = next(k for k in muut_kohteet.KOHTEET if k["tunniste"] == "kajakilla-kahden-kuusamon-kylan-valia")
+    pisteytettava = {"laji": "uusi", "nimi": "Kitkajoki (Käylä – Juuma)", "tila": "hyvaksytty", "linkit": [],
+                     "mittari": "73/q7300220y/qinlyhyt.png",
+                     "kohteet": [{"nimi": "Käylä – Juuma", "toimii": [20, None], "paras": [30, 60], "huom": ""}]}
+    pelkka = {"laji": "uusi", "nimi": "Kitkajoen reitti", "tila": "hyvaksytty", "linkit": [], "kohteet": []}
+    kanta.kirjoita(ehdotukset.KOKOELMA, "C" * 22, pisteytettava)
+    kanta.kirjoita(ehdotukset.KOKOELMA, "D" * 22, pelkka)
+    assert ehdotukset.pisteytettava(pisteytettava) and not ehdotukset.pisteytettava(pelkka)
+    nimet = [p.nimi for p in app.kaikki_paikat()]
+    assert "Kitkajoki (Käylä – Juuma)" in nimet and "Kitkajoen reitti" not in nimet
+    sivu = pyynto(f"/ehdotus/{'C' * 22}")[2]
+    assert "<h2>Melontapäiväkirjasta (Muut kohteet)</h2>" in sivu and kitka["kuvaus"][0][:40] in sivu
+    assert muut_kohteet.LAHDE in sivu and "Piirainen</a>" not in sivu   # päiväkirjaa ei linkitetä
+    # odottava: tieto Muista kohteista ei ole kaksoiskappalevaroitus
+    kanta.data[ehdotukset.KOKOELMA]["C" * 22]["tila"] = "odottaa"
+    sivu = pyynto(f"/ehdotus/{'C' * 22}")[2]
+    assert "ℹ️ Sama reitti on Muut kohteet -listassa" in sivu
+    assert '(Muut kohteet)</a> <span class="pieni">' not in sivu   # Muut kohteet ei ole varoituslistassa
+    kanta.data[ehdotukset.KOKOELMA]["D" * 22]["tila"] = "odottaa"
+    assert "siitä ei tehdä pisteytettävää" in pyynto(f"/ehdotus/{'D' * 22}")[2]
+    assert json.dumps(muut_kohteet.KOHTEET, sort_keys=True) == ennen

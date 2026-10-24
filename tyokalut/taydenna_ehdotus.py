@@ -9,6 +9,7 @@ ympäristömuuttujassa FIREBASE_SERVICE_ACCOUNT.
     uv run python tyokalut/taydenna_ehdotus.py huiput 7300100 [--suure ...]
     uv run python tyokalut/taydenna_ehdotus.py tunnusluvut 73/q7300100y/qinlyhyt.png
     uv run python tyokalut/taydenna_ehdotus.py paikka "Ollilanjärvi Kuusamo"
+    uv run python tyokalut/taydenna_ehdotus.py muut <muut-kohteet-tunniste>
     uv run python tyokalut/taydenna_ehdotus.py olemassa [--nimi "Aventojoki"] [--sijainti 66.36 29.05]
     uv run python tyokalut/taydenna_ehdotus.py tallenna taydennys.json
     uv run python tyokalut/taydenna_ehdotus.py virhe "syy"
@@ -209,6 +210,15 @@ def olemassa(a):
         print("Ei osumia: kohdetta ei löytynyt nimellä eikä sijainnilla.")
 
 
+def muut(a):
+    """Muut kohteet -reitin tiedot (melontapäiväkirja) JSONina."""
+    import muut_kohteet
+    k = muut_kohteet.HAKEMISTO.get(a.tunniste.removeprefix("/muut/"))
+    if not k:
+        sys.exit("reittiä ei löydy")
+    print(json.dumps({**k, "lahde": muut_kohteet.LAHDE}, ensure_ascii=False, indent=1))
+
+
 def tallenna(a):
     tunniste = _tunniste()
     kanta = _kanta()
@@ -274,6 +284,9 @@ def main(argv=None):
     s.add_argument("--nimi")
     s.add_argument("--sijainti", nargs=2, type=float)
     s.set_defaults(f=olemassa)
+    s = ali.add_parser("muut")
+    s.add_argument("tunniste")
+    s.set_defaults(f=muut)
     s = ali.add_parser("tallenna")
     s.add_argument("tiedosto")
     s.set_defaults(f=tallenna)

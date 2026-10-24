@@ -42,6 +42,12 @@ välitä ympäristömuuttujia.
    jos kyseessä on sama reitti tai pelipaikka, kerro se `huomiot`-kentän alussa muodossa
    "Sama kohde kuin <nimi> (<osoite>): …" ja täydennä silti, jotta ylläpitäjä voi päättää. Eri osuus
    samalla joella ei ole kaksoiskappale – mainitse se lyhyesti.
+   **Muut kohteet -osuma ei estä uutta paikkaa:** jos ehdotuksessa on (tai saat koottua) mittarin ja
+   rajat, siitä tehdään pisteytettävä paikka, vaikka sama reitti on Muut kohteet -listassa. Hae reitin
+   tiedot `muut <tunniste>` (osoitteen `/muut/<tunniste>` loppu) ja ota oleelliset tiedot (reitti, lähtö
+   ja loppu, kosket, vesitilanne melontapäivänä, korkeusero, matka) omin sanoin mukaan kuvaukseen.
+   Lisää lähteisiin `{"nimi": "Timo Piirainen: melontapäiväkirja", "url": ""}` – päiväkirjaa ei
+   linkitetä. Muut kohteet -listaa ei muuteta.
    Jos kohde on **sovelluksen olemassa oleva paikka**, mutta lähteissä tai ehdotuksessa on sille
    **uusia pelipaikkoja tai laskuosuuksia**, kirjaa ne `kohteet`-listaan rajoineen (paikan mittarin
    yksikössä, jos käytät samaa mittaria) ja kirjoita `huomiot`-kenttään "Uusia kohteita paikkaan
@@ -57,7 +63,8 @@ välitä ympäristömuuttujia.
    kosket ja luokitus), vaarat, vesitilanne ja paras aika, mistä tiedot ovat. Kappaleet erotetaan
    tyhjällä rivillä.
 10. Älä mainitse henkilöiden nimiä (kirjoittajat, melojat, ehdottaja) äläkä henkilökohtaisia
-   tapaturmia tai sattumuksia. Lähteet nimetään sivuston tai julkaisijan mukaan.
+   tapaturmia tai sattumuksia. Lähteet nimetään sivuston tai julkaisijan mukaan; poikkeus on lähde
+   "Timo Piirainen: melontapäiväkirja" (ilman linkkiä).
 11. Kirjoita täydennys JSON-tiedostoon ja tallenna: `tallenna taydennys.json`. Komento tarkistaa
     tiedoston, tallentaa sen ja lähettää ilmoitukset ylläpitäjälle ja ehdottajalle. Jos tarkistus
     hylkää tiedoston, korjaa ja yritä uudelleen.

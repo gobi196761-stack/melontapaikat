@@ -1937,6 +1937,8 @@ def kaikki_paikat() -> tuple:
         paikka, _ = ehdotukset.paikaksi(ehdotus, PAIKAT)
         if paikka is None:
             continue
+        if not ehdotukset.pisteytettava(ehdotus) and _muut_osumat(tunniste, ehdotus):
+            continue   # reitti on jo Muissa kohteissa eikä ehdotus riitä pisteytykseen: vain oma sivu
         nimi = paikka.nimi if paikka.nimi not in nimet else f"{paikka.nimi} (käyttäjän ehdotus)"
         nimet.add(nimi)
         pisteet = ehdotukset.ehdotuksen_sijainnit(ehdotus)
@@ -1974,6 +1976,29 @@ def ehdotuksen_kaksoiskappaleet(tunniste: str, ehdotus: dict) -> list[dict]:
     if ehdotus.get("laji") != "uusi":
         return []
     return ehdotukset.kaksoiskappaleet(ehdotus, _kaksoisehdokkaat(tunniste))
+
+
+def _muut_osumat(tunniste: str, ehdotus: dict) -> list[dict]:
+    """Muut kohteet -listan reitit, jotka ovat samoja kuin ehdotettu uusi kohde (eivät estä uutta paikkaa)."""
+    return [muut_kohteet.HAKEMISTO[k["osoite"].removeprefix("/muut/")]
+            for k in ehdotuksen_kaksoiskappaleet(tunniste, ehdotus)
+            if k["osoite"].startswith("/muut/") and k["osoite"].removeprefix("/muut/") in muut_kohteet.HAKEMISTO]
+
+
+def _paivakirjasta(kohteet: list[dict], kieli: str, otsikkotaso: int) -> str:
+    """Muut kohteet -reitin oleelliset tiedot uuden kohteen sivulle (lähde ilman linkkiä)."""
+    t = ehdotukset.tekstit(kieli)
+    osat = []
+    for k in kohteet[:2]:
+        tiedot = [(t["lahto"], k.get("lahto")), (t["loppu"], k.get("kohde")),
+                  ("Matka" if kieli != "en" else "Distance", k.get("matka")),
+                  ("Korkeusero" if kieli != "en" else "Drop", k.get("korkeusero"))]
+        osat.append(f"<p><b>{e(k['nimi'])}</b></p>"
+                    + "".join(f"<p>{e(kpl)}</p>" for kpl in k.get("kuvaus", []))
+                    + '<ul class="lahteet">' + "".join(f"<li><b>{e(n)}:</b> {e(v)}</li>" for n, v in tiedot if v)
+                    + "</ul>" + (f"<p>{e(k['vesi'])}</p>" if k.get("vesi") else "")
+                    + f'<p class="pieni">{e(muut_kohteet.LAHDE)}</p>')
+    return (f"<h{otsikkotaso}>{e(t['paivakirjasta'])}</h{otsikkotaso}>" + "".join(osat)) if osat else ""
 
 
 def _ehdotusluukku(kieli: str) -> str:
@@ -2330,6 +2355,8 @@ def _ehdotuksen_sisalto(tunniste: str, ehdotus: dict, kieli: str, hakija: osm.Ha
         if lisatyt:
             osat.append(f'<{h}>{e(t["kohteet_rajat"])}</{h}><ul class="kohteet">{"".join(lisatyt)}</ul>')
         osat += [f'<{h}>{e(o)}</{h}><ul class="lahteet">{lista}</ul>' for o, lista in linkkiosat]
+    if not taydennys and not tayd:   # uusi kohde: Muut kohteet -reitin tiedot (Claude yhdistää ne itse)
+        osat.append(_paivakirjasta(_muut_osumat(tunniste, ehdotus), kieli, otsikkotaso))
     if ehdotus.get("sijainti"):
         lev, pit = ehdotus["sijainti"]
         osat.append(f'<p><a href="https://www.openstreetmap.org/?mlat={lev}&amp;mlon={pit}#map=13/{lev}/{pit}" '
@@ -2407,8 +2434,14 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
     if yllapitaja and ehdotus.get("yksityiset_linkit"):   # vain ylläpitäjälle, ei linkkeinä
         yksityiset = (f'<h2>{e(t["yksityiset_otsikko"])}</h2><ul class="lahteet">'
                       + "".join(f"<li><code>{e(u)}</code></li>" for u in ehdotus["yksityiset_linkit"]) + "</ul>")
-    kaksoset = ehdotuksen_kaksoiskappaleet(tunniste, ehdotus) if tila == "odottaa" else []
+    kaikki_kaksoset = ehdotuksen_kaksoiskappaleet(tunniste, ehdotus) if tila == "odottaa" else []
+    kaksoset = [k for k in kaikki_kaksoset if not k["osoite"].startswith("/muut/")]
+    muut_osumat = [k for k in kaikki_kaksoset if k["osoite"].startswith("/muut/")]
     kaksois_html = ""
+    if muut_osumat:   # ei estä uutta paikkaa: tieto ja linkki
+        teksti = t["muut_osuma"] if ehdotukset.pisteytettava(ehdotus) else t["muut_ei_pisteytettava"]
+        kaksois_html += (f'<p class="pieni">ℹ️ {e(teksti)} ' + ", ".join(
+            f'<a href="{e(k["osoite"])}">{e(k["nimi"])}</a>' for k in muut_osumat) + "</p>")
     if kaksoset:
         muunnot = ""
         if yllapitaja:   # sovelluksen paikka: ehdotuksen pelipaikat voi lisätä siihen täydennyksenä
@@ -2424,7 +2457,7 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
             if muunnot:
                 muunnot = (f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele">{muunnot}'
                            f'<p class="pieni">{e(t["muunna_ohje"])}</p></form>')
-        kaksois_html = (f'<div class="huom"><b>⚠️ {e(t["kaksoiskappale"])}</b><ul>' + "".join(
+        kaksois_html += (f'<div class="huom"><b>⚠️ {e(t["kaksoiskappale"])}</b><ul>' + "".join(
             f'<li><a href="{e(k["osoite"])}">{e(k["nimi"])}</a> <span class="pieni">({e(k["syy"])})</span></li>'
             for k in kaksoset) + f"</ul>{muunnot}</div>")
     if ehdotus.get("alkuperainen_nimi"):
@@ -2517,7 +2550,7 @@ def tallenna_ehdotus(kentat: dict[str, list[str]], kieli: str, ip: str) -> tuple
     except (firestore.FirestoreVirhe, OSError):
         return None, t["virhe_tallennus"]
     laji = "täydennys" if ehdotus["laji"] == "taydenna" else "uusi kohde"
-    kaksoset = ehdotuksen_kaksoiskappaleet(tunniste, ehdotus)
+    kaksoset = [k for k in ehdotuksen_kaksoiskappaleet(tunniste, ehdotus) if not k["osoite"].startswith("/muut/")]
     try:
         _push_kaikille(kanta, ehdotukset.YLLAPITO, {
             "otsikko": f"Uusi ehdotus: {ehdotukset.nimi(ehdotus)}",
@@ -2562,7 +2595,8 @@ def ilmoita_taydennyksesta(tunniste: str) -> bool:
         _push_kaikille(kanta, ehdotukset.YLLAPITO, {
             "otsikko": f"Täydennetty: {nimi}", "teksti": "Esikatselu valmis – hyväksy tai hylkää." + "".join(
                 f" ⚠️ Mahdollisesti sama kuin {k['nimi']} ({k['syy']})."
-                for k in ehdotuksen_kaksoiskappaleet(tunniste, ehdotus)[:1]),
+                for k in [k for k in ehdotuksen_kaksoiskappaleet(tunniste, ehdotus)
+                          if not k["osoite"].startswith("/muut/")][:1]),
             "url": f"/ehdotus/{tunniste}"})
         avainpari = halytykset.avaimet(kanta)
         if ehdotus.get("tilaus") and avainpari:

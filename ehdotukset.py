@@ -271,6 +271,12 @@ def paikaksi(ehdotus: dict, paikat: tuple[Paikka, ...]) -> tuple[Paikka | None, 
 LISAMITTARI = "ehdotus"
 
 
+def pisteytettava(ehdotus: dict) -> bool:
+    """Riittääkö ehdotus pisteytettäväksi paikaksi: mittari ja ainakin yksi kohde rajoineen."""
+    paikka, _ = paikaksi(ehdotus, ())
+    return bool(paikka is not None and paikka.mittarit and paikka.kohteet)
+
+
 def _nimiavain(nimi: str) -> str:
     return re.sub(r"\W+", " ", nimi or "").strip().lower()
 
@@ -499,6 +505,12 @@ TEKSTIT = {
         "koottu": "Koottu lähteistä", "ehdottajan_teksti": "Ehdottajan teksti", "lahto": "Lähtö", "loppu": "Loppu",
         "mittarin_valinta": "Mittari", "huomioita": "Huomioita", "lahteet": "Lähteet",
         "kaksoiskappale": "Mahdollisesti jo olemassa (tarkista ennen hyväksyntää):",
+        "muut_osuma": "Sama reitti on Muut kohteet -listassa. Lista jää ennalleen; sen oleelliset tiedot "
+                      "otetaan tämän kohteen kuvaukseen.",
+        "muut_ei_pisteytettava": "Ehdotuksessa ei ole mittaria ja rajoja, joten siitä ei tehdä pisteytettävää "
+                                 "paikkaa: reitti on jo Muut kohteet -listassa. Hyväksytty ehdotus näkyy omana "
+                                 "sivunaan.",
+        "paivakirjasta": "Melontapäiväkirjasta (Muut kohteet)",
         "muunna": "➕ Lisää paikkaan {paikka}: {uudet} uutta kohdetta, {korjaukset} rajakorjausta",
         "muunna_ohje": "Ehdotus muutetaan täydennykseksi: uudet pelipaikat lisätään paikan kohteiksi ja "
                        "samannimiset rajakorjauksiksi. Hyväksy sen jälkeen.",
@@ -584,6 +596,11 @@ TEKSTIT = {
         "koottu": "Compiled from sources", "ehdottajan_teksti": "Text by the suggester", "lahto": "Put-in",
         "loppu": "Take-out", "mittarin_valinta": "Gauge", "huomioita": "Notes", "lahteet": "Sources",
         "kaksoiskappale": "Possibly already exists (check before approving):",
+        "muut_osuma": "The same route is in the Other routes list. The list stays as it is; its essential "
+                      "information is included in this spot's description.",
+        "muut_ei_pisteytettava": "The suggestion has no gauge and limits, so no scored spot is made: the route is "
+                                 "already in the Other routes list. An approved suggestion is shown as its own page.",
+        "paivakirjasta": "From the paddling diary (Other routes)",
         "muunna": "➕ Add to {paikka}: {uudet} new features, {korjaukset} limit corrections",
         "muunna_ohje": "The suggestion becomes an addition: new play spots are added as features of the spot "
                        "and features with the same name as limit corrections. Approve it afterwards.",
