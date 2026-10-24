@@ -204,3 +204,22 @@ def test_skriptit_ja_sijainti(ymparisto, tmp_path):
             tiedosto.write_text(osa.split("</script>")[0], encoding="utf-8")
             tulos = subprocess.run([node, "--check", str(tiedosto)], capture_output=True, text=True)
             assert tulos.returncode == 0, tulos.stderr
+
+
+def test_uusi_kohde_ja_lisaa_kohde_nappi(ymparisto):
+    """Uusi kohde: ensimmäisen kohteen nimi oletuksena paikan nimi; "+ Lisää kohde" tuo lisää rivejä."""
+    kentat = {"laji": ["uusi"], "nimi": ["Aventojoki"], "mittari": ["7300350"], "k1_toimii_ala": ["10"],
+              "k2_nimi": ["Alakoski"], "k2_toimii_ala": ["5"]}
+    ehdotus, virhe = ehdotukset.tulkitse(kentat, PAIKAT)
+    assert not virhe and [k["nimi"] for k in ehdotus["kohteet"]] == ["Aventojoki", "Alakoski"]
+    del kentat["k2_nimi"]
+    assert ehdotukset.tulkitse(kentat, PAIKAT)[1] == "Anna kohteen 2 nimi."
+    sivu = pyynto("/ehdota")[2]
+    # yksi kohde-editori, "+ Lisää kohde" siirtää kohteen tekstinä listaan (enintään 6)
+    assert sivu.count('<fieldset class="kohde-editori">') == 1 and 'id="kohdelista"' in sivu
+    assert 'id="lisaa-kohde">+ Lisää kohde</button>' in sivu and ehdotukset.KOHTEITA_ENINTAAN == 6
+    assert 'name="k1_nimi"' not in sivu   # piilokentät syntyvät vasta listasta
+    # virheen jälkeen lisätyt kohteet palaavat listaan
+    status, _, sivu = pyynto("/ehdota", metodi="POST", runko=lomake(laji="uusi", nimi="X", k1_nimi="A",
+                                                                     k1_toimii_ala="1", k2_nimi="B", k2_toimii_ala="x"))
+    assert status == "400 Bad Request" and '"nimi": "B", "toimii_ala": "x"' in sivu
