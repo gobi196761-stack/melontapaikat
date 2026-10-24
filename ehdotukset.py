@@ -417,7 +417,7 @@ TEKSTIT = {
         "teksti_ohje": "Esim. lähtö- ja lopetuspaikat, kosket, pelipaikkojen kuvaukset, kokemukset eri vesillä.",
         "ehdottaja": "Nimesi tai nimimerkki (vapaaehtoinen)", "laheta": "Lähetä ehdotus",
         "tietosuoja": "Ehdotuksesta tallennetaan vain lomakkeen tiedot. Julkaistussa ehdotuksessa näkyy "
-                      "antamasi nimimerkki.",
+                      "antamasi nimimerkki; vain rakentamiseen annettuja linkkejä ei julkaista.",
         "esikatselu": "Ehdotuksen esikatselu", "tila_odottaa": "odottaa hyväksyntää",
         "tila_hyvaksytty": "hyväksytty ja julkaistu", "tila_hylatty": "hylätty",
         "taydennys": "Täydennys paikkaan", "uusi_kohde": "Uusi kohde",
@@ -495,7 +495,8 @@ TEKSTIT = {
         "yksityiset_otsikko": "Only for building the page (not published)", "teksti": "Your text",
         "teksti_ohje": "E.g. put-in and take-out, rapids, play spot descriptions, experiences at different levels.",
         "ehdottaja": "Your name or nickname (optional)", "laheta": "Send suggestion",
-        "tietosuoja": "Only the form contents are stored. A published suggestion shows the nickname you gave.",
+        "tietosuoja": "Only the form contents are stored. A published suggestion shows the nickname you gave; "
+                      "links given only for building the page are not published.",
         "esikatselu": "Suggestion preview", "tila_odottaa": "awaiting approval",
         "tila_hyvaksytty": "approved and published", "tila_hylatty": "rejected",
         "taydennys": "Addition to", "uusi_kohde": "New spot",

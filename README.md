@@ -217,7 +217,9 @@ välillä lakannut täyttymästä.
 Etusivun luukusta (merkintöjen alla) pääsee lomakkeelle `/ehdota` (`ehdotukset.py`):
 uusi kohde (nimi, SYKE-aseman numero tai kaavion linkki, sijainti) tai täydennys
 olemassa olevaan paikkaan, kohteet toimii- ja optimirajoineen (olemassa olevan
-kohteen nimellä rajakorjaus), vesitieto-, video- ja muut linkit sekä oma teksti.
+kohteen nimellä rajakorjaus), julkaistavat vesitieto-, video- ja muut linkit,
+linkit vain sivun rakentamiseen (esim. henkilökohtaiset; ei näytetä eikä linkitetä,
+näkyvät vain ylläpitäjälle, täydennys ei saa julkaista niitä) sekä oma teksti.
 Sähköpostia ei kerätä.
 
 - Ehdotus tallentuu Firestoreen (kokoelma `ehdotukset`), ja ehdottaja ohjataan
