@@ -890,7 +890,8 @@ def test_turvavaroitukset_avattavana_osiona(monkeypatch, tilanne):
     assert '<details class="turva"><summary><span class="turva-otsikko">🥶 Kylmä vesi' in fi
     assert '<span class="turva-otsikko">💨 Maatuuli ja matala vesi</span></summary>' in fi
     assert "itätuulta 6 m/s" in fi and "Mustasalmi" in fi
-    assert fi.index('<details class="turva">') < fi.index('<details class="selitykset">')
+    assert fi.index('<details class="turva">') < fi.index('<details class="selitykset">') \
+        < fi.index('<details class="ehdota">')
     assert 'id="turva"' not in fi and "turva-tausta" not in fi   # ei ponnahdusikkunaa
     en = pyynto("/", "kieli=en")[2]
     assert "Cold water: a dry suit is the only right choice" in en and "Offshore wind on the Oulu coast" in en
