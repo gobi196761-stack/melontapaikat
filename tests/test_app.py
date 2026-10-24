@@ -881,7 +881,14 @@ def test_englanninkielisen_etusivun_linkit(palvelin):
     assert '/paikka/kipina-iijoki?kieli=en"' in sivu
 
 
+def test_ikkuna_pois_kaytosta(monkeypatch, tilanne):
+    turva = {"meri": 6.0}
+    monkeypatch.setattr(app, "hae_tilanne", lambda: app.Tilanne(**{**tilanne.__dict__, "turva": turva}))
+    assert not app.TURVAIKKUNA and 'id="turva"' not in pyynto("/")[2]
+
+
 def test_ikkuna_etusivulla(monkeypatch, tilanne):
+    monkeypatch.setattr(app, "TURVAIKKUNA", True)
     turva = {"meri": 6.0, "maatuuli": {"ms": 6.0, "puuska": None, "suunta": 90, "aika": PAIVA.timestamp(),
                                        "alkaa": PAIVA.timestamp()}}
     monkeypatch.setattr(app, "hae_tilanne", lambda: app.Tilanne(**{**tilanne.__dict__, "turva": turva}))

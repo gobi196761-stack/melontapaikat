@@ -105,7 +105,7 @@ def hae_tilanne() -> Tilanne:
             oulusta = {}
         tilanne = Tilanne(nyt, tulokset, varoitukset, len(lukemat), saaennusteet(hakija),
                           oulusta.get("min", {}), oulusta.get("km", {}), surffitilanne(hakija),
-                          turvallisuus.hae(hakija))
+                          turvallisuus.hae(hakija) if TURVAIKKUNA else {})
         if lukemat:   # epäonnistunutta hakua ei jätetä muistiin
             _tilanne = (time.monotonic(), tilanne)
         return tilanne
@@ -1095,10 +1095,17 @@ def _lukumaara(n: int, k_) -> str:
     return f"{n} {k_('paikka') if n == 1 else k_('paikkaa')}"
 
 
+# Turvallisuusvaroituksen ponnahdusikkuna (kylmä vesi, maatuuli) pois käytöstä käyttäjän pyynnöstä;
+# True ottaa sen takaisin (myös Ilmatieteen laitoksen haut).
+TURVAIKKUNA = False
+
+
 def _turvaikkuna(tilanne: Tilanne, kieli: str) -> str:
     """Sovelluksen avautuessa esiin ponnahtava varoitus (kylmä vesi, maatuuli, matala merivesi).
     Sulkeutuu itsestään lukemiseen riittävän ajan jälkeen tai sulkunapista; ei uudelleen samassa
-    istunnossa, ellei varoitus muutu."""
+    istunnossa, ellei varoitus muutu. Pois käytöstä, kun TURVAIKKUNA on False."""
+    if not TURVAIKKUNA:
+        return ""
     joet = [l.veden_lampotila for t in tilanne.tulokset if t.paikka.maa == "FI"
             for l in t.lukemat.values() if l is not None and l.veden_lampotila is not None]
     viestit = turvallisuus.viestit(tilanne.turva, joet, kieli, _ajankohta)
