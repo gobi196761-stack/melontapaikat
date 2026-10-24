@@ -42,6 +42,10 @@ välitä ympäristömuuttujia.
    jos kyseessä on sama reitti tai pelipaikka, kerro se `huomiot`-kentän alussa muodossa
    "Sama kohde kuin <nimi> (<osoite>): …" ja täydennä silti, jotta ylläpitäjä voi päättää. Eri osuus
    samalla joella ei ole kaksoiskappale – mainitse se lyhyesti.
+   Jos kohde on **sovelluksen olemassa oleva paikka**, mutta lähteissä tai ehdotuksessa on sille
+   **uusia pelipaikkoja tai laskuosuuksia**, kirjaa ne `kohteet`-listaan rajoineen (paikan mittarin
+   yksikössä, jos käytät samaa mittaria) ja kirjoita `huomiot`-kenttään "Uusia kohteita paikkaan
+   <nimi>: …". Ylläpitäjä voi silloin yhdellä napilla muuttaa ehdotuksen paikan täydennykseksi.
 7. Vesitiedot melontapäiviltä: jos lähteessä on päivämäärä, hae sen päivän arvo `vesi <nro> <pvm>`.
    Tulvan harvinaisuuden arvioon `huiput <nro>` ja `tunnusluvut <mittari>` (MHQ = keskimääräinen
    kevättulvan huippu, MNQ = keskimääräinen alivirtaama).

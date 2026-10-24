@@ -71,9 +71,11 @@ def mittari_tekstista(teksti: str, suure: str) -> str | None:
     teksti = (teksti or "").strip()
     if not teksti:
         return None
-    m = re.search(r"(\d{2})/([qw])(\d{7})y(?:/([a-z0-9]+\.png))?", teksti)
-    if m:
+    m = re.search(r"(\d{2})/([a-z]{1,3})(\d{5,10})y(?:/([a-z0-9]+\.png))?", teksti)
+    if m:   # kaavion osoite, myös muut asematyypit (esim. 61/l611331001y/w3lyhyt.png)
         alue, laji, nro, tiedosto = m.groups()
+        if tiedosto and tiedosto.startswith(("q", "w")):
+            return f"{alue}/{laji}{nro}y/{tiedosto}"
     else:
         m = re.search(r"\b([qw])?(\d{7})y?\b", teksti)
         if not m:
@@ -82,7 +84,7 @@ def mittari_tekstista(teksti: str, suure: str) -> str | None:
         alue, tiedosto = nro[:2], None
         laji = laji or ("w" if suure == "vedenkorkeus" else "q")
     if not tiedosto or not tiedosto.startswith(("q", "w")):
-        tiedosto = "qinlyhyt.png" if laji == "q" else "wlyhyt.png"
+        tiedosto = "qinlyhyt.png" if laji.startswith("q") else "wlyhyt.png"
     return f"{alue}/{laji}{nro}y/{tiedosto}"
 
 
@@ -251,16 +253,59 @@ def paikaksi(ehdotus: dict, paikat: tuple[Paikka, ...]) -> tuple[Paikka | None, 
         paikka = next((p for p in paikat if p.nimi == ehdotus.get("paikka")), None)
         if paikka is None:
             return None, uudet
-        avain = ehdotus.get("mittari_avain") or next(iter(paikka.mittarit), "paa")
+        mittarit = dict(paikka.mittarit)
+        if ehdotus.get("lisamittari"):   # uudesta kohteesta muunnettu: ehdotuksen oma mittari rinnalle
+            mittarit[LISAMITTARI] = Mittari(ehdotus["lisamittari"], lisakaavio=True)
+        avain = ehdotus.get("mittari_avain") or next(iter(mittarit), "paa")
         ehdotetut = [_kohde(k, avain) for k in kohteet_]
         vanhat = [k for k in paikka.kohteet if k.nimi not in uudet]
-        return replace(paikka, kohteet=tuple(vanhat + ehdotetut)), uudet
+        return replace(paikka, mittarit=mittarit, kohteet=tuple(vanhat + ehdotetut)), uudet
     kaavio = ehdotus.get("mittari") or taydennys.get("mittari")
     mittarit = {"paa": Mittari(kaavio, lisakaavio=True)} if kaavio else {}
     kohteet = tuple(_kohde(k, "paa") for k in kohteet_) if mittarit else ()
     linkit = ehdotus.get("linkit") or []
     return Paikka(nimi(ehdotus), linkit[0]["url"] if linkit else "", ehdotus.get("tyyppi", "retki"),
                   None, (ehdotus.get("teksti") or taydennys.get("teksti") or "")[:300], mittarit, kohteet), uudet
+
+
+LISAMITTARI = "ehdotus"
+
+
+def _nimiavain(nimi: str) -> str:
+    return re.sub(r"\W+", " ", nimi or "").strip().lower()
+
+
+def uudet_kohteet_paikkaan(ehdotus: dict, paikka: Paikka) -> tuple[list[str], list[str]]:
+    """Uuden kohteen ehdotuksen kohteet olemassa olevaan paikkaan verrattuna: (uudet, rajakorjaukset)."""
+    olemassa = {_nimiavain(k.nimi) for k in paikka.kohteet}
+    nimet = [k["nimi"] for k in kaikki_kohteet(ehdotus)]
+    return ([n for n in nimet if _nimiavain(n) not in olemassa], [n for n in nimet if _nimiavain(n) in olemassa])
+
+
+def muunna_taydennykseksi(ehdotus: dict, paikka: Paikka) -> dict:
+    """Uusi kohde, joka onkin olemassa oleva paikka: ehdotus täydennykseksi paikkaan. Ehdottajan ja
+    täydennyksen kohteet tulevat paikan uusiksi kohteiksi (samanniminen = rajakorjaus); jos ehdotuksen
+    mittari on eri kuin paikan, se lisätään paikalle kohteiden mittariksi."""
+    t = valmis_taydennys(ehdotus)
+    uusi = {**ehdotus, "laji": "taydenna", "paikka": paikka.nimi, "alkuperainen_nimi": nimi(ehdotus),
+            "kohteet": kaikki_kohteet(ehdotus)}
+    olemassa = {_nimiavain(k.nimi): k.nimi for k in paikka.kohteet}
+    for k in uusi["kohteet"]:   # sama kohde eri kirjoitusasulla -> olemassa olevan nimi (rajakorjaus)
+        k["nimi"] = olemassa.get(_nimiavain(k["nimi"]), k["nimi"])
+    if t:
+        uusi["taydennys"] = {**ehdotus["taydennys"], "kohteet": []}   # kohteet siirretty ehdotukseen
+    kaavio = ehdotus.get("mittari") or t.get("mittari")
+    omat = {m.kaavio: a for a, m in paikka.mittarit.items()}
+    if kaavio and kaavio in omat:
+        uusi["mittari_avain"] = omat[kaavio]
+    elif kaavio:
+        uusi["lisamittari"], uusi["mittari_avain"] = kaavio, LISAMITTARI
+    else:
+        uusi["mittari_avain"] = next(iter(paikka.mittarit), "paa")
+    for kentta in ("nimi", "mittari", "sijainti", "tyyppi"):
+        uusi.pop(kentta, None)
+    uusi["nimi"] = paikka.nimi
+    return uusi
 
 
 # ---------------------------------------------------------------------------
@@ -454,6 +499,10 @@ TEKSTIT = {
         "koottu": "Koottu lähteistä", "ehdottajan_teksti": "Ehdottajan teksti", "lahto": "Lähtö", "loppu": "Loppu",
         "mittarin_valinta": "Mittari", "huomioita": "Huomioita", "lahteet": "Lähteet",
         "kaksoiskappale": "Mahdollisesti jo olemassa (tarkista ennen hyväksyntää):",
+        "muunna": "➕ Lisää paikkaan {paikka}: {uudet} uutta kohdetta, {korjaukset} rajakorjausta",
+        "muunna_ohje": "Ehdotus muutetaan täydennykseksi: uudet pelipaikat lisätään paikan kohteiksi ja "
+                       "samannimiset rajakorjauksiksi. Hyväksy sen jälkeen.",
+        "muunnettu": "Muutettu uudesta kohteesta täydennykseksi (alkuperäinen nimi: {nimi}).",
         "alkupera_arvio": "arvio lähteistä", "alkupera_ehdottaja": "ehdottaja", "kartta": "kartta",
     },
     "en": {
@@ -535,6 +584,10 @@ TEKSTIT = {
         "koottu": "Compiled from sources", "ehdottajan_teksti": "Text by the suggester", "lahto": "Put-in",
         "loppu": "Take-out", "mittarin_valinta": "Gauge", "huomioita": "Notes", "lahteet": "Sources",
         "kaksoiskappale": "Possibly already exists (check before approving):",
+        "muunna": "➕ Add to {paikka}: {uudet} new features, {korjaukset} limit corrections",
+        "muunna_ohje": "The suggestion becomes an addition: new play spots are added as features of the spot "
+                       "and features with the same name as limit corrections. Approve it afterwards.",
+        "muunnettu": "Converted from a new spot into an addition (original name: {nimi}).",
         "alkupera_arvio": "estimate from sources", "alkupera_ehdottaja": "suggester", "kartta": "map",
     },
 }

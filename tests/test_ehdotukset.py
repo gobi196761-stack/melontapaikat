@@ -437,3 +437,39 @@ def test_hyvaksytty_uusi_kohde_listassa(ymparisto, monkeypatch):
     app._ehdotukset = None
     app.hae_tilanne()
     assert len(kaytetyt) == 2 and "Aventojoki" not in kaytetyt[1]
+
+
+def test_uusi_kohde_muunnetaan_taydennykseksi(ymparisto):
+    """Uusi kohde, joka onkin olemassa oleva paikka: ylläpitäjä lisää sen uudet pelipaikat paikkaan."""
+    kanta, _ = ymparisto
+    avain, mittari = next(iter(KIPINA.mittarit.items()))
+    vanha = KIPINA.kohteet[0].nimi
+    _, otsakkeet, _ = pyynto("/ehdota", metodi="POST", runko=lomake(
+        laji="uusi", nimi="Pudasjärven silta", sijainti=f"{KIPINA.sijainti[0]}, {KIPINA.sijainti[1]}",
+        mittari=f"https://wwwi2.ymparisto.fi/i2/{mittari.kaavio}", suure="vedenkorkeus",
+        k1_nimi="Uusi kivi-aalto", k1_toimii_ala="107.0", k2_nimi=vanha.upper(), k2_toimii_ala="107.6"))
+    osoite = otsakkeet["Location"]
+    tunniste = osoite.removeprefix("/ehdotus/")
+    _, ylla, _ = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))
+    evaste = ylla["Set-Cookie"].split(";")[0]
+    sivu = pyynto(osoite, evaste=evaste)[2]
+    assert f"➕ Lisää paikkaan {KIPINA.nimi}: 1 uutta kohdetta, 1 rajakorjausta" in sivu
+    assert "➕ Lisää paikkaan" not in pyynto(osoite)[2]   # vain ylläpitäjälle
+    toiminto = f"muunna:{app.paikkasivut.tunniste(KIPINA.nimi)}"
+    assert pyynto(f"{osoite}/kasittele", metodi="POST", runko=lomake(toiminto=toiminto), evaste=evaste)[0] \
+        == "303 See Other"
+    ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste)
+    assert ehdotus["laji"] == "taydenna" and ehdotus["paikka"] == KIPINA.nimi and ehdotus["mittari_avain"] == avain
+    assert [k["nimi"] for k in ehdotus["kohteet"]] == ["Uusi kivi-aalto", vanha]   # kirjoitusasu olemassa olevan
+    sivu = pyynto(osoite)[2]
+    assert f"Täydennys paikkaan: {KIPINA.nimi}" in sivu and "alkuperäinen nimi: Pudasjärven silta" in sivu
+    muuttuu = sivu.split('<h2 class="muuttuu">Muuttuu</h2>')[1].split('<h2 class="tulossa">')[0]
+    assert vanha in muuttuu and "Uusi kivi-aalto" in sivu.split('<h2 class="tulossa">')[1]
+    # eri mittari: ehdotuksen mittari lisätään paikalle kohteiden mittariksi
+    toinen = ehdotukset.muunna_taydennykseksi({"laji": "uusi", "nimi": "X", "mittari": "73/q7300100y/qinlyhyt.png",
+                                               "kohteet": [{"nimi": "Y", "toimii": [1, None], "paras": [1, None]}],
+                                               "linkit": []}, KIPINA)
+    paikka, _ = ehdotukset.paikaksi(toinen, PAIKAT)
+    assert toinen["mittari_avain"] == ehdotukset.LISAMITTARI
+    assert paikka.mittarit[ehdotukset.LISAMITTARI].kaavio == "73/q7300100y/qinlyhyt.png"
+    assert next(k for k in paikka.kohteet if k.nimi == "Y").mittari == ehdotukset.LISAMITTARI

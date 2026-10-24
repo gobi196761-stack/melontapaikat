@@ -2410,9 +2410,25 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
     kaksoset = ehdotuksen_kaksoiskappaleet(tunniste, ehdotus) if tila == "odottaa" else []
     kaksois_html = ""
     if kaksoset:
+        muunnot = ""
+        if yllapitaja:   # sovelluksen paikka: ehdotuksen pelipaikat voi lisätä siihen täydennyksenä
+            for k in kaksoset:
+                paikka = next((p for p in PAIKAT if paikan_osoite(p) == k["osoite"]), None)
+                if paikka is None:
+                    continue
+                uudet, korjaukset = ehdotukset.uudet_kohteet_paikkaan(ehdotus, paikka)
+                muunnot += (f'<button class="nappi toissijainen" name="toiminto" '
+                            f'value="muunna:{e(paikkasivut.tunniste(paikka.nimi))}">'
+                            f'{e(t["muunna"].format(paikka=paikka.nimi, uudet=len(uudet), korjaukset=len(korjaukset)))}'
+                            f'</button>')
+            if muunnot:
+                muunnot = (f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele">{muunnot}'
+                           f'<p class="pieni">{e(t["muunna_ohje"])}</p></form>')
         kaksois_html = (f'<div class="huom"><b>⚠️ {e(t["kaksoiskappale"])}</b><ul>' + "".join(
             f'<li><a href="{e(k["osoite"])}">{e(k["nimi"])}</a> <span class="pieni">({e(k["syy"])})</span></li>'
-            for k in kaksoset) + "</ul></div>")
+            for k in kaksoset) + f"</ul>{muunnot}</div>")
+    if ehdotus.get("alkuperainen_nimi"):
+        kaksois_html += f'<p class="pieni">{e(t["muunnettu"].format(nimi=ehdotus["alkuperainen_nimi"]))}</p>'
     runko = (f"<h1>{e(otsikko)}</h1>{meta}{alku}{kaksois_html}{taydennys_tila}{hallinta}{ilmoitus}"
              f"{_ehdotuksen_sisalto(tunniste, ehdotus, kieli, hakija)}{yksityiset}")
     return _sivupohja(otsikko, runko, kieli, _osoite(kieli=kieli))
@@ -2563,6 +2579,16 @@ def kasittele_ehdotus(tunniste: str, toiminto: str) -> bool:
     """Ylläpitäjän hyväksyntä tai hylkäys; ilmoittaa ehdottajalle. False = ei löytynyt."""
     if toiminto == "taydenna":
         taydenna_ehdotus(tunniste)
+        return True
+    if toiminto.startswith("muunna:"):   # uusi kohde onkin olemassa oleva paikka -> täydennys siihen
+        paikka = PAIKKASIVUT.get(toiminto.removeprefix("muunna:"))
+        kanta = _kanta()
+        ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste) if kanta and ehdotukset.kelvollinen_tunniste(tunniste) \
+            else None
+        if not paikka or not ehdotus or ehdotus.get("laji") != "uusi" or ehdotus.get("tila") != "odottaa":
+            return False
+        kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotukset.muunna_taydennykseksi(ehdotus, paikka))
+        kaikki_ehdotukset(pakota=True)
         return True
     kanta = _kanta()
     ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste) if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None
