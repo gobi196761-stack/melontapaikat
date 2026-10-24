@@ -27,7 +27,6 @@ välimuistiin (Cache-Control: s-maxage). Näin vain harva pyyntö odottaa.
 from __future__ import annotations
 
 import datetime as dt
-import hashlib
 import hmac
 import html
 import json
@@ -105,7 +104,7 @@ def hae_tilanne() -> Tilanne:
             oulusta = {}
         tilanne = Tilanne(nyt, tulokset, varoitukset, len(lukemat), saaennusteet(hakija),
                           oulusta.get("min", {}), oulusta.get("km", {}), surffitilanne(hakija),
-                          turvallisuus.hae(hakija) if TURVAIKKUNA else {})
+                          turvallisuus.hae(hakija))
         if lukemat:   # epäonnistunutta hakua ei jätetä muistiin
             _tilanne = (time.monotonic(), tilanne)
         return tilanne
@@ -419,21 +418,13 @@ li[hidden] { display:none; }
 .lahteet li { overflow-wrap:anywhere; }
 .matka, .lampotilat { margin:1px 0; }
 .kajakit { white-space:nowrap; }
-.turva-tausta { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:50; display:flex;
-               align-items:center; justify-content:center; padding:16px; }
-.turva-tausta[hidden] { display:none; }
-.turva { position:relative; background:var(--tausta); color:var(--teksti); border-radius:12px; max-width:520px;
-         width:100%; max-height:90vh; overflow:auto; padding:16px 18px 14px; border-top:6px solid var(--huono);
-         box-shadow:0 8px 30px rgba(0,0,0,.35); }
-.turva h2 { margin:0 28px 8px 0; font-size:1.15rem; }
-.turva h3 { margin:12px 0 4px; font-size:1rem; color:var(--huono); }
+.turva { background:var(--pinta); border-left:4px solid var(--huono); border-radius:8px; padding:8px 12px;
+         margin:12px 0; }
+.turva summary { color:var(--huono); font-weight:600; font-size:.92rem; }
+.turva-otsikko { display:inline; }
+.turva-otsikko + .turva-otsikko::before { content:" · "; color:var(--heikko); font-weight:400; }
+.turva h3 { margin:10px 0 2px; font-size:.95rem; color:var(--huono); }
 .turva p { margin:0 0 6px; line-height:1.45; }
-.turva-sulje { position:absolute; top:6px; right:8px; border:0; background:none; font-size:1.6rem;
-               line-height:1; color:var(--heikko); cursor:pointer; padding:4px 8px; }
-.turva-aika { height:4px; background:var(--viiva); border-radius:2px; overflow:hidden; margin:10px 0; }
-.turva-aika span { display:block; height:100%; width:100%; background:var(--huono); }
-.turva-ok { display:block; margin-left:auto; padding:6px 18px; border-radius:6px; border:1px solid var(--teksti);
-            background:var(--teksti); color:var(--tausta); font-weight:600; cursor:pointer; }
 .selitykset { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
 .selitykset ul { display:flex; flex-wrap:wrap; gap:4px 16px; list-style:none; padding:0; margin:6px 0; }
 .selitykset p { margin:4px 0 0; }
@@ -1095,70 +1086,22 @@ def _lukumaara(n: int, k_) -> str:
     return f"{n} {k_('paikka') if n == 1 else k_('paikkaa')}"
 
 
-# Turvallisuusvaroituksen ponnahdusikkuna (kylmä vesi, maatuuli) pois käytöstä käyttäjän pyynnöstä;
-# True ottaa sen takaisin (myös Ilmatieteen laitoksen haut).
-TURVAIKKUNA = False
-
-
-def _turvaikkuna(tilanne: Tilanne, kieli: str) -> str:
-    """Sovelluksen avautuessa esiin ponnahtava varoitus (kylmä vesi, maatuuli, matala merivesi).
-    Sulkeutuu itsestään lukemiseen riittävän ajan jälkeen tai sulkunapista; ei uudelleen samassa
-    istunnossa, ellei varoitus muutu. Pois käytöstä, kun TURVAIKKUNA on False."""
-    if not TURVAIKKUNA:
-        return ""
+def _turvaosio(tilanne: Tilanne, kieli: str) -> str:
+    """Turvallisuusvaroitukset (kylmä vesi, maatuuli, matala merivesi) avattavana osiona
+    merkintöjen yläpuolella: kiinni ollessa näkyvät varoitusten otsikot punaisella, avattuna
+    koko teksti. Ei mitään, kun varoitettavaa ei ole."""
     joet = [l.veden_lampotila for t in tilanne.tulokset if t.paikka.maa == "FI"
             for l in t.lukemat.values() if l is not None and l.veden_lampotila is not None]
     viestit = turvallisuus.viestit(tilanne.turva, joet, kieli, _ajankohta)
     if not viestit:
         return ""
     en = kieli == "en"
-    avain = hashlib.sha256("".join(o + t for o, t in viestit).encode()).hexdigest()[:10]
-    osiot = "".join(f"<h3>{e(o)}</h3><p>{e(t)}</p>" for o, t in viestit)
-    return f"""<div id="turva" class="turva-tausta" hidden data-avain="{avain}">
-<div class="turva" role="alertdialog" aria-modal="true" aria-labelledby="turva-otsikko">
-<button type="button" class="turva-sulje" aria-label="{"Close" if en else "Sulje"}">×</button>
-<h2 id="turva-otsikko">{"Before you go out on the water" if en else "Ennen vesille lähtöä"}</h2>
-{osiot}
-<p class="pieni">{"Sources: Finnish Meteorological Institute (Oulu Toppila), SYKE." if en else
-                  "Lähteet: Ilmatieteen laitos (Oulu Toppila), SYKE."}</p>
-<div class="turva-aika"><span></span></div>
-<button type="button" class="turva-ok">{"Got it" if en else "Selvä"}</button>
-</div>
-</div>
-<script>
-(() => {{
-  const ikkuna = document.getElementById("turva");
-  let avain = null;
-  try {{ avain = sessionStorage.getItem("melonta-turva"); }} catch (e) {{}}
-  if (!ikkuna || avain === ikkuna.dataset.avain) return;
-  let ajastin = null;
-  const sulje = () => {{
-    clearTimeout(ajastin);
-    ikkuna.hidden = true;
-    try {{ sessionStorage.setItem("melonta-turva", ikkuna.dataset.avain); }} catch (e) {{}}
-  }};
-  // lukuaika: 6 s + noin 4 sanaa sekunnissa, enintään minuutti
-  const sanoja = ikkuna.querySelector(".turva").textContent.split(/\\s+/).length;
-  const kesto = Math.min(60000, 6000 + sanoja * 250);
-  const palkki = ikkuna.querySelector(".turva-aika span");
-  ikkuna.hidden = false;
-  palkki.style.transition = "none";
-  palkki.style.width = "100%";
-  requestAnimationFrame(() => requestAnimationFrame(() => {{
-    palkki.style.transition = "width " + kesto + "ms linear";
-    palkki.style.width = "0";
-  }}));
-  ajastin = setTimeout(sulje, kesto);
-  // koskettaminen tai hiiren vieminen ikkunaan pysäyttää sulkeutumisen
-  ikkuna.querySelector(".turva").addEventListener("pointerdown", () => {{
-    clearTimeout(ajastin);
-    palkki.parentElement.hidden = true;
-  }});
-  ikkuna.querySelectorAll(".turva-sulje, .turva-ok").forEach(b => b.addEventListener("click", sulje));
-  ikkuna.addEventListener("click", ev => {{ if (ev.target === ikkuna) sulje(); }});
-  document.addEventListener("keydown", ev => {{ if (ev.key === "Escape") sulje(); }});
-}})();
-</script>"""
+    otsikot = "".join(f'<span class="turva-otsikko">{e(o)}</span>' for o, _ in viestit)
+    tekstit = "".join(f"<h3>{e(o)}</h3><p>{e(t)}</p>" for o, t in viestit)
+    lahde = ("Sources: Finnish Meteorological Institute (Oulu Toppila), SYKE." if en else
+             "Lähteet: Ilmatieteen laitos (Oulu Toppila), SYKE.")
+    return (f'<details class="turva"><summary>{otsikot}</summary>{tekstit}'
+            f'<p class="pieni">{lahde}</p></details>')
 
 
 def _osoite(**parametrit) -> str:
@@ -1219,9 +1162,9 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div>
 <div class="meta">{k_("osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet")} ·
 {k_("päivitetty klo")} {tilanne.paivitetty:%H.%M}</div>
+{_turvaosio(tilanne, kieli)}
 {_selitykset(kieli)}
 {_halytysosio(k_)}
-{_turvaikkuna(tilanne, kieli)}
 <nav>{suodattimet}<button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button>
 <label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
 placeholder="{k_("esim. Rovaniemi")}"></label>

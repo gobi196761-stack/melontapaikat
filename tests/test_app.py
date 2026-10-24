@@ -881,27 +881,21 @@ def test_englanninkielisen_etusivun_linkit(palvelin):
     assert '/paikka/kipina-iijoki?kieli=en"' in sivu
 
 
-def test_ikkuna_pois_kaytosta(monkeypatch, tilanne):
-    turva = {"meri": 6.0}
-    monkeypatch.setattr(app, "hae_tilanne", lambda: app.Tilanne(**{**tilanne.__dict__, "turva": turva}))
-    assert not app.TURVAIKKUNA and 'id="turva"' not in pyynto("/")[2]
-
-
-def test_ikkuna_etusivulla(monkeypatch, tilanne):
-    monkeypatch.setattr(app, "TURVAIKKUNA", True)
+def test_turvavaroitukset_avattavana_osiona(monkeypatch, tilanne):
     turva = {"meri": 6.0, "maatuuli": {"ms": 6.0, "puuska": None, "suunta": 90, "aika": PAIVA.timestamp(),
                                        "alkaa": PAIVA.timestamp()}}
     monkeypatch.setattr(app, "hae_tilanne", lambda: app.Tilanne(**{**tilanne.__dict__, "turva": turva}))
     fi = pyynto("/")[2]
-    assert 'id="turva" class="turva-tausta" hidden' in fi and "Ennen vesille lähtöä" in fi
-    assert "Kylmä vesi: kuivapuku on ainoa oikea ratkaisu" in fi and "itätuulta 6 m/s" in fi
-    assert 'class="turva-sulje" aria-label="Sulje">×</button>' in fi
+    # kiinni oletuksena, otsikot (punaiset) näkyvissä, koko teksti avattuna; merkintöjen yläpuolella
+    assert '<details class="turva"><summary><span class="turva-otsikko">🥶 Kylmä vesi' in fi
+    assert '<span class="turva-otsikko">💨 Maatuuli ja matala vesi</span></summary>' in fi
+    assert "itätuulta 6 m/s" in fi and "Mustasalmi" in fi
+    assert fi.index('<details class="turva">') < fi.index('<details class="selitykset">')
+    assert 'id="turva"' not in fi and "turva-tausta" not in fi   # ei ponnahdusikkunaa
     en = pyynto("/", "kieli=en")[2]
-    assert "Before you go out on the water" in en and "Offshore wind on the Oulu coast" in en
-    node = shutil.which("node")
-    if not node:
-        pytest.skip("node puuttuu")
-    skripti = fi.split('<div id="turva"')[1].split("<script>")[1].split("</script>")[0]
-    import subprocess
-    tulos = subprocess.run([node, "--check", "-"], input=skripti, capture_output=True, text=True)
-    assert tulos.returncode == 0, tulos.stderr
+    assert "Cold water: a dry suit is the only right choice" in en and "Offshore wind on the Oulu coast" in en
+    monkeypatch.setattr(app, "hae_tilanne", lambda: app.Tilanne(**{**tilanne.__dict__, "turva": {}}))
+    ilman = pyynto("/")[2]
+    assert ('<details class="turva">' in ilman) == any(
+        l is not None and l.veden_lampotila is not None and l.veden_lampotila < 15
+        for t in tilanne.tulokset for l in t.lukemat.values())
