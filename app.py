@@ -2317,6 +2317,12 @@ def _ehdotuksen_sisalto(tunniste: str, ehdotus: dict, kieli: str, hakija: osm.Ha
                 + (f", {'at its best' if en else 'parhaimmillaan'} {paras}" if paras != toimii else ""))
 
     tayd = ehdotukset.valmis_taydennys(ehdotus)
+    tayd_en = (tayd.get("en") or {}) if en else {}   # englanninkieliset tekstit (täydennys kääntää)
+    if tayd_en:
+        tayd = {**tayd, **{k: v for k, v in tayd_en.items() if k not in ("huom", "ehdottajan_teksti")}}
+
+    def huom_(k: dict) -> str:
+        return tayd_en.get("huom", {}).get(k["nimi"]) or k.get("huom") or ""
 
     def alkupera(arvio: bool) -> str:   # kun täydennys on tehty: kuka kohteen rajat antoi
         if not tayd:
@@ -2354,15 +2360,16 @@ def _ehdotuksen_sisalto(tunniste: str, ehdotus: dict, kieli: str, hakija: osm.Ha
             huom = ""
             if k.get("huom") and k["huom"] != v.huom:
                 huom = (f'<br><span class="pieni">{e(t["nyt"])}: {e(v.huom) or "–"}</span>'
-                        f'<br>{e(t["huom"])} → {e(k["huom"])}')
+                        f'<br>{e(t["huom"])} → {e(huom_(k))}')
             muutokset.append(f'<li><b>{e(k["nimi"])}</b>{alkupera(k.get("arvio"))}{huomautus}<br>'
                              f'<span class="pieni">{e(t["nyt"])}: {e(rajateksti(v, yksikko))}</span><br>'
                              f'<span class="rajat">→ {e(suureiden_rajat(rajat))}</span>{huom}</li>')
         else:
             lisatyt.append(f'<li><b>{e(k["nimi"])}</b>{alkupera(k.get("arvio"))}{huomautus}<br>'
                            f'<span class="rajat">{e(suureiden_rajat(rajat))}</span>'
-                           f'{"<br>" + e(k["huom"]) if k.get("huom") else ""}</li>')
-    teksti = "".join(f"<p>{e(kpl)}</p>" for kpl in re.split(r"\n\s*\n", ehdotus.get("teksti") or "")
+                           f'{"<br>" + e(huom_(k)) if k.get("huom") else ""}</li>')
+    teksti = "".join(f"<p>{e(kpl)}</p>" for kpl in re.split(r"\n\s*\n", tayd_en.get("ehdottajan_teksti")
+                                                             or ehdotus.get("teksti") or "")
                      if kpl.strip())
     koottu = ""
     if tayd:   # Clauden lähteistä kokoama kuvaus, lähtö ja loppu, mittarin valinta ja lähteet
@@ -2477,6 +2484,8 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
                           f'{e((taydennys.get("aika") or "")[:16].replace("T", " "))}</p>')
     elif taydennys.get("tila") == "virhe" and yllapitaja:
         taydennys_tila = f'<p class="virhe">{e(t["taydennys_virhe"])}: {e(taydennys.get("virhe", ""))}</p>'
+    if taydennys.get("kaannos") == "kaynnissa" and yllapitaja:
+        taydennys_tila += f'<p class="huom">{e(t["kaannos_kaynnissa"])}</p>'
     hallinta = ""
     if yllapitaja:
         taydenna = t["taydenna_uudelleen"] if taydennys.get("tila") == "valmis" else t["taydenna_nappi"]
@@ -2486,6 +2495,9 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
                     f'<button class="nappi toissijainen" name="toiminto" value="hylkaa">{e(t["hylkaa"])}</button>'
                     + (f'<button class="nappi toissijainen" name="toiminto" value="taydenna">{e(taydenna)}</button>'
                        if tila == "odottaa" and taydennys.get("tila") != "kaynnissa" else "")
+                    + (f'<button class="nappi toissijainen" name="toiminto" value="kaanna">{e(t["kaanna_nappi"])}</button>'
+                       if taydennys.get("tila") == "valmis" and not taydennys.get("en")
+                       and taydennys.get("kaannos") != "kaynnissa" else "")
                     + f' <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
     yksityiset = ""
     if yllapitaja and ehdotus.get("yksityiset_linkit"):   # vain ylläpitäjälle, ei linkkeinä
@@ -2622,6 +2634,19 @@ def tallenna_ehdotus(kentat: dict[str, list[str]], kieli: str, ip: str) -> tuple
     return tunniste, ""
 
 
+def kaanna_ehdotus(tunniste: str) -> tuple[bool, str]:
+    """Ylläpitäjän "Käännä englanniksi": valmiin täydennyksen käännös (myös hyväksytylle kohteelle)."""
+    kanta = _kanta()
+    ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste) if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None
+    if not ehdotus or not ehdotukset.valmis_taydennys(ehdotus):
+        return False, "ehdotuksella ei ole valmista täydennystä"
+    ok, viesti = ehdotukset.kaynnista_taydennys(tunniste, os.environ.get("GITHUB_TAYDENNYS_TOKEN"), kaannos=True)
+    if ok:
+        ehdotus["taydennys"]["kaannos"] = "kaynnissa"
+        kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
+    return ok, viesti
+
+
 def taydenna_ehdotus(tunniste: str) -> tuple[bool, str]:
     """Ylläpitäjän "Täydennä": käynnistää Claude Code -ajon GitHub Actionsissa (ehdotukset.TYONKULKU)."""
     kanta = _kanta()
@@ -2670,6 +2695,9 @@ def kasittele_ehdotus(tunniste: str, toiminto: str) -> bool:
     """Ylläpitäjän hyväksyntä tai hylkäys; ilmoittaa ehdottajalle. False = ei löytynyt."""
     if toiminto == "taydenna":
         taydenna_ehdotus(tunniste)
+        return True
+    if toiminto == "kaanna":
+        kaanna_ehdotus(tunniste)
         return True
     if toiminto.startswith("muunna:"):   # uusi kohde onkin olemassa oleva paikka -> täydennys siihen
         paikka = PAIKKASIVUT.get(toiminto.removeprefix("muunna:"))

@@ -12,6 +12,7 @@ ympäristömuuttujassa FIREBASE_SERVICE_ACCOUNT.
     uv run python tyokalut/taydenna_ehdotus.py muut <muut-kohteet-tunniste>
     uv run python tyokalut/taydenna_ehdotus.py olemassa [--nimi "Aventojoki"] [--sijainti 66.36 29.05]
     uv run python tyokalut/taydenna_ehdotus.py tallenna taydennys.json
+    uv run python tyokalut/taydenna_ehdotus.py tallenna-en en.json   (KAANNOS=1: vain käännös)
     uv run python tyokalut/taydenna_ehdotus.py virhe "syy"
 """
 
@@ -123,6 +124,8 @@ def lue(_):
                 "kohteet": [{"nimi": k.nimi, "toimii": k.toimii, "paras": k.paras, "mittari": k.mittari,
                              "huom": k.huom} for k in p.kohteet],
                 "kuvaus": getattr(paikkasivut.KUVAUKSET.get(p.nimi), "johdanto", p.kuvaus)}
+    if os.environ.get("KAANNOS") == "1":
+        ehdotus["tehtava"] = "vain käännös englanniksi (TAYDENNYS.md: Pelkkä käännös)"
     print(json.dumps(ehdotus, ensure_ascii=False, indent=1))
 
 
@@ -243,13 +246,34 @@ def tallenna(a):
     print(f"Tallennettu. Esikatselu: {TUOTANTO}/ehdotus/{tunniste}")
 
 
+def tallenna_en(a):
+    """Vain englanninkieliset tekstit valmiiseen täydennykseen (ei ilmoituksia)."""
+    tunniste = _tunniste()
+    kanta = _kanta()
+    ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste)
+    if not ehdotus or not ehdotukset.valmis_taydennys(ehdotus):
+        sys.exit("ehdotuksella ei ole valmista täydennystä")
+    taydennys = {k: v for k, v in ehdotus["taydennys"].items() if k not in ("tila", "kaannos", "en")}
+    taydennys["en"] = json.loads(Path(a.tiedosto).read_text(encoding="utf-8"))
+    tarkistettu, virhe = ehdotukset.tarkista_taydennys(taydennys, ehdotus.get("yksityiset_linkit") or [])
+    if not tarkistettu or not tarkistettu.get("en"):
+        sys.exit(f"käännös ei kelpaa: {virhe or 'tyhjä'}")
+    ehdotus["taydennys"] = {**ehdotus["taydennys"], "en": tarkistettu["en"]}
+    ehdotus["taydennys"].pop("kaannos", None)
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
+    print(f"Käännös tallennettu: {TUOTANTO}/ehdotus/{tunniste}?kieli=en")
+
+
 def virhe(a):
     tunniste = _tunniste()
     kanta = _kanta()
     ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste)
     if not ehdotus:
         sys.exit("ehdotusta ei löydy")
-    ehdotus["taydennys"] = {**(ehdotus.get("taydennys") or {}), "tila": "virhe", "virhe": a.syy[:500]}
+    if os.environ.get("KAANNOS") == "1":   # käännös epäonnistui: täydennys säilyy
+        ehdotus["taydennys"] = {**(ehdotus.get("taydennys") or {}), "kaannos": "virhe"}
+    else:
+        ehdotus["taydennys"] = {**(ehdotus.get("taydennys") or {}), "tila": "virhe", "virhe": a.syy[:500]}
     kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
     print("Virhe tallennettu.")
 
@@ -290,6 +314,9 @@ def main(argv=None):
     s = ali.add_parser("tallenna")
     s.add_argument("tiedosto")
     s.set_defaults(f=tallenna)
+    s = ali.add_parser("tallenna-en")
+    s.add_argument("tiedosto")
+    s.set_defaults(f=tallenna_en)
     s = ali.add_parser("virhe")
     s.add_argument("syy")
     s.set_defaults(f=virhe)

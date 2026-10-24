@@ -9,6 +9,10 @@ on:
       tunniste:
         description: Ehdotuksen tunniste
         required: true
+      kaannos:
+        description: "1 = vain valmiin täydennyksen käännös englanniksi"
+        required: false
+        default: "0"
 
 permissions:
   contents: read
@@ -23,6 +27,7 @@ jobs:
     timeout-minutes: 30
     env:
       TUNNISTE: ${{ github.event.inputs.tunniste }}
+      KAANNOS: ${{ github.event.inputs.kaannos == '1' && '1' || '0' }}
     steps:
       - name: Tarkista tunniste
         run: '[[ "$TUNNISTE" =~ ^[A-Za-z0-9_-]{16,40}$ ]] || { echo "virheellinen tunniste"; exit 1; }'
@@ -46,7 +51,8 @@ jobs:
           prompt: |
             Täydennä melontapaikkasovelluksen käyttäjän ehdotus, jonka tunniste on ympäristömuuttujassa
             TUNNISTE. Noudata tarkasti ohjetta tyokalut/TAYDENNYS.md (lue se ensin). Lopuksi aja
-            `uv run python tyokalut/taydenna_ehdotus.py tallenna taydennys.json` tai epäonnistuessa
+            `uv run python tyokalut/taydenna_ehdotus.py tallenna taydennys.json` (tai jos `lue` kertoo
+            tehtäväksi pelkän käännöksen: `uv run python tyokalut/taydenna_ehdotus.py tallenna-en en.json`) tai epäonnistuessa
             `uv run python tyokalut/taydenna_ehdotus.py virhe "<syy>"`.
           claude_args: >-
             --max-turns 80

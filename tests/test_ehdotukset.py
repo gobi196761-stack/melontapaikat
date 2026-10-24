@@ -327,7 +327,7 @@ def test_kaynnista_taydennys():
     assert ehdotukset.kaynnista_taydennys("x" * 22, "t", avaa) == (True, "GitHub 204")
     p = pyynnot[0]
     assert p.full_url.endswith("/repos/gobi196761-stack/melontapaikat/actions/workflows/taydenna.yml/dispatches")
-    assert json.loads(p.data) == {"ref": "main", "inputs": {"tunniste": "x" * 22}}
+    assert json.loads(p.data) == {"ref": "main", "inputs": {"tunniste": "x" * 22, "kaannos": "0"}}
     assert p.get_header("Authorization") == "Bearer t"
 
 
@@ -360,6 +360,18 @@ def test_tyokalu_tallenna_ja_rajaus(ymparisto, monkeypatch, tmp_path, capsys):
     tallessa = kanta.lue(ehdotukset.KOKOELMA, tunniste)["taydennys"]
     assert tallessa["tila"] == "valmis" and tallessa["mittari"] == "73/q7300100y/qinlyhyt.png"
     assert kutsut == [f"https://melontapaikat.vercel.app/api/ehdotus/{tunniste}/taydennys-valmis"]
+    # pelkkä käännös: en-osio valmiiseen täydennykseen, virhe ei kumoa täydennystä
+    monkeypatch.setenv("KAANNOS", "1")
+    tyokalu.main(["lue"])
+    assert "vain käännös englanniksi" in capsys.readouterr().out
+    tiedosto.write_text(json.dumps({"teksti": "A small flood river."}), encoding="utf-8")
+    tyokalu.main(["tallenna-en", str(tiedosto)])
+    tallessa = kanta.lue(ehdotukset.KOKOELMA, tunniste)["taydennys"]
+    assert tallessa["tila"] == "valmis" and tallessa["en"] == {"teksti": "A small flood river."}
+    assert tallessa["teksti"] == TAYDENNYS["teksti"] and len(kutsut) == 1   # ei uutta ilmoitusta
+    tyokalu.main(["virhe", "käännös kesken"])
+    assert kanta.lue(ehdotukset.KOKOELMA, tunniste)["taydennys"]["tila"] == "valmis"
+    monkeypatch.setenv("KAANNOS", "0")
     tyokalu.main(["virhe", "linkki ei aukea"])
     assert kanta.lue(ehdotukset.KOKOELMA, tunniste)["taydennys"]["tila"] == "virhe"
 
@@ -537,3 +549,50 @@ def test_rajat_suureittain(ymparisto):
         < lomake_.index('id="ehdottaja"') < lomake_.index('id="mittari_virtaama"')   # mittarit viimeisenä
     assert '<details class="lisatiedot">' in lomake_   # suljettuna, ellei täytetty
     assert "Molempia linkkejä käytetään sivun rakentamiseen" in lomake_
+
+
+def test_taydennys_englanniksi(ymparisto):
+    """Täydennyksen en-osio näytetään sivulla ?kieli=en; suomenkielinen sivu ennallaan."""
+    kanta, _ = ymparisto
+    en = {"teksti": "A small flood river.", "lahto": "Ollilanjärvi car park", "loppu": "Oulanka visitor centre",
+          "mittari_perustelu": "The Oulankajoki is downstream.", "ehdottajan_teksti": "Only in spring floods.",
+          "huom": {"Ollilanjärvi – Aventolampi": "limits are estimates"}}
+    t, virhe = ehdotukset.tarkista_taydennys({**TAYDENNYS, "en": en})
+    assert not virhe and t["en"] == en
+    assert ehdotukset.tarkista_taydennys({**TAYDENNYS, "en": "x"})[1].startswith("en:")
+    yksityinen = "https://www.facebook.com/oma"
+    assert ehdotukset.tarkista_taydennys({**TAYDENNYS, "en": {"teksti": yksityinen}}, [yksityinen])[0] is None
+    tunniste = "E" * 22
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, {
+        "laji": "uusi", "nimi": "Aventojoki", "tyyppi": "retki", "tila": "hyvaksytty", "mittari": "",
+        "teksti": "Vain kevättulvalla.", "kohteet": [], "linkit": [], "taydennys": {**t, "tila": "valmis"}})
+    sivu = pyynto(f"/ehdotus/{tunniste}", kysely="kieli=en")[2]
+    for teksti in en["teksti"], en["lahto"], en["loppu"], en["mittari_perustelu"], en["ehdottajan_teksti"], \
+            "limits are estimates":
+        assert teksti in sivu
+    assert "Pieni tulvajoki." not in sivu and "Vain kevättulvalla." not in sivu
+    sivu = pyynto(f"/ehdotus/{tunniste}")[2]
+    assert "Pieni tulvajoki." in sivu and "Vain kevättulvalla." in sivu and en["teksti"] not in sivu
+
+
+def test_kaanna_nappi(ymparisto, monkeypatch):
+    """Ylläpitäjä voi kääntää valmiin täydennyksen myös hyväksytylle kohteelle."""
+    kanta, _ = ymparisto
+    tunniste = "F" * 22
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, {
+        "laji": "uusi", "nimi": "Aventojoki", "tyyppi": "retki", "tila": "hyvaksytty", "kohteet": [], "linkit": [],
+        "taydennys": {**ehdotukset.tarkista_taydennys(TAYDENNYS)[0], "tila": "valmis"}})
+    _, ylla, _ = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))
+    evaste = ylla["Set-Cookie"].split(";")[0]
+    assert "🌐 Käännä englanniksi" in pyynto(f"/ehdotus/{tunniste}", evaste=evaste)[2]
+    assert "🌐 Käännä englanniksi" not in pyynto(f"/ehdotus/{tunniste}")[2]
+    kaynnistetyt = []
+    monkeypatch.setenv("GITHUB_TAYDENNYS_TOKEN", "tunnus")
+    monkeypatch.setattr(ehdotukset, "kaynnista_taydennys",
+                        lambda t, token, kaannos=False: kaynnistetyt.append((t, kaannos)) or (True, "GitHub 204"))
+    pyynto(f"/ehdotus/{tunniste}/kasittele", metodi="POST", runko=lomake(toiminto="kaanna"), evaste=evaste)
+    ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste)
+    assert kaynnistetyt == [(tunniste, True)] and ehdotus["tila"] == "hyvaksytty"
+    assert ehdotus["taydennys"]["tila"] == "valmis" and ehdotus["taydennys"]["kaannos"] == "kaynnissa"
+    sivu = pyynto(f"/ehdotus/{tunniste}", evaste=evaste)[2]
+    assert "Käännös englanniksi on käynnissä." in sivu and "🌐 Käännä englanniksi" not in sivu

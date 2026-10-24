@@ -470,17 +470,51 @@ def tarkista_taydennys(data, yksityiset: list[str] | tuple = ()) -> tuple[dict |
             lahteet.append({"nimi": str(l["nimi"]).strip()[:200],
                             "url": url if re.fullmatch(r"https?://\S{3,490}", url) else ""})
     tulos["lahteet"] = lahteet[:15]
+    en, virhe = _englanniksi(data.get("en"))
+    if virhe:
+        return None, virhe
+    if en:
+        tulos["en"] = en
+    julkiset = [tulos.get(k) or "" for k in ("teksti", "lahto", "loppu", "mittari_perustelu", "huomiot")]
+    julkiset += [v for k, v in en.items() if k != "huom"] + list(en.get("huom", {}).values())
     for url in yksityiset:   # yksityinen linkki ei saa päätyä julkiseksi
-        if any(url in (tulos.get(k) or "") for k in ("teksti", "lahto", "loppu", "mittari_perustelu", "huomiot")) \
-                or any(url == l["url"] for l in lahteet):
+        if any(url in teksti for teksti in julkiset) or any(url == l["url"] for l in lahteet):
             return None, f"yksityistä linkkiä ei saa julkaista: {url}"
     if not tulos.get("teksti") and not kohteet:
         return None, "täydennyksessä pitää olla vähintään teksti tai kohteita"
     return tulos, ""
 
 
-def kaynnista_taydennys(tunniste: str, token: str | None, avaa=None) -> tuple[bool, str]:
-    """Käynnistää GitHub Actions -ajon (workflow_dispatch), joka täydentää ehdotuksen Claude Codella."""
+EN_KENTAT = (("teksti", 6000), ("lahto", 600), ("loppu", 600), ("mittari_perustelu", 1000), ("huomiot", 2000),
+             ("ehdottajan_teksti", TEKSTI_ENINTAAN))
+
+
+def _englanniksi(data) -> tuple[dict, str]:
+    """Täydennyksen englanninkieliset tekstit (sivu ?kieli=en): kuvaus, lähtö, loppu, mittarin perustelu,
+    huomiot, ehdottajan tekstin käännös ja kohteiden huomiot nimittäin ({"huom": {kohteen nimi: teksti}})."""
+    if not data:
+        return {}, ""
+    if not isinstance(data, dict):
+        return {}, "en: pitää olla JSON-olio"
+    tulos: dict = {}
+    for kentta, enintaan in EN_KENTAT:
+        arvo = data.get(kentta) or ""
+        if not isinstance(arvo, str):
+            return {}, f"en.{kentta}: pitää olla teksti"
+        if arvo.strip():
+            tulos[kentta] = arvo.strip()[:enintaan]
+    huom = data.get("huom") or {}
+    if not isinstance(huom, dict) or not all(isinstance(v, str) for v in huom.values()):
+        return {}, "en.huom: pitää olla {kohteen nimi: teksti}"
+    huom = {str(k)[:NIMI_ENINTAAN]: v.strip()[:300] for k, v in list(huom.items())[:2 * KOHTEITA_ENINTAAN] if v.strip()}
+    if huom:
+        tulos["huom"] = huom
+    return tulos, ""
+
+
+def kaynnista_taydennys(tunniste: str, token: str | None, avaa=None, kaannos: bool = False) -> tuple[bool, str]:
+    """Käynnistää GitHub Actions -ajon (workflow_dispatch), joka täydentää ehdotuksen Claude Codella
+    (kaannos: vain valmiin täydennyksen käännös englanniksi)."""
     import json
     import urllib.error
     import urllib.request
@@ -490,7 +524,7 @@ def kaynnista_taydennys(tunniste: str, token: str | None, avaa=None) -> tuple[bo
         return False, "virheellinen tunniste"
     pyynto = urllib.request.Request(
         f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{TYONKULKU}/dispatches",
-        data=json.dumps({"ref": "main", "inputs": {"tunniste": tunniste}}).encode(), method="POST",
+        data=json.dumps({"ref": "main", "inputs": {"tunniste": tunniste, "kaannos": "1" if kaannos else "0"}}).encode(), method="POST",
         headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
                  "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "melontapaikat"})
     try:
@@ -604,6 +638,7 @@ TEKSTIT = {
         "virhe_tallennus": "Ehdotusta ei saatu tallennettua – yritä myöhemmin uudelleen.",
         "palaa": "← Takaisin lomakkeelle",
         "taydenna_nappi": "🔍 Täydennä", "taydenna_uudelleen": "🔍 Täydennä uudelleen",
+        "kaanna_nappi": "🌐 Käännä englanniksi", "kaannos_kaynnissa": "Käännös englanniksi on käynnissä.",
         "taydennys_kaynnissa": "⏳ Täydennys käynnissä: Claude kokoaa tietoja lähteistä. Päivitä sivu muutaman "
                                "minuutin päästä.",
         "taydennys_valmis": "✓ Täydennetty lähteistä", "taydennys_virhe": "Täydennystä ei voitu käynnistää",
@@ -705,6 +740,7 @@ TEKSTIT = {
         "virhe_tallennus": "The suggestion could not be saved – please try again later.",
         "palaa": "← Back to the form",
         "taydenna_nappi": "🔍 Complete", "taydenna_uudelleen": "🔍 Complete again",
+        "kaanna_nappi": "🌐 Translate to English", "kaannos_kaynnissa": "Translation to English is in progress.",
         "taydennys_kaynnissa": "⏳ Completion in progress: Claude is gathering information from sources. Reload "
                                "the page in a few minutes.",
         "taydennys_valmis": "✓ Completed from sources", "taydennys_virhe": "Completion could not be started",
