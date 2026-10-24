@@ -1175,7 +1175,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <style>{TYYLI}</style>
 </head>
 <body><main>
-<div class="otsake"><h1>{k_("Melontapaikkojen tilanne")} {tilanne.paivitetty:%d.%m.%Y} {k_("klo")} {tilanne.paivitetty:%H.%M}</h1>{vaihto}</div>
+<div class="otsake"><h1>{k_("Melontapaikkojen tilanne")} {tilanne.paivitetty:%d.%m.%Y}</h1>{vaihto}</div>
 <div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div>
 {_turvaosio(tilanne, kieli)}
 {_selitykset(kieli)}
@@ -1216,7 +1216,7 @@ def _halytysosio(k_) -> str:
                      f'{k_("tänään") if n == 0 else f"{n} " + k_("pv")}</option>' for n in range(LAHTO_PAIVIA + 1))
     valinnat = json.dumps(halytykset.valittavat(kaikki_paikat()), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     return f"""<details id="halytys" class="halytys" hidden data-vapid="{e(avainpari[0])}">
-<summary>{k_("🔔 Hälytys hyvistä oloista")}</summary>
+<summary>{k_("🔔 Hälytys kohteen toimivuudesta")}</summary>
 <p class="pieni">{k_("Ilmoitus puhelimeen, kun valitsemasi paikan tai kohteen ehto täyttyy tänään tai ennusteessa. Tarkistus joka aamu; samasta ehdosta uudelleen vasta, kun se on välillä lakannut täyttymästä.")}</p>
 <p><label>{k_("Paikka")} <select id="halytys-paikka"></select></label>
 <label>{k_("Kohde")} <select id="halytys-kohde"></select></label>
