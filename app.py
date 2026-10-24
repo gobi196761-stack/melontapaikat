@@ -1989,20 +1989,14 @@ def _muut_osumat(tunniste: str, ehdotus: dict) -> list[dict]:
             if k["osoite"].startswith("/muut/") and k["osoite"].removeprefix("/muut/") in muut_kohteet.HAKEMISTO]
 
 
-def _paivakirjasta(kohteet: list[dict], kieli: str, otsikkotaso: int) -> str:
-    """Muut kohteet -reitin oleelliset tiedot uuden kohteen sivulle (lähde ilman linkkiä)."""
+def _muut_linkit(kohteet: list[dict], kieli: str) -> str:
+    """Sama reitti Muut kohteet -listassa: vain linkki (sisältöä ei käytetä kohteen kuvauksessa)."""
+    if not kohteet:
+        return ""
     t = ehdotukset.tekstit(kieli)
-    osat = []
-    for k in kohteet[:2]:
-        tiedot = [(t["lahto"], k.get("lahto")), (t["loppu"], k.get("kohde")),
-                  ("Matka" if kieli != "en" else "Distance", k.get("matka")),
-                  ("Korkeusero" if kieli != "en" else "Drop", k.get("korkeusero"))]
-        osat.append(f"<p><b>{e(k['nimi'])}</b></p>"
-                    + "".join(f"<p>{e(kpl)}</p>" for kpl in k.get("kuvaus", []))
-                    + '<ul class="lahteet">' + "".join(f"<li><b>{e(n)}:</b> {e(v)}</li>" for n, v in tiedot if v)
-                    + "</ul>" + (f"<p>{e(k['vesi'])}</p>" if k.get("vesi") else "")
-                    + f'<p class="pieni">{e(muut_kohteet.LAHDE)}</p>')
-    return (f"<h{otsikkotaso}>{e(t['paivakirjasta'])}</h{otsikkotaso}>" + "".join(osat)) if osat else ""
+    linkit = ", ".join(f'<a href="/muut/{e(k["tunniste"])}{"?kieli=en" if kieli == "en" else ""}">{e(k["nimi"])}</a>'
+                       for k in kohteet)
+    return f'<p class="pieni">{e(t["muut_linkki"])}: {linkit}</p>'
 
 
 def _ehdotusluukku(kieli: str) -> str:
@@ -2419,8 +2413,8 @@ def _ehdotuksen_sisalto(tunniste: str, ehdotus: dict, kieli: str, hakija: osm.Ha
         if lisatyt:
             osat.append(f'<{h}>{e(t["kohteet_rajat"])}</{h}><ul class="kohteet">{"".join(lisatyt)}</ul>')
         osat += [f'<{h}>{e(o)}</{h}><ul class="lahteet">{lista}</ul>' for o, lista in linkkiosat]
-    if not taydennys and not tayd:   # uusi kohde: Muut kohteet -reitin tiedot (Claude yhdistää ne itse)
-        osat.append(_paivakirjasta(_muut_osumat(tunniste, ehdotus), kieli, otsikkotaso))
+    if not taydennys:   # sama reitti Muissa kohteissa: vain linkki
+        osat.append(_muut_linkit(_muut_osumat(tunniste, ehdotus), kieli))
     if ehdotus.get("sijainti"):
         lev, pit = ehdotus["sijainti"]
         osat.append(f'<p><a href="https://www.openstreetmap.org/?mlat={lev}&amp;mlon={pit}#map=13/{lev}/{pit}" '
@@ -2510,10 +2504,8 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
     kaksoset = [k for k in kaikki_kaksoset if not k["osoite"].startswith("/muut/")]
     muut_osumat = [k for k in kaikki_kaksoset if k["osoite"].startswith("/muut/")]
     kaksois_html = ""
-    if muut_osumat:   # ei estä uutta paikkaa: tieto ja linkki
-        teksti = t["muut_osuma"] if ehdotukset.pisteytettava(ehdotus) else t["muut_ei_pisteytettava"]
-        kaksois_html += (f'<p class="pieni">ℹ️ {e(teksti)} ' + ", ".join(
-            f'<a href="{e(k["osoite"])}">{e(k["nimi"])}</a>' for k in muut_osumat) + "</p>")
+    if muut_osumat and not ehdotukset.pisteytettava(ehdotus):   # muuten Muut kohteet on vain linkki sivulla
+        kaksois_html += f'<p class="pieni">ℹ️ {e(t["muut_ei_pisteytettava"])}</p>'
     if kaksoset:
         muunnot = ""
         if yllapitaja:   # sovelluksen paikka: ehdotuksen pelipaikat voi lisätä siihen täydennyksenä
