@@ -75,7 +75,7 @@ def test_sivu(palvelin):
     assert "Veden lämpötila" not in runko and "OpenStreetMap" not in runko
     assert "<b>★</b> parhaimmillaan" in runko and "river runner -kajakki" in runko.split("<table")[0]
     assert "16.05" not in runko and "osm.fi:n paikkakuvaukset" not in runko   # ei kellonaikaa
-    assert "🔔 Hälytys kohteen toimivuudesta" in runko and "Ehdota uutta kohdetta tai täydennä vanhaa" in runko
+    assert "Ehdota uutta kohdetta tai täydennä vanhaa" in runko
     assert '<summary><span class="lamppu" aria-hidden="true">💡</span> Ehdota uutta kohdetta' in runko
 
 
