@@ -215,6 +215,11 @@ def test_uusi_kohde_ja_lisaa_kohde_nappi(ymparisto):
     del kentat["k2_nimi"]
     assert ehdotukset.tulkitse(kentat, PAIKAT)[1] == "Anna kohteen 2 nimi."
     sivu = pyynto("/ehdota")[2]
-    assert '<fieldset class="ensimmainen">' in sivu
-    assert sivu.count('<fieldset class="lisarivi">') == ehdotukset.KOHTEITA_ENINTAAN - 1 == 6   # nappia 6 kertaa
-    assert 'id="lisaa-kohde">+ Lisää kohde</button>' in sivu and sivu.count('class="poista-kohde"') == 6
+    # yksi kohde-editori, "+ Lisää kohde" siirtää kohteen tekstinä listaan (enintään 6)
+    assert sivu.count('<fieldset class="kohde-editori">') == 1 and 'id="kohdelista"' in sivu
+    assert 'id="lisaa-kohde">+ Lisää kohde</button>' in sivu and ehdotukset.KOHTEITA_ENINTAAN == 6
+    assert 'name="k1_nimi"' not in sivu   # piilokentät syntyvät vasta listasta
+    # virheen jälkeen lisätyt kohteet palaavat listaan
+    status, _, sivu = pyynto("/ehdota", metodi="POST", runko=lomake(laji="uusi", nimi="X", k1_nimi="A",
+                                                                     k1_toimii_ala="1", k2_nimi="B", k2_toimii_ala="x"))
+    assert status == "400 Bad Request" and '"nimi": "B", "toimii_ala": "x"' in sivu

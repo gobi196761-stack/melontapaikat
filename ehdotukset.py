@@ -29,7 +29,7 @@ from paikat import Kohde, Mittari, Paikka
 KOKOELMA = "ehdotukset"
 YLLAPITO = "yllapito_tilaukset"
 TILAT = ("odottaa", "hyvaksytty", "hylatty")
-KOHTEITA_ENINTAAN = 7           # ensimmäinen rivi + lomakkeen "+ Lisää kohde" enintään 6 kertaa
+KOHTEITA_ENINTAAN = 6           # lomakkeen "+ Lisää kohde" enintään 6 kertaa
 LINKKEJA_ENINTAAN = 10
 TEKSTI_ENINTAAN = 3000
 NIMI_ENINTAAN = 100
@@ -268,13 +268,15 @@ TEKSTIT = {
         "rajat_uusi": "Paikan toiminta-alue ja optimi",
         "rajat_uusi_ohje": "Yksi paikka kerrallaan: anna paikan rajat mittarin yksikössä. Toimii = alue, jolla "
                            "paikka toimii; optimi = paras alue (tyhjä = sama kuin toimii). Jätä toinen pää "
-                           "tyhjäksi, jos rajaa ei ole. Paikan pelipaikat tai laskuosuudet omine rajoineen saat "
-                           "lisättyä napilla + Lisää kohde.",
+                           "tyhjäksi, jos rajaa ei ole, ja paina + Lisää kohde. Paikan muut pelipaikat tai "
+                           "laskuosuudet lisätään samalla tavalla.",
         "lisaa_kohde": "+ Lisää kohde", "poista_kohde": "Poista kohde",
+        "kohteita_enintaan": "Enintään {n} kohdetta.", "paikan_nimi": "(paikan nimi)",
         "kohteen_nimi_uusi": "Kohteen tarkempi nimi (vapaaehtoinen, oletus = paikan nimi)",
         "kohteet_ohje": "Rajat mittarin yksikössä. Toimii = alue, jolla kohde toimii; optimi = paras alue "
                         "(tyhjä = sama kuin toimii). Jätä toinen pää tyhjäksi, jos rajaa ei ole (esim. vain "
-                        "alaraja). Olemassa olevan kohteen nimellä korjaat sen rajoja.",
+                        "alaraja), ja paina + Lisää kohde; seuraava kohde samoin. Olemassa olevan kohteen nimellä "
+                        "korjaat sen rajoja.",
         "kohde": "Kohde", "kohteen_nimi": "Nimi", "toimii": "Toimii", "optimi": "Optimi", "huom": "Huomio",
         "ala": "alaraja", "yla": "yläraja",
         "linkit": "Linkit, yksi riviä kohden: vesitiedot, videot, kuvaukset", "teksti": "Oma teksti",
@@ -334,13 +336,15 @@ TEKSTIT = {
         "rajat_uusi": "Working range and optimum of the spot",
         "rajat_uusi_ohje": "One spot at a time: give the spot's limits in the gauge's unit. Works = the range "
                            "where the spot works; optimum = the best range (empty = same as works). Leave one end "
-                           "empty if there is no limit. Add the spot's play spots or river sections with their own "
-                           "limits with the + Add feature button.",
+                           "empty if there is no limit, and press + Add feature. Other play spots or river "
+                           "sections of the spot are added the same way.",
         "lisaa_kohde": "+ Add feature", "poista_kohde": "Remove feature",
+        "kohteita_enintaan": "At most {n} features.", "paikan_nimi": "(name of the spot)",
         "kohteen_nimi_uusi": "More specific name of the feature (optional, default = name of the spot)",
         "kohteet_ohje": "Limits in the gauge's unit. Works = the range where the feature works; optimum = the "
                         "best range (empty = same as works). Leave one end empty if there is no limit (e.g. "
-                        "only a lower limit). Use the name of an existing feature to correct its limits.",
+                        "only a lower limit) and press + Add feature; the next feature the same way. Use the name of an "
+                        "existing feature to correct its limits.",
         "kohde": "Feature", "kohteen_nimi": "Name", "toimii": "Works", "optimi": "Optimum", "huom": "Note",
         "ala": "lower", "yla": "upper",
         "linkit": "Links, one per line: water data, videos, descriptions", "teksti": "Your text",
