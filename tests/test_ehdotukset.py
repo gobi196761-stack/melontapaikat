@@ -153,14 +153,20 @@ def test_taydennys_paikkasivulle(ymparisto):
     assert status == "303 See Other"
     tunniste = otsakkeet["Location"].removeprefix("/ehdotus/")
     sivu = pyynto(otsakkeet["Location"])[2]
-    assert "Täydennys paikkaan: Kipinä (Iijoki)" in sivu and "rajakorjaus" in sivu and "nykyiset rajat" in sivu
-    assert "Uusi aalto" in sivu and "<h2>Videot</h2>" in sivu
+    assert "Täydennys paikkaan: Kipinä (Iijoki)" in sivu
+    # omat osiot: mitä muuttuu (nykyinen -> ehdotettu) ja mitä on tulossa lisää
+    muuttuu = sivu.split('<h2 class="muuttuu">Muuttuu</h2>')[1].split('<h2 class="tulossa">')[0]
+    tulossa = sivu.split('<h2 class="tulossa">Tulossa lisää</h2>')[1]
+    assert vanha.nimi in muuttuu and "→ toimii 107.60 m – 108.20 m" in muuttuu and "nyt: toimii" in muuttuu
+    assert "Uusi aalto" not in muuttuu and "Uusi aalto" in tulossa and "vain matalalla" in tulossa
+    assert "<h3>Videot</h3>" in tulossa and "youtube.com/watch?v=abc" in tulossa
     paikkasivu = f"/paikka/{app.paikkasivut.tunniste(KIPINA.nimi)}"
     assert "Käyttäjien lisäykset" not in pyynto(paikkasivu)[2]
     kanta.data[ehdotukset.KOKOELMA][tunniste]["tila"] = "hyvaksytty"
     app._ehdotukset = None
     sivu = pyynto(paikkasivu)[2]
     assert "<h2>Käyttäjien lisäykset</h2>" in sivu and "Uusi aalto" in sivu and "youtube.com/watch?v=abc" in sivu
+    assert '<h3 class="muuttuu">Muutettu</h3>' in sivu and '<h3 class="tulossa">Lisätty</h3>' in sivu
 
 
 def test_roskat_ja_lomake(ymparisto):

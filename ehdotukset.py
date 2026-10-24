@@ -279,7 +279,9 @@ TEKSTIT = {
                           "päivän tilannetta ei voi laskea.", "ei_dataa": "Mittarin tietoja ei saatu juuri nyt.",
         "mittari_arvo": "Mittari", "pisteet": "Pisteet tänään", "kuvaus": "Kuvaus",
         "kohteet_rajat": "Kohteet ja rajat", "uusi_merkki": "ehdotettu", "korjaus": "rajakorjaus",
-        "nykyiset": "nykyiset rajat", "vesitiedot": "Vesitiedot", "videot": "Videot", "muut_linkit": "Linkit",
+        "nykyiset": "nykyiset rajat", "nyt": "nyt", "muuttuu": "Muuttuu", "muutettu": "Muutettu",
+        "tulossa": "Tulossa lisää", "lisatty": "Lisätty",
+        "muuttuu_ohje": "Olemassa olevien kohteiden rajat: nykyinen → ehdotettu.", "vesitiedot": "Vesitiedot", "videot": "Videot", "muut_linkit": "Linkit",
         "ehdottaja_nimi": "Ehdottaja", "ilmoita": "🔔 Ilmoita minulle, kun ehdotus on käsitelty",
         "ilmoitus_tilattu": "Ilmoitus tilattu – saat push-ilmoituksen, kun ehdotus on käsitelty.",
         "ilmoitus_virhe": "Ilmoitusta ei voitu tilata", "tallenna_linkki": "Tallenna tämän sivun osoite: "
@@ -336,7 +338,9 @@ TEKSTIT = {
         "ei_dataa": "The gauge data could not be fetched right now.",
         "mittari_arvo": "Gauge", "pisteet": "Score today", "kuvaus": "Description",
         "kohteet_rajat": "Features and limits", "uusi_merkki": "suggested", "korjaus": "limit correction",
-        "nykyiset": "current limits", "vesitiedot": "Water data", "videot": "Videos", "muut_linkit": "Links",
+        "nykyiset": "current limits", "nyt": "now", "muuttuu": "Changes", "muutettu": "Changed",
+        "tulossa": "Coming in addition", "lisatty": "Added",
+        "muuttuu_ohje": "Limits of existing features: current → suggested.", "vesitiedot": "Water data", "videot": "Videos", "muut_linkit": "Links",
         "ehdottaja_nimi": "Suggested by", "ilmoita": "🔔 Notify me when the suggestion has been processed",
         "ilmoitus_tilattu": "Notification set – you will get a push notification when the suggestion has been "
                             "processed.", "ilmoitus_virhe": "Could not set the notification",

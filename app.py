@@ -1866,6 +1866,7 @@ EHDOTUS_TYYLI = """
 .virhe { color:var(--huono); font-weight:600; }
 .tila-merkki { display:inline-block; padding:1px 8px; border-radius:999px; border:1px solid var(--viiva);
                font-size:.85rem; }
+.kuvaus .muuttuu { color:var(--keski); } .kuvaus .tulossa { color:var(--hyva); }
 .tila-odottaa { color:var(--keski); } .tila-hyvaksytty { color:var(--hyva); } .tila-hylatty { color:var(--huono); }
 .ehdotus-kaavio { width:100%; max-width:720px; border:1px solid var(--viiva); border-radius:8px; }
 """
@@ -2056,14 +2057,16 @@ def _linkkilista(linkit: list[dict]) -> str:
 
 
 def _ehdotuksen_sisalto(tunniste: str, ehdotus: dict, kieli: str, hakija: osm.Hakija | None = None,
-                        tilanne_mukaan: bool = True) -> str:
-    """Ehdotuksen osat: päivän tilanne, kuvaus, kohteet rajoineen ja linkit."""
+                        tilanne_mukaan: bool = True, otsikkotaso: int = 2) -> str:
+    """Ehdotuksen osat: päivän tilanne, kuvaus, kohteet rajoineen ja linkit. Täydennyksessä omina
+    osioinaan "Muuttuu" (rajakorjaukset: nykyinen -> ehdotettu) ja "Tulossa lisää" (uudet kohteet,
+    teksti ja linkit); hyväksytyssä "Muutettu" ja "Lisätty"."""
     t = ehdotukset.tekstit(kieli)
     en = kieli == "en"
     paikka, uudet = ehdotukset.paikaksi(ehdotus, PAIKAT)
     osat = []
     if tilanne_mukaan and paikka is not None:
-        osat.append(f"<h2>{e(t['paivan_tilanne'])}</h2>")
+        osat.append(f"<h{otsikkotaso}>{e(t['paivan_tilanne'])}</h{otsikkotaso}>")
         if not paikka.mittarit:
             osat.append(f"<p>{e(t['ei_mittaria'])}</p>")
         else:
@@ -2086,39 +2089,61 @@ def _ehdotuksen_sisalto(tunniste: str, ehdotus: dict, kieli: str, hakija: osm.Ha
                 if not paikka.mittarit[avain].smhi:
                     osat.append(f'<img class="ehdotus-kaavio" alt="" loading="lazy" '
                                 f'src="/kaavio/ehdotus/{e(tunniste)}{"?kieli=en" if en else ""}">')
-    if ehdotus.get("teksti"):
-        osat.append(f"<h2>{e(t['kuvaus'])}</h2>" + "".join(
-            f"<p>{e(kpl)}</p>" for kpl in re.split(r"\n\s*\n", ehdotus["teksti"]) if kpl.strip()))
-    if ehdotus.get("kohteet") and paikka is not None:
-        vanhat = {}
-        if ehdotus.get("laji") == "taydenna":
-            alkuperainen = next((p for p in PAIKAT if p.nimi == ehdotus.get("paikka")), None)
-            vanhat = {k.nimi: k for k in alkuperainen.kohteet} if alkuperainen else {}
-        rivit = []
-        for k in paikka.kohteet:
-            if k.nimi not in uudet:
-                continue
-            mittari = paikka.mittarit.get(k.mittari)
-            _, yksikko = _mittarin_suure(mittari) if mittari else ("", "")
-            toimii, paras = _rajat(k.toimii, yksikko, k.muuttuja, kieli), _rajat(k.paras, yksikko, k.muuttuja, kieli)
-            rajat = (f"{'works' if en else 'toimii'} {toimii}"
-                     + (f", {'at its best' if en else 'parhaimmillaan'} {paras}" if paras != toimii else ""))
-            merkki = t["korjaus"] if k.nimi in vanhat else t["uusi_merkki"]
-            vanha = ""
-            if k.nimi in vanhat:
-                v = vanhat[k.nimi]
-                vanha = (f"<br><span class=pieni>{e(t['nykyiset'])}: "
-                         f"{e(_rajat(v.toimii, yksikko, v.muuttuja, kieli))}"
-                         f"{' / ' + e(_rajat(v.paras, yksikko, v.muuttuja, kieli)) if v.paras != v.toimii else ''}</span>")
-            rivit.append(f'<li><b>{e(k.nimi)}</b> <span class="pieni">({e(merkki)})</span><br>'
-                         f'<span class="rajat">{e(rajat)}</span>{vanha}'
-                         f'{"<br>" + e(k.huom) if k.huom else ""}</li>')
-        osat.append(f"<h2>{e(t['kohteet_rajat'])}</h2><ul class=\"kohteet\">{''.join(rivit)}</ul>")
+    h, h2 = f"h{otsikkotaso}", f"h{otsikkotaso + 1}"
+    taydennys = ehdotus.get("laji") == "taydenna"
+    vanhat = {}
+    if taydennys:
+        alkuperainen = next((p for p in PAIKAT if p.nimi == ehdotus.get("paikka")), None)
+        vanhat = {k.nimi: k for k in alkuperainen.kohteet} if alkuperainen else {}
+
+    def rajateksti(k, yksikko: str) -> str:
+        toimii, paras = _rajat(k.toimii, yksikko, k.muuttuja, kieli), _rajat(k.paras, yksikko, k.muuttuja, kieli)
+        return (f"{'works' if en else 'toimii'} {toimii}"
+                + (f", {'at its best' if en else 'parhaimmillaan'} {paras}" if paras != toimii else ""))
+
+    lisatyt, muutokset = [], []
+    for k in (paikka.kohteet if paikka is not None else ()):
+        if k.nimi not in uudet:
+            continue
+        mittari = paikka.mittarit.get(k.mittari)
+        _, yksikko = _mittarin_suure(mittari) if mittari else ("", "")
+        if k.nimi in vanhat:   # rajakorjaus: nykyinen -> ehdotettu
+            v = vanhat[k.nimi]
+            huom = ""
+            if k.huom and k.huom != v.huom:
+                huom = (f'<br><span class="pieni">{e(t["nyt"])}: {e(v.huom) or "–"}</span>'
+                        f'<br>{e(t["huom"])} → {e(k.huom)}')
+            muutokset.append(f'<li><b>{e(k.nimi)}</b><br><span class="pieni">{e(t["nyt"])}: '
+                             f'{e(rajateksti(v, yksikko))}</span><br><span class="rajat">→ '
+                             f'{e(rajateksti(k, yksikko))}</span>{huom}</li>')
+        else:
+            lisatyt.append(f'<li><b>{e(k.nimi)}</b><br><span class="rajat">{e(rajateksti(k, yksikko))}</span>'
+                           f'{"<br>" + e(k.huom) if k.huom else ""}</li>')
+    teksti = "".join(f"<p>{e(kpl)}</p>" for kpl in re.split(r"\n\s*\n", ehdotus.get("teksti") or "")
+                     if kpl.strip())
     linkit = ehdotus.get("linkit") or []
-    for laji, otsikko in (("vesi", "vesitiedot"), ("video", "videot"), ("muu", "muut_linkit")):
-        omat = [l for l in linkit if l.get("laji") == laji]
-        if omat:
-            osat.append(f"<h2>{e(t[otsikko])}</h2><ul class=\"lahteet\">{_linkkilista(omat)}</ul>")
+    linkkiosat = [(t[otsikko], _linkkilista([l for l in linkit if l.get("laji") == laji]))
+                  for laji, otsikko in (("vesi", "vesitiedot"), ("video", "videot"), ("muu", "muut_linkit"))]
+    linkkiosat = [(o, lista) for o, lista in linkkiosat if lista]
+    if taydennys:
+        hyvaksytty = ehdotus.get("tila") == "hyvaksytty"
+        if muutokset:
+            osat.append(f'<{h} class="muuttuu">{e(t["muutettu" if hyvaksytty else "muuttuu"])}</{h}>'
+                        f'<p class="pieni">{e(t["muuttuu_ohje"])}</p><ul class="kohteet">{"".join(muutokset)}</ul>')
+        lisaa = []
+        if lisatyt:
+            lisaa.append(f'<{h2}>{e(t["kohteet_rajat"])}</{h2}><ul class="kohteet">{"".join(lisatyt)}</ul>')
+        if teksti:
+            lisaa.append(f"<{h2}>{e(t['kuvaus'])}</{h2}>{teksti}")
+        lisaa += [f'<{h2}>{e(o)}</{h2}><ul class="lahteet">{lista}</ul>' for o, lista in linkkiosat]
+        if lisaa:
+            osat.append(f'<{h} class="tulossa">{e(t["lisatty" if hyvaksytty else "tulossa"])}</{h}>' + "".join(lisaa))
+    else:
+        if teksti:
+            osat.append(f"<{h}>{e(t['kuvaus'])}</{h}>{teksti}")
+        if lisatyt:
+            osat.append(f'<{h}>{e(t["kohteet_rajat"])}</{h}><ul class="kohteet">{"".join(lisatyt)}</ul>')
+        osat += [f'<{h}>{e(o)}</{h}><ul class="lahteet">{lista}</ul>' for o, lista in linkkiosat]
     if ehdotus.get("sijainti"):
         lev, pit = ehdotus["sijainti"]
         osat.append(f'<p><a href="https://www.openstreetmap.org/?mlat={lev}&amp;mlon={pit}#map=13/{lev}/{pit}" '
@@ -2194,8 +2219,7 @@ def _kayttajien_lisaykset(paikka, kieli: str) -> str:
         return ""
     osat = []
     for tun, ed in omat:
-        sisalto = _ehdotuksen_sisalto(tun, ed, kieli, tilanne_mukaan=False).replace("<h2>", "<h3>").replace(
-            "</h2>", "</h3>")
+        sisalto = _ehdotuksen_sisalto(tun, ed, kieli, tilanne_mukaan=False, otsikkotaso=3)
         osat.append(f'<div class="lisays">{sisalto}<p class="pieni"><a href="/ehdotus/{e(tun)}'
                     f'{"?kieli=en" if kieli == "en" else ""}">{e(t["lisaysta"])} →</a></p></div>')
     return f"<h2>{e(t['kayttajien_lisaykset'])}</h2>" + "".join(osat)
