@@ -74,7 +74,8 @@ def test_sivu(palvelin):
     assert runko.index('class="selitykset"') < runko.index("<nav>") < runko.index("<table")   # kategorioiden yläpuolella
     assert "Veden lämpötila" not in runko and "OpenStreetMap" not in runko
     assert "<b>★</b> parhaimmillaan" in runko and "river runner -kajakki" in runko.split("<table")[0]
-    assert "päivitetty klo 16.05" in runko
+    assert " klo 16.05</h1>" in runko and "osm.fi:n paikkakuvaukset" not in runko   # kellonaika otsikossa
+    assert '<summary><span class="lamppu" aria-hidden="true">💡</span> Ehdota uutta kohdetta' in runko
 
 
 def test_api_ja_suodatus(palvelin):
@@ -589,8 +590,8 @@ def test_ajomatka_ja_kesto_oulusta(palvelin, tilanne):
     tilanne.surffi = {"nyt": [], "ennuste": ["yppari"]}
     runko = pyynto("/")[2]
     assert '<span class="km">~181 km / 2 h 30 min, lähtö Oulu</span>' in runko
-    # surffilinkki heti otsikon alla ennen osm.fi-tekstiä
-    assert runko.index("</h1>") < runko.index("Merelle Surffaamaan") < runko.index("osm.fi:n paikkakuvaukset")
+    # surffilinkki heti otsikon alla
+    assert runko.index("</h1>") < runko.index("Merelle Surffaamaan") < runko.index('class="selitykset"')
     assert "~181 km / 2 h 30 min, from Oulu" in pyynto("/", "kieli=en")[2]
     tilanne.ajo_km, tilanne.ajo_min, tilanne.surffi = {}, {}, {}
 
