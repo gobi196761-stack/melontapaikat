@@ -453,6 +453,7 @@ TEKSTIT = {
         "taydennys_valmis": "✓ Täydennetty lähteistä", "taydennys_virhe": "Täydennystä ei voitu käynnistää",
         "koottu": "Koottu lähteistä", "ehdottajan_teksti": "Ehdottajan teksti", "lahto": "Lähtö", "loppu": "Loppu",
         "mittarin_valinta": "Mittari", "huomioita": "Huomioita", "lahteet": "Lähteet",
+        "kaksoiskappale": "Mahdollisesti jo olemassa (tarkista ennen hyväksyntää):",
         "alkupera_arvio": "arvio lähteistä", "alkupera_ehdottaja": "ehdottaja", "kartta": "kartta",
     },
     "en": {
@@ -533,6 +534,7 @@ TEKSTIT = {
         "taydennys_valmis": "✓ Completed from sources", "taydennys_virhe": "Completion could not be started",
         "koottu": "Compiled from sources", "ehdottajan_teksti": "Text by the suggester", "lahto": "Put-in",
         "loppu": "Take-out", "mittarin_valinta": "Gauge", "huomioita": "Notes", "lahteet": "Sources",
+        "kaksoiskappale": "Possibly already exists (check before approving):",
         "alkupera_arvio": "estimate from sources", "alkupera_ehdottaja": "suggester", "kartta": "map",
     },
 }
@@ -557,3 +559,59 @@ def tarkista_push(data) -> dict | None:
     except (TypeError, ValueError):
         return None
     return {"endpoint": endpoint, "p256dh": avaimet["p256dh"], "auth": avaimet["auth"]}
+
+
+# ---------------------------------------------------------------------------
+# Kaksoiskappaleet: onko ehdotettu uusi kohde jo olemassa (toisella nimellä)?
+# ---------------------------------------------------------------------------
+
+# yleissanat, jotka eivät yksin tee kohteista samoja
+YLEISSANAT = {"joki", "jokea", "koski", "kosket", "järvi", "lampi", "salmi", "reitti", "melonta", "melontareitti",
+              "alaosa", "yläosa", "keskiosa", "alajuoksu", "yläjuoksu", "kansallispuisto", "silta", "kanava",
+              "pato", "voimalaitos", "aalto", "hontto", "stoppari", "pelipaikka", "kylä", "luusua", "niska"}
+LAHELLA_KM = 3.0
+
+
+def _sanat(teksti: str) -> set[str]:
+    """Nimen tunnistavat sanat: pienet kirjaimet, yleissanat pois; pitkistä sanoista 6 ensimmäistä
+    kirjainta, jotta taivutusmuodot täsmäävät (Aventojoki – Aventojoen)."""
+    sanat = set()
+    for sana in re.findall(r"[a-zåäöA-ZÅÄÖ]{4,}", teksti or ""):
+        sana = sana.lower()
+        if sana in YLEISSANAT:
+            continue
+        sanat.add(sana[:6] if len(sana) >= 6 else sana)
+    return sanat
+
+
+def _etaisyys_km(a, b) -> float:
+    import math
+    la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
+    h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
+    return 6371 * 2 * math.asin(math.sqrt(h))
+
+
+def ehdotuksen_sijainnit(ehdotus: dict) -> list[tuple[float, float]]:
+    t = valmis_taydennys(ehdotus)
+    return [tuple(p) for p in (ehdotus.get("sijainti"), t.get("sijainti"), t.get("lahto_sijainti"),
+                               t.get("loppu_sijainti")) if p]
+
+
+def kaksoiskappaleet(ehdotus: dict, ehdokkaat: list[dict]) -> list[dict]:
+    """Mahdolliset olemassa olevat kohteet: ehdokkaat = [{"nimi", "osoite", "sanat": set, "pisteet": [(lev, pit)]}]
+    (sovelluksen paikat, Muut kohteet, muut ehdotukset). Palauttaa [{"nimi", "osoite", "syy"}]."""
+    t = valmis_taydennys(ehdotus)
+    omat_sanat = _sanat(" ".join(x for x in (ehdotus.get("nimi"), t.get("nimi")) if x))
+    omat_pisteet = ehdotuksen_sijainnit(ehdotus)
+    tulos = []
+    for k in ehdokkaat:
+        syyt = []
+        yhteiset = omat_sanat & k["sanat"]
+        if yhteiset:
+            syyt.append("sama nimi")
+        lahin = min((_etaisyys_km(a, b) for a in omat_pisteet for b in k["pisteet"]), default=None)
+        if lahin is not None and lahin <= LAHELLA_KM:
+            syyt.append(f"sijainti {lahin:.1f} km päässä")
+        if syyt:
+            tulos.append({"nimi": k["nimi"], "osoite": k["osoite"], "syy": ", ".join(syyt)})
+    return tulos

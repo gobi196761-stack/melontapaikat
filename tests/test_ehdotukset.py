@@ -111,7 +111,9 @@ def test_uusi_kohde_esikatselu_ilmoitus_ja_hyvaksynta(ymparisto):
     assert kanta.lue(ehdotukset.KOKOELMA, tunniste)["tila"] == "odottaa"
     # ylläpitäjälle push heti
     assert lahetetyt == [(TILAUS["endpoint"], {"otsikko": "Uusi ehdotus: Kitkajoki (Käylä – Juuma)",
-                                               "teksti": "uusi kohde: 1 kohdetta, 1 linkkiä – Antti",
+                                               "teksti": "uusi kohde: 1 kohdetta, 1 linkkiä – Antti ⚠️ "
+                                                         "mahdollisesti sama kuin Kajakilla kahden Kuusamon "
+                                                         "kylän väliä (Muut kohteet)",
                                                "url": osoite,
                                                "toiminnot": [{"action": "taydenna", "title": "🔍 Täydennä",
                                                               "api": f"/api/ehdotus/{tunniste}/taydenna"}]})]
@@ -383,3 +385,55 @@ def test_yksityiset_linkit(ymparisto):
                                          [yksityinen])[1].startswith("yksityistä linkkiä")
     assert ehdotukset.tarkista_taydennys({**TAYDENNYS, "teksti": f"ks. {yksityinen}"}, [yksityinen])[0] is None
     assert ehdotukset.tarkista_taydennys(TAYDENNYS, [yksityinen])[0]
+
+
+def test_kaksoiskappaleet(ymparisto):
+    """Uusi kohde, joka on jo olemassa toisella nimellä tai samassa paikassa, merkitään."""
+    kanta, _ = ymparisto
+    # Muut kohteet: Kitkajoki nimellä; sovelluksen paikka: sijainti Kipinän vieressä
+    kitka = {"laji": "uusi", "nimi": "Kitkajoen koskireitti", "tila": "odottaa", "kohteet": [], "linkit": []}
+    osumat = app.ehdotuksen_kaksoiskappaleet("X" * 22, kitka)
+    assert any("Muut kohteet" in k["nimi"] and k["syy"] == "sama nimi" for k in osumat)
+    lahella = {"laji": "uusi", "nimi": "Uusi nimi", "sijainti": list(KIPINA.sijainti), "kohteet": [], "linkit": []}
+    osumat = app.ehdotuksen_kaksoiskappaleet("X" * 22, lahella)
+    assert any(k["nimi"] == KIPINA.nimi and k["syy"].startswith("sijainti 0.0 km") for k in osumat)
+    assert app.ehdotuksen_kaksoiskappaleet("X" * 22, {"laji": "uusi", "nimi": "Tuntematonpuro", "kohteet": [],
+                                                       "linkit": []}) == []
+    # esikatselussa varoitus
+    _, otsakkeet, _ = pyynto("/ehdota", metodi="POST", runko=lomake(laji="uusi", nimi="Kitkajoki", teksti="t"))
+    sivu = pyynto(otsakkeet["Location"])[2]
+    assert "⚠️ Mahdollisesti jo olemassa" in sivu and 'href="/muut/' in sivu
+
+
+def test_hyvaksytty_uusi_kohde_listassa(ymparisto, monkeypatch):
+    """Hyväksytty uusi kohde tulee paikkalistaan (sivu /ehdotus/<tunniste>), pisteytetään ja on hälytyksissä."""
+    kanta, _ = ymparisto
+    tunniste = "B" * 22
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, {
+        "laji": "uusi", "nimi": "Aventojoki", "tyyppi": "retki", "tila": "hyvaksytty", "mittari": "",
+        "kohteet": [], "linkit": [], "taydennys": {**ehdotukset.tarkista_taydennys(TAYDENNYS)[0], "tila": "valmis"}})
+    paikat = app.kaikki_paikat()
+    uusi = paikat[-1]
+    assert len(paikat) == len(PAIKAT) + 1 and uusi.nimi == "Aventojoki" and uusi.url == f"/ehdotus/{tunniste}"
+    assert uusi.mittarit["paa"].kaavio == "73/q7300100y/qinlyhyt.png" and uusi.sijainti == (66.363, 29.055)
+    assert app.paikan_osoite(uusi, "en") == f"/ehdotus/{tunniste}?kieli=en"
+    assert "Aventojoki" in halytykset.valittavat(paikat)
+    # laskenta ottaa sen mukaan ja laskee uudelleen, kun hyväksyttyjen joukko muuttuu
+    kaytetyt = []
+
+    def keraa(hakija, paikat_, **kw):
+        kaytetyt.append({p.nimi for p in paikat_})
+        return {}, {"x": object()}, []
+    monkeypatch.setattr(app.melonta, "kerää_tilanne", keraa)
+    monkeypatch.setattr(app.melonta, "arvioi_kaikki", lambda paikat_, *a: [])
+    monkeypatch.setattr(app, "ajomatkat", lambda *a: ("503", {}))
+    monkeypatch.setattr(app, "saaennusteet", lambda *a: {})
+    monkeypatch.setattr(app, "surffitilanne", lambda *a: {})
+    monkeypatch.setattr(app.turvallisuus, "hae", lambda *a: {})
+    app.hae_tilanne()
+    app.hae_tilanne()
+    assert len(kaytetyt) == 1 and "Aventojoki" in kaytetyt[0]
+    kanta.data[ehdotukset.KOKOELMA][tunniste]["tila"] = "hylatty"
+    app._ehdotukset = None
+    app.hae_tilanne()
+    assert len(kaytetyt) == 2 and "Aventojoki" not in kaytetyt[1]

@@ -9,6 +9,7 @@ ympäristömuuttujassa FIREBASE_SERVICE_ACCOUNT.
     uv run python tyokalut/taydenna_ehdotus.py huiput 7300100 [--suure ...]
     uv run python tyokalut/taydenna_ehdotus.py tunnusluvut 73/q7300100y/qinlyhyt.png
     uv run python tyokalut/taydenna_ehdotus.py paikka "Ollilanjärvi Kuusamo"
+    uv run python tyokalut/taydenna_ehdotus.py olemassa [--nimi "Aventojoki"] [--sijainti 66.36 29.05]
     uv run python tyokalut/taydenna_ehdotus.py tallenna taydennys.json
     uv run python tyokalut/taydenna_ehdotus.py virhe "syy"
 """
@@ -187,6 +188,27 @@ def paikka(a):
               f"{p.get('city') or p.get('county') or ''}, {p.get('country')})")
 
 
+def olemassa(a):
+    """Onko ehdotettu kohde jo sovelluksessa, Muissa kohteissa tai toisena ehdotuksena (nimi tai sijainti)?"""
+    import app
+    tunniste = _tunniste()
+    ehdotus = _kanta().lue(ehdotukset.KOKOELMA, tunniste)
+    if not ehdotus:
+        sys.exit("ehdotusta ei löydy")
+    if a.nimi:
+        ehdotus["nimi"] = " ".join(x for x in (ehdotus.get("nimi"), a.nimi) if x)
+    if a.sijainti:
+        ehdotus["sijainti"] = a.sijainti
+    if ehdotus.get("laji") != "uusi":
+        print("Täydennys olemassa olevaan paikkaan – ei tarkisteta.")
+        return
+    osumat = app.ehdotuksen_kaksoiskappaleet(tunniste, ehdotus)
+    for k in osumat:
+        print(f"{k['nimi']}  ({k['syy']})  {TUOTANTO}{k['osoite']}")
+    if not osumat:
+        print("Ei osumia: kohdetta ei löytynyt nimellä eikä sijainnilla.")
+
+
 def tallenna(a):
     tunniste = _tunniste()
     kanta = _kanta()
@@ -248,6 +270,10 @@ def main(argv=None):
     s = ali.add_parser("paikka")
     s.add_argument("teksti")
     s.set_defaults(f=paikka)
+    s = ali.add_parser("olemassa")
+    s.add_argument("--nimi")
+    s.add_argument("--sijainti", nargs=2, type=float)
+    s.set_defaults(f=olemassa)
     s = ali.add_parser("tallenna")
     s.add_argument("tiedosto")
     s.set_defaults(f=tallenna)

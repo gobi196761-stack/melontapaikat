@@ -35,7 +35,7 @@ import math
 import os
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from urllib.parse import parse_qs, quote, urlencode
 
 import arviointi
@@ -58,7 +58,7 @@ import syke_data
 import syke_kaavio
 import turvallisuus
 from arviointi import muotoile
-from paikat import PAIKAT, aseman_nimi, kohteen_kajakit, nakyy
+from paikat import PAIKAT, SIJAINNIT, aseman_nimi, kohteen_kajakit, nakyy
 from paikkakunnat import PAIKKAKUNNAT, RUOTSI
 
 VALIMUISTI_S = 60 * 60   # SYKE:n data päivittyy kerran päivässä; pidempi aika säästää suoritinaikaa
@@ -89,19 +89,22 @@ class Tilanne:
 
 _lukko = threading.Lock()
 _tilanne: tuple[float, Tilanne] | None = None
+_tilanteen_paikat: set[str] | None = None   # laskennan paikat (hyväksytty uusi kohde laskee uudelleen)
 
 
 def hae_tilanne() -> Tilanne:
     """Laskee kaikkien paikkojen tilanteen tai palauttaa tuoreen tuloksen muistista."""
-    global _tilanne
+    global _tilanne, _tilanteen_paikat
     with _lukko:   # samanaikaiset pyynnöt odottavat yhtä laskentaa
+        paikat = kaikki_paikat()
         if _tilanne and time.monotonic() - _tilanne[0] < VALIMUISTI_S \
-                and _tilanne[1].paivitetty.date() == suomen_aika().date():
-            return _tilanne[1]
+                and _tilanne[1].paivitetty.date() == suomen_aika().date() \
+                and _tilanteen_paikat == {p.nimi for p in paikat}:
+            return _tilanne[1]   # uusi hyväksytty kohde laskee tilanteen uudelleen
         nyt = suomen_aika()
         hakija = osm.Hakija(aikaraja=20)
-        sivun_kaaviot, lukemat, varoitukset = melonta.kerää_tilanne(hakija, PAIKAT, lisakaaviot=False)
-        tulokset = melonta.arvioi_kaikki(PAIKAT, sivun_kaaviot, lukemat, nyt.date())
+        sivun_kaaviot, lukemat, varoitukset = melonta.kerää_tilanne(hakija, paikat, lisakaaviot=False)
+        tulokset = melonta.arvioi_kaikki(paikat, sivun_kaaviot, lukemat, nyt.date())
         status, oulusta = ajomatkat(OULU, hakija)
         if not status.startswith("200"):
             oulusta = {}
@@ -110,6 +113,7 @@ def hae_tilanne() -> Tilanne:
                           turvallisuus.hae(hakija))
         if lukemat:   # epäonnistunutta hakua ei jätetä muistiin
             _tilanne = (time.monotonic(), tilanne)
+            _tilanteen_paikat = {p.nimi for p in paikat}
         return tilanne
 
 
@@ -124,7 +128,7 @@ LAHTO_PAIVIA = syke_data.ENNUSTE_PAIVIA   # lähtöaika enintään näin monen p
 def saaennusteet(hakija: osm.Hakija, tunteja: int = (LAHTO_PAIVIA + 1) * 24 + 12) -> dict[str, dict]:
     """Tuntiennuste (lämpötila, WMO-sääkoodi) paikkojen sijainneissa Open-Meteosta yhdellä
     kyselyllä: nimi -> {"aika": [unix s], "t": [...], "k": [...]}. Tyhjä, jos palvelu ei vastaa."""
-    paikat = [p for p in PAIKAT if p.sijainti]
+    paikat = [p for p in kaikki_paikat() if p.sijainti]
     kysely = urlencode({"latitude": ",".join(str(p.sijainti[0]) for p in paikat),
                         "longitude": ",".join(str(p.sijainti[1]) for p in paikat),
                         "hourly": "temperature_2m,weather_code", "forecast_days": 16,
@@ -1120,7 +1124,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     def maara(arvo: str) -> str:
         if arvo == "suosikit":   # suosikit ovat selaimessa: skripti täyttää määrän
             return ' <span class="maara" id="suosikkimaara"></span>'
-        return f' <span class="maara">{sum(1 for p in PAIKAT if nakyy(p, arvo or None))}</span>'
+        return f' <span class="maara">{sum(1 for p in kaikki_paikat() if nakyy(p, arvo or None))}</span>'
     suodattimet = "".join(
         f'<a href="{e(_osoite(tyyppi=arvo, kieli=kieli))}"{" class=valittu" if valittu == arvo else ""}>'
         f'{k_(nimi)}{maara(arvo)}</a>'
@@ -1202,7 +1206,7 @@ def _halytysosio(k_) -> str:
                     for r, nimi in ((80, "erinomainen"), (60, "hyvä"), (30, "kohtalainen")))
     paivat = "".join(f'<option value="{n}"{" selected" if n == 3 else ""}>'
                      f'{k_("tänään") if n == 0 else f"{n} " + k_("pv")}</option>' for n in range(LAHTO_PAIVIA + 1))
-    valinnat = json.dumps(halytykset.valittavat(PAIKAT), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    valinnat = json.dumps(halytykset.valittavat(kaikki_paikat()), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     return f"""<details id="halytys" class="halytys" hidden data-vapid="{e(avainpari[0])}">
 <summary>{k_("🔔 Hälytys hyvistä oloista")}</summary>
 <p class="pieni">{k_("Ilmoitus puhelimeen, kun valitsemasi paikan tai kohteen ehto täyttyy tänään tai ennusteessa. Tarkistus joka aamu; samasta ehdosta uudelleen vasta, kun se on välillä lakannut täyttymästä.")}</p>
@@ -1235,8 +1239,8 @@ def ajomatkat(lahto: str, hakija: osm.Hakija | None = None) -> tuple[str, dict]:
         return "400 Bad Request", {"virhe": "lahto=lev,pit puuttuu tai on virheellinen"}
     if not (54 <= lev <= 71 and 4 <= pit <= 35):
         return "400 Bad Request", {"virhe": "lähtöpiste on liian kaukana"}
-    if (lev, pit) not in _ajomatkat:
-        paikat = [p for p in PAIKAT if p.sijainti]
+    paikat = [p for p in kaikki_paikat() if p.sijainti]
+    if (lev, pit, len(paikat)) not in _ajomatkat:
         pisteet = ";".join(f"{x[1]},{x[0]}" for x in [(lev, pit)] + [p.sijainti for p in paikat])
         data, virhe = osm.hae_turvallisesti(hakija or osm.Hakija(aikaraja=15), OSRM_TAULUKKO.format(pisteet=pisteet))
         try:
@@ -1249,10 +1253,10 @@ def ajomatkat(lahto: str, hakija: osm.Hakija | None = None) -> tuple[str, dict]:
             return "503 Service Unavailable", {"virhe": f"reitityspalvelu ei vastannut: {virhe or 'virheellinen vastaus'}"}
         if len(_ajomatkat) > 2000:
             _ajomatkat.clear()
-        _ajomatkat[(lev, pit)] = {
+        _ajomatkat[(lev, pit, len(paikat))] = {
             "km": {p.nimi: round(m / 1000, 1) for p, m in zip(paikat, matkat) if m is not None},
             "min": {p.nimi: round(s / 60) for p, s in zip(paikat, ajat) if s is not None}}
-    return "200 OK", {"lahto": [lev, pit], **_ajomatkat[(lev, pit)]}
+    return "200 OK", {"lahto": [lev, pit], **_ajomatkat[(lev, pit, len(paikat))]}
 
 
 def _cron_kanta(environ):
@@ -1336,7 +1340,7 @@ def halytys_api(environ, metodi: str) -> tuple[str, dict]:
                 return "400 Bad Request", {"virhe": "endpoint puuttuu"}
             kanta.poista(halytykset.KOKOELMA, halytykset.tunniste(endpoint))
             return "200 OK", {"poistettu": True}
-        tilaus, virhe = halytykset.tarkista_tilaus(data, halytykset.valittavat(PAIKAT))
+        tilaus, virhe = halytykset.tarkista_tilaus(data, halytykset.valittavat(kaikki_paikat()))
         if not tilaus:
             return "400 Bad Request", {"virhe": virhe}
         tila = halytykset.laheta(tilaus, halytykset.vahvistus(tilaus), avainpari)
@@ -1457,7 +1461,7 @@ def _syke_alueet(paikka, avain: str, mittari, hakija: osm.Hakija) -> list:
 
 def _kaavion_paikka(ehto, paikan_nimi: str | None = None) -> tuple | None:
     """(paikka, mittariavain, mittari) mittarille, jolle ehto(mittari) pätee; nimetty paikka ensin."""
-    loydetyt = [(p, a, m) for p in PAIKAT for a, m in p.mittarit.items() if ehto(m)]
+    loydetyt = [(p, a, m) for p in kaikki_paikat() for a, m in p.mittarit.items() if ehto(m)]
     return next((x for x in loydetyt if x[0].nimi == paikan_nimi), loydetyt[0] if loydetyt else None)
 
 
@@ -1644,6 +1648,8 @@ SUUREET = {"vedenkorkeus": "vedenkorkeus", "virtaama": "virtaama", "lampotila": 
 
 
 def paikan_osoite(paikka, kieli: str = "fi") -> str:
+    if paikka.url.startswith("/ehdotus/"):   # käyttäjän ehdottama, hyväksytty kohde
+        return paikka.url + ("?kieli=en" if kieli == "en" else "")
     return f"/paikka/{paikkasivut.tunniste(paikka.nimi)}" + ("?kieli=en" if kieli == "en" else "")
 
 
@@ -1857,7 +1863,7 @@ def paikkasivu(paikka, kieli: str = "fi") -> str:
 
 LAHDETYYPIT["ehdotus"] = "käyttäjän ehdotus"
 PAIKKASIVU_EN["käyttäjän ehdotus"] = "user suggestion"
-EHDOTUS_VALIMUISTI_S = 600
+EHDOTUS_VALIMUISTI_S = 120   # hyväksytty kohde näkyy listassa viimeistään näin monen sekunnin päästä
 _ehdotukset: tuple[float, dict[str, dict]] | None = None
 
 EHDOTUS_TYYLI = """
@@ -1918,6 +1924,56 @@ def kaikki_ehdotukset(pakota: bool = False) -> dict[str, dict]:
 def hyvaksytyt_ehdotukset() -> list[tuple[str, dict]]:
     return sorted(((t, e) for t, e in kaikki_ehdotukset().items() if e.get("tila") == "hyvaksytty"),
                   key=lambda x: x[1].get("kasitelty") or x[1].get("luotu") or "")
+
+
+def kaikki_paikat() -> tuple:
+    """Sovelluksen paikat (PAIKAT) ja hyväksytyt käyttäjien uudet kohteet. Käyttäjän kohteen sivu on
+    /ehdotus/<tunniste> (paikan url); sijainti ehdotuksesta tai täydennyksestä (SIJAINNIT)."""
+    nimet = {p.nimi for p in PAIKAT}
+    julkaistut = []
+    for tunniste, ehdotus in hyvaksytyt_ehdotukset():
+        if ehdotus.get("laji") != "uusi":
+            continue
+        paikka, _ = ehdotukset.paikaksi(ehdotus, PAIKAT)
+        if paikka is None:
+            continue
+        nimi = paikka.nimi if paikka.nimi not in nimet else f"{paikka.nimi} (käyttäjän ehdotus)"
+        nimet.add(nimi)
+        pisteet = ehdotukset.ehdotuksen_sijainnit(ehdotus)
+        if pisteet:
+            SIJAINNIT.setdefault(nimi, pisteet[0])
+        julkaistut.append(replace(paikka, nimi=nimi, url=f"/ehdotus/{tunniste}"))
+    return PAIKAT + tuple(julkaistut)
+
+
+_kaksois_pohja: list[dict] | None = None
+
+
+def _kaksoisehdokkaat(oma_tunniste: str) -> list[dict]:
+    """Vertailukohteet kaksoiskappaleiden etsintään: sovelluksen paikat (nimi, sijainti, lähtö ja loppu),
+    Muut kohteet (nimi, joet, lähtö ja loppu) ja muut ehdotukset (paitsi hylätyt)."""
+    global _kaksois_pohja
+    if _kaksois_pohja is None:
+        _kaksois_pohja = [
+            {"nimi": p.nimi, "osoite": paikan_osoite(p), "sanat": ehdotukset._sanat(p.nimi),
+             "pisteet": [x for x in [p.sijainti] + [piste for _, _, piste in paikkasivut.LAHTO_LOPPU.get(p.nimi, ())]
+                         if x]} for p in PAIKAT]
+        _kaksois_pohja += [
+            {"nimi": f"{k['nimi']} (Muut kohteet)", "osoite": f"/muut/{k['tunniste']}",
+             "sanat": ehdotukset._sanat(" ".join([k["nimi"], *k.get("joet", [])])),
+             "pisteet": [tuple(x) for x in (k.get("lahto_sijainti"), k.get("kohde_sijainti")) if x]}
+            for k in muut_kohteet.KOHTEET]
+    muut = [{"nimi": f"{ehdotukset.nimi(ed)} (ehdotus)", "osoite": f"/ehdotus/{tun}",
+             "sanat": ehdotukset._sanat(ehdotukset.nimi(ed)), "pisteet": ehdotukset.ehdotuksen_sijainnit(ed)}
+            for tun, ed in kaikki_ehdotukset().items()
+            if tun != oma_tunniste and ed.get("laji") == "uusi" and ed.get("tila") != "hylatty"]
+    return _kaksois_pohja + muut
+
+
+def ehdotuksen_kaksoiskappaleet(tunniste: str, ehdotus: dict) -> list[dict]:
+    if ehdotus.get("laji") != "uusi":
+        return []
+    return ehdotukset.kaksoiskappaleet(ehdotus, _kaksoisehdokkaat(tunniste))
 
 
 def _ehdotusluukku(kieli: str) -> str:
@@ -2351,7 +2407,13 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
     if yllapitaja and ehdotus.get("yksityiset_linkit"):   # vain ylläpitäjälle, ei linkkeinä
         yksityiset = (f'<h2>{e(t["yksityiset_otsikko"])}</h2><ul class="lahteet">'
                       + "".join(f"<li><code>{e(u)}</code></li>" for u in ehdotus["yksityiset_linkit"]) + "</ul>")
-    runko = (f"<h1>{e(otsikko)}</h1>{meta}{alku}{taydennys_tila}{hallinta}{ilmoitus}"
+    kaksoset = ehdotuksen_kaksoiskappaleet(tunniste, ehdotus) if tila == "odottaa" else []
+    kaksois_html = ""
+    if kaksoset:
+        kaksois_html = (f'<div class="huom"><b>⚠️ {e(t["kaksoiskappale"])}</b><ul>' + "".join(
+            f'<li><a href="{e(k["osoite"])}">{e(k["nimi"])}</a> <span class="pieni">({e(k["syy"])})</span></li>'
+            for k in kaksoset) + "</ul></div>")
+    runko = (f"<h1>{e(otsikko)}</h1>{meta}{alku}{kaksois_html}{taydennys_tila}{hallinta}{ilmoitus}"
              f"{_ehdotuksen_sisalto(tunniste, ehdotus, kieli, hakija)}{yksityiset}")
     return _sivupohja(otsikko, runko, kieli, _osoite(kieli=kieli))
 
@@ -2439,11 +2501,13 @@ def tallenna_ehdotus(kentat: dict[str, list[str]], kieli: str, ip: str) -> tuple
     except (firestore.FirestoreVirhe, OSError):
         return None, t["virhe_tallennus"]
     laji = "täydennys" if ehdotus["laji"] == "taydenna" else "uusi kohde"
+    kaksoset = ehdotuksen_kaksoiskappaleet(tunniste, ehdotus)
     try:
         _push_kaikille(kanta, ehdotukset.YLLAPITO, {
             "otsikko": f"Uusi ehdotus: {ehdotukset.nimi(ehdotus)}",
             "teksti": f"{laji}: {len(ehdotus['kohteet'])} kohdetta, {len(ehdotus['linkit'])} linkkiä"
-                      + (f" – {ehdotus['ehdottaja']}" if ehdotus.get("ehdottaja") else ""),
+                      + (f" – {ehdotus['ehdottaja']}" if ehdotus.get("ehdottaja") else "")
+                      + (f" ⚠️ mahdollisesti sama kuin {kaksoset[0]['nimi']}" if kaksoset else ""),
             "url": f"/ehdotus/{tunniste}",
             # ilmoituksen nappi (Android, työpöytä): service worker kutsuu rajapintaa ja avaa esikatselun
             "toiminnot": [{"action": "taydenna", "title": "🔍 Täydennä", "api": f"/api/ehdotus/{tunniste}/taydenna"}]})
@@ -2480,7 +2544,9 @@ def ilmoita_taydennyksesta(tunniste: str) -> bool:
     nimi = ehdotukset.nimi(ehdotus)
     try:
         _push_kaikille(kanta, ehdotukset.YLLAPITO, {
-            "otsikko": f"Täydennetty: {nimi}", "teksti": "Esikatselu valmis – hyväksy tai hylkää.",
+            "otsikko": f"Täydennetty: {nimi}", "teksti": "Esikatselu valmis – hyväksy tai hylkää." + "".join(
+                f" ⚠️ Mahdollisesti sama kuin {k['nimi']} ({k['syy']})."
+                for k in ehdotuksen_kaksoiskappaleet(tunniste, ehdotus)[:1]),
             "url": f"/ehdotus/{tunniste}"})
         avainpari = halytykset.avaimet(kanta)
         if ehdotus.get("tilaus") and avainpari:
@@ -2504,6 +2570,8 @@ def kasittele_ehdotus(tunniste: str, toiminto: str) -> bool:
         return False
     ehdotus["tila"] = "hyvaksytty" if toiminto == "hyvaksy" else "hylatty"
     ehdotus["kasitelty"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    global _tilanne
+    _tilanne = None   # hyväksytty kohde tulee listaan heti tällä palvelininstanssilla
     try:
         _ilmoita_ehdottajalle(kanta, tunniste, ehdotus)
     except OSError:
