@@ -1888,6 +1888,8 @@ EHDOTUS_TYYLI = """
 .lomake .lisaa-kohde:disabled { color:var(--heikko); cursor:default; }
 .kohdelista { margin:8px 0; padding-left:18px; }
 .lomake label.valinta { font-weight:400; margin:4px 0; }
+.lomake details.lisatiedot { margin:14px 0 6px; }
+.lomake details.lisatiedot summary { font-weight:600; color:var(--teksti); }
 .yksikon-rajat { margin:2px 0 8px 22px; }
 .kohdelista button { border:0; background:none; color:var(--huono); cursor:pointer; font-size:1rem; padding:0 6px; }
 .virhe { color:var(--huono); font-weight:600; }
@@ -2096,8 +2098,6 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
 <div id="osa-taydenna">
 <label for="paikka">{e(t["paikka"])}</label>
 <select id="paikka" name="paikka">{paikka_valinnat}</select>
-<label for="mittari_avain">{e(t["paikan_mittari"])}</label>
-<select id="mittari_avain" name="mittari_avain"></select>
 </div>
 <div id="osa-uusi">
 <label for="nimi">{e(t["nimi"])}</label>
@@ -2117,8 +2117,19 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
 <p class="ohje"><span class="vain-taydenna">{e(t["kohteet_ohje"])}</span><span class="vain-uusi">{e(t["rajat_uusi_ohje"])}</span></p>
 <datalist id="kohdenimet"></datalist>
 {editori}
+<label for="teksti">{e(t["teksti"])}</label>
+<p class="ohje">{e(t["teksti_ohje"])}</p>
+<textarea id="teksti" name="teksti" rows="8" maxlength="{ehdotukset.TEKSTI_ENINTAAN}">{arvo("teksti")}</textarea>
+<label for="ehdottaja">{e(t["ehdottaja"])}</label>
+<input type="text" id="ehdottaja" name="ehdottaja" maxlength="100" value="{arvo("ehdottaja")}">
+<details class="lisatiedot"{" open" if any(arvo(k) for k in ("mittari_virtaama", "mittari_vedenkorkeus", "sijainti")) else ""}>
+<summary>{e(t["mittarit_otsikko"])}</summary>
+<p class="ohje">{e(t["mittarit_ohje"])}</p>
+<div id="osa-taydenna-mittari">
+<label for="mittari_avain">{e(t["paikan_mittari"])}</label>
+<select id="mittari_avain" name="mittari_avain"></select>
+</div>
 <div id="osa-uusi-mittarit">
-<h2>{e(t["mittarit_otsikko"])}</h2>
 <label for="mittari_virtaama">{e(t["mittari_virtaama"])}</label>
 <input type="text" id="mittari_virtaama" name="mittari_virtaama" maxlength="300" value="{arvo("mittari_virtaama")}">
 <label for="mittari_vedenkorkeus">{e(t["mittari_vedenkorkeus"])}</label>
@@ -2127,11 +2138,7 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
 <label for="sijainti">{e(t["sijainti"])}</label>
 <input type="text" id="sijainti" name="sijainti" maxlength="300" value="{arvo("sijainti")}">
 </div>
-<label for="teksti">{e(t["teksti"])}</label>
-<p class="ohje">{e(t["teksti_ohje"])}</p>
-<textarea id="teksti" name="teksti" rows="8" maxlength="{ehdotukset.TEKSTI_ENINTAAN}">{arvo("teksti")}</textarea>
-<label for="ehdottaja">{e(t["ehdottaja"])}</label>
-<input type="text" id="ehdottaja" name="ehdottaja" maxlength="100" value="{arvo("ehdottaja")}">
+</details>
 <div class="piilo" aria-hidden="true"><label for="verkkosivu">Verkkosivu</label>
 <input type="text" id="verkkosivu" name="verkkosivu" tabindex="-1" autocomplete="off"></div>
 <p class="ohje">{e(t["tietosuoja"])}</p>
@@ -2150,6 +2157,7 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
     document.getElementById("osa-taydenna").hidden = !taydenna;
     document.getElementById("osa-uusi").hidden = taydenna;
     document.getElementById("osa-uusi-mittarit").hidden = taydenna;
+    document.getElementById("osa-taydenna-mittari").hidden = !taydenna;
     document.querySelectorAll(".vain-uusi").forEach(x => {{ x.hidden = taydenna; }});
     document.querySelectorAll(".vain-taydenna").forEach(x => {{ x.hidden = !taydenna; }});
     avain.length = 0;

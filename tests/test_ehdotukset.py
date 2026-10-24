@@ -533,5 +533,7 @@ def test_rajat_suureittain(ymparisto):
     # lomakkeen järjestys: nimi, linkit, kohteet (yksikön valinta), mittarit
     lomake_ = pyynto("/ehdota")[2]
     assert lomake_.index('id="nimi"') < lomake_.index('id="linkit"') < lomake_.index('id="yksityiset_linkit"') \
-        < lomake_.index('id="yksikko-q"') < lomake_.index('id="yksikko-w"') < lomake_.index('id="mittari_virtaama"')
+        < lomake_.index('id="yksikko-q"') < lomake_.index('id="yksikko-w"') < lomake_.index('id="teksti"') \
+        < lomake_.index('id="ehdottaja"') < lomake_.index('id="mittari_virtaama"')   # mittarit viimeisenä
+    assert '<details class="lisatiedot">' in lomake_   # suljettuna, ellei täytetty
     assert "Molempia linkkejä käytetään sivun rakentamiseen" in lomake_
