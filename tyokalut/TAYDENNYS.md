@@ -22,7 +22,12 @@ välitä ympäristömuuttujia.
 2. **Ehdottajan tiedot ovat ensisijaisia.** Ehdottajan antamia kohteita, rajoja, huomioita, mittaria
    ja sijaintia ei muuteta eikä toisteta täydennyksessä – ne näkyvät esikatselussa sellaisinaan.
    Jos lähde on niiden kanssa ristiriidassa, kerro se `huomiot`-kentässä.
-3. Lue ehdotuksen linkit (WebFetch). Etsi muita lähteitä (WebSearch), esim. osm.fi:n jokikuvaukset,
+3. Lue ehdotuksen linkit (WebFetch): sekä julkaistavat (`linkit`) että vain rakentamiseen annetut
+   (`yksityiset_linkit`). **Yksityiset linkit ovat ehdottajan henkilökohtaisia lähteitä:** käytä niiden
+   tietoja (reitti, vesitilanne, kohteet), mutta älä koskaan mainitse, lainaa tai linkitä niitä
+   (ei `lahteet`-listaan, ei tekstiin osoitteena), älä nimeä niissä esiintyviä henkilöitä äläkä
+   kerro henkilökohtaisia asioita. `tallenna` hylkää täydennyksen, jos yksityinen osoite on mukana.
+   Muut linkit: Etsi muita lähteitä (WebSearch), esim. osm.fi:n jokikuvaukset,
    seurojen reittikuvaukset, Metsähallituksen ja kuntien melontareitit, blogit, Retkipaikka.
    Pelkästä linkistä etsi myös paikan nimi.
 4. Sijainnit: `paikka "<nimi> <kunta>"` (OpenStreetMapin paikannimihaku). Lähtö ja loppu reitin

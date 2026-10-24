@@ -193,7 +193,8 @@ def tallenna(a):
     ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste)
     if not ehdotus:
         sys.exit("ehdotusta ei löydy")
-    taydennys, virhe = ehdotukset.tarkista_taydennys(json.loads(Path(a.tiedosto).read_text(encoding="utf-8")))
+    taydennys, virhe = ehdotukset.tarkista_taydennys(json.loads(Path(a.tiedosto).read_text(encoding="utf-8")),
+                                                     ehdotus.get("yksityiset_linkit") or [])
     if not taydennys:
         sys.exit(f"täydennys ei kelpaa: {virhe}")
     vanha = ehdotus.get("taydennys") or {}

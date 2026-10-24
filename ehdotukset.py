@@ -129,7 +129,7 @@ def tulkitse(kentat: dict[str, list[str]], paikat: tuple[Paikka, ...], kieli: st
         ehdotus["nimi"] = paikka.nimi
     else:
         nimi = _kentta(kentat, "nimi")
-        if not nimi and not (kentat.get("linkit") or [""])[0].strip():
+        if not nimi and not any((kentat.get(k) or [""])[0].strip() for k in ("linkit", "yksityiset_linkit")):
             return None, t["virhe_nimi"]   # pelkkä linkki riittää: täydennys etsii nimen
         ehdotus["nimi"] = nimi
         ehdotus["tyyppi"] = "peli" if _kentta(kentat, "tyyppi") == "peli" else "retki"
@@ -164,22 +164,33 @@ def tulkitse(kentat: dict[str, list[str]], paikat: tuple[Paikka, ...], kieli: st
         if any(a is not None and b is not None and a > b for a, b in ((ta, ty), (pa, py))):
             return None, t["virhe_jarjestys"].format(n=i)
         kohteet.append({"nimi": nimi, "toimii": [ta, ty], "paras": [pa, py], "huom": huom})
-    linkit = []
-    for rivi in (kentat.get("linkit") or [""])[0].splitlines():
-        url = rivi.strip()
-        if not url:
-            continue
-        if not re.fullmatch(r"https?://\S{3,490}", url):
-            return None, t["virhe_linkki"].format(url=url[:80])
-        linkit.append({"url": url, "laji": linkin_laji(url)})
-    if len(linkit) > LINKKEJA_ENINTAAN:
-        return None, t["virhe_linkkeja"].format(n=LINKKEJA_ENINTAAN)
+    def linkkirivit(kentta: str) -> tuple[list[str] | None, str]:
+        urlit = []
+        for rivi in (kentat.get(kentta) or [""])[0].splitlines():
+            url = rivi.strip()
+            if not url:
+                continue
+            if not re.fullmatch(r"https?://\S{3,490}", url):
+                return None, t["virhe_linkki"].format(url=url[:80])
+            urlit.append(url)
+        if len(urlit) > LINKKEJA_ENINTAAN:
+            return None, t["virhe_linkkeja"].format(n=LINKKEJA_ENINTAAN)
+        return urlit, ""
+    julkiset, virhe = linkkirivit("linkit")
+    if julkiset is None:
+        return None, virhe
+    linkit = [{"url": url, "laji": linkin_laji(url)} for url in julkiset]
+    # linkit vain sivun rakentamiseen (täydennyksen lähteiksi): ei näytetä eikä linkitetä julkisesti
+    yksityiset, virhe = linkkirivit("yksityiset_linkit")
+    if yksityiset is None:
+        return None, virhe
     teksti = (kentat.get("teksti") or [""])[0].strip()
     if len(teksti) > TEKSTI_ENINTAAN:
         return None, t["virhe_teksti"].format(n=TEKSTI_ENINTAAN)
-    if not kohteet and not linkit and not teksti:
+    if not kohteet and not linkit and not yksityiset and not teksti:
         return None, t["virhe_tyhja"]
-    ehdotus.update(kohteet=kohteet, linkit=linkit, teksti=teksti, ehdottaja=_kentta(kentat, "ehdottaja"))
+    ehdotus.update(kohteet=kohteet, linkit=linkit, yksityiset_linkit=yksityiset, teksti=teksti,
+                   ehdottaja=_kentta(kentat, "ehdottaja"))
     return ehdotus, ""
 
 
@@ -260,8 +271,9 @@ GITHUB_REPO = "gobi196761-stack/melontapaikat"
 TYONKULKU = "taydenna.yml"
 
 
-def tarkista_taydennys(data) -> tuple[dict | None, str]:
-    """Clauden kirjoittama täydennys tallennettavaan muotoon: (täydennys, virhe)."""
+def tarkista_taydennys(data, yksityiset: list[str] | tuple = ()) -> tuple[dict | None, str]:
+    """Clauden kirjoittama täydennys tallennettavaan muotoon: (täydennys, virhe). Ehdottajan vain
+    rakentamiseen antamat linkit (yksityiset) eivät saa näkyä lähteissä eikä tekstissä."""
     if not isinstance(data, dict):
         return None, "täydennyksen pitää olla JSON-olio"
     tulos: dict = {}
@@ -310,6 +322,10 @@ def tarkista_taydennys(data) -> tuple[dict | None, str]:
             lahteet.append({"nimi": str(l["nimi"]).strip()[:200],
                             "url": url if re.fullmatch(r"https?://\S{3,490}", url) else ""})
     tulos["lahteet"] = lahteet[:15]
+    for url in yksityiset:   # yksityinen linkki ei saa päätyä julkiseksi
+        if any(url in (tulos.get(k) or "") for k in ("teksti", "lahto", "loppu", "mittari_perustelu", "huomiot")) \
+                or any(url == l["url"] for l in lahteet):
+            return None, f"yksityistä linkkiä ei saa julkaista: {url}"
     if not tulos.get("teksti") and not kohteet:
         return None, "täydennyksessä pitää olla vähintään teksti tai kohteita"
     return tulos, ""
@@ -393,7 +409,11 @@ TEKSTIT = {
                         "korjaat sen rajoja.",
         "kohde": "Kohde", "kohteen_nimi": "Nimi", "toimii": "Toimii", "optimi": "Optimi", "huom": "Huomio",
         "ala": "alaraja", "yla": "yläraja",
-        "linkit": "Linkit, yksi riviä kohden: vesitiedot, videot, kuvaukset", "teksti": "Oma teksti",
+        "linkit": "Julkaistavat linkit, yksi riviä kohden: vesitiedot, videot, kuvaukset (näytetään sivulla)",
+        "yksityiset_linkit": "Linkit vain sivun rakentamiseen (ei näytetä eikä linkitetä)",
+        "yksityiset_ohje": "Esim. omat kuvat, somepäivitykset tai muistiinpanot, joista täydennys saa tietoja. "
+                           "Linkkejä ei julkaista; ne näkyvät vain ylläpitäjälle.",
+        "yksityiset_otsikko": "Vain sivun rakentamiseen (ei julkaista)", "teksti": "Oma teksti",
         "teksti_ohje": "Esim. lähtö- ja lopetuspaikat, kosket, pelipaikkojen kuvaukset, kokemukset eri vesillä.",
         "ehdottaja": "Nimesi tai nimimerkki (vapaaehtoinen)", "laheta": "Lähetä ehdotus",
         "tietosuoja": "Ehdotuksesta tallennetaan vain lomakkeen tiedot. Julkaistussa ehdotuksessa näkyy "
@@ -468,7 +488,11 @@ TEKSTIT = {
                         "existing feature to correct its limits.",
         "kohde": "Feature", "kohteen_nimi": "Name", "toimii": "Works", "optimi": "Optimum", "huom": "Note",
         "ala": "lower", "yla": "upper",
-        "linkit": "Links, one per line: water data, videos, descriptions", "teksti": "Your text",
+        "linkit": "Links to publish, one per line: water data, videos, descriptions (shown on the page)",
+        "yksityiset_linkit": "Links only for building the page (not shown or linked)",
+        "yksityiset_ohje": "E.g. your own photos, social media posts or notes the completion can draw on. The "
+                           "links are not published; only the administrator sees them.",
+        "yksityiset_otsikko": "Only for building the page (not published)", "teksti": "Your text",
         "teksti_ohje": "E.g. put-in and take-out, rapids, play spot descriptions, experiences at different levels.",
         "ehdottaja": "Your name or nickname (optional)", "laheta": "Send suggestion",
         "tietosuoja": "Only the form contents are stored. A published suggestion shows the nickname you gave.",

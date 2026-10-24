@@ -359,3 +359,27 @@ def test_tyokalu_tallenna_ja_rajaus(ymparisto, monkeypatch, tmp_path, capsys):
     assert kutsut == [f"https://melontapaikat.vercel.app/api/ehdotus/{tunniste}/taydennys-valmis"]
     tyokalu.main(["virhe", "linkki ei aukea"])
     assert kanta.lue(ehdotukset.KOKOELMA, tunniste)["taydennys"]["tila"] == "virhe"
+
+
+def test_yksityiset_linkit(ymparisto):
+    """Vain rakentamiseen annetut linkit: tallentuvat, näkyvät vain ylläpitäjälle (ei linkkeinä),
+    eivätkä täydennys saa julkaista niitä."""
+    kanta, _ = ymparisto
+    yksityinen = "https://www.facebook.com/oma/postaus/123"
+    status, otsakkeet, _ = pyynto("/ehdota", metodi="POST", runko=lomake(
+        laji="uusi", nimi="Testijoki", linkit="https://koskimelojat.blogspot.com/x", yksityiset_linkit=yksityinen))
+    assert status == "303 See Other"
+    tunniste = otsakkeet["Location"].removeprefix("/ehdotus/")
+    assert kanta.lue(ehdotukset.KOKOELMA, tunniste)["yksityiset_linkit"] == [yksityinen]
+    assert yksityinen not in pyynto(otsakkeet["Location"])[2]
+    _, ylla, _ = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))
+    sivu = pyynto(otsakkeet["Location"], evaste=ylla["Set-Cookie"].split(";")[0])[2]
+    assert f"<code>{yksityinen}</code>" in sivu and f'href="{yksityinen}"' not in sivu
+    # pelkkä yksityinen linkki riittää uudeksi kohteeksi
+    assert ehdotukset.tulkitse({"laji": ["uusi"], "yksityiset_linkit": [yksityinen]}, PAIKAT)[0]
+    assert "Linkit vain sivun rakentamiseen" in pyynto("/ehdota")[2]
+    # täydennys ei saa julkaista yksityistä linkkiä
+    assert ehdotukset.tarkista_taydennys({**TAYDENNYS, "lahteet": [{"nimi": "FB", "url": yksityinen}]},
+                                         [yksityinen])[1].startswith("yksityistä linkkiä")
+    assert ehdotukset.tarkista_taydennys({**TAYDENNYS, "teksti": f"ks. {yksityinen}"}, [yksityinen])[0] is None
+    assert ehdotukset.tarkista_taydennys(TAYDENNYS, [yksityinen])[0]

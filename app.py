@@ -2029,6 +2029,9 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
 {editori}
 <label for="linkit">{e(t["linkit"])}</label>
 <textarea id="linkit" name="linkit" rows="4">{arvo("linkit")}</textarea>
+<label for="yksityiset_linkit">{e(t["yksityiset_linkit"])}</label>
+<p class="ohje">{e(t["yksityiset_ohje"])}</p>
+<textarea id="yksityiset_linkit" name="yksityiset_linkit" rows="3">{arvo("yksityiset_linkit")}</textarea>
 <label for="teksti">{e(t["teksti"])}</label>
 <p class="ohje">{e(t["teksti_ohje"])}</p>
 <textarea id="teksti" name="teksti" rows="8" maxlength="{ehdotukset.TEKSTI_ENINTAAN}">{arvo("teksti")}</textarea>
@@ -2344,8 +2347,12 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
                     + (f'<button class="nappi toissijainen" name="toiminto" value="taydenna">{e(taydenna)}</button>'
                        if tila == "odottaa" and taydennys.get("tila") != "kaynnissa" else "")
                     + f' <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
+    yksityiset = ""
+    if yllapitaja and ehdotus.get("yksityiset_linkit"):   # vain ylläpitäjälle, ei linkkeinä
+        yksityiset = (f'<h2>{e(t["yksityiset_otsikko"])}</h2><ul class="lahteet">'
+                      + "".join(f"<li><code>{e(u)}</code></li>" for u in ehdotus["yksityiset_linkit"]) + "</ul>")
     runko = (f"<h1>{e(otsikko)}</h1>{meta}{alku}{taydennys_tila}{hallinta}{ilmoitus}"
-             f"{_ehdotuksen_sisalto(tunniste, ehdotus, kieli, hakija)}")
+             f"{_ehdotuksen_sisalto(tunniste, ehdotus, kieli, hakija)}{yksityiset}")
     return _sivupohja(otsikko, runko, kieli, _osoite(kieli=kieli))
 
 
