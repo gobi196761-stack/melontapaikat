@@ -206,14 +206,15 @@ def test_skriptit_ja_sijainti(ymparisto, tmp_path):
             assert tulos.returncode == 0, tulos.stderr
 
 
-def test_uusi_kohde_vain_yksi_paikka(ymparisto):
-    """Uutena kohteena vain yksi paikka: muut rivit ohitetaan, kohteen nimi on oletuksena paikan nimi."""
+def test_uusi_kohde_ja_lisaa_kohde_nappi(ymparisto):
+    """Uusi kohde: ensimmäisen kohteen nimi oletuksena paikan nimi; "+ Lisää kohde" tuo lisää rivejä."""
     kentat = {"laji": ["uusi"], "nimi": ["Aventojoki"], "mittari": ["7300350"], "k1_toimii_ala": ["10"],
-              "k2_nimi": ["Toinen"], "k2_toimii_ala": ["5"]}
+              "k2_nimi": ["Alakoski"], "k2_toimii_ala": ["5"]}
     ehdotus, virhe = ehdotukset.tulkitse(kentat, PAIKAT)
-    assert not virhe and [k["nimi"] for k in ehdotus["kohteet"]] == ["Aventojoki"]
-    kentat["k1_nimi"] = ["Aventojoki, alaosa"]
-    assert [k["nimi"] for k in ehdotukset.tulkitse(kentat, PAIKAT)[0]["kohteet"]] == ["Aventojoki, alaosa"]
+    assert not virhe and [k["nimi"] for k in ehdotus["kohteet"]] == ["Aventojoki", "Alakoski"]
+    del kentat["k2_nimi"]
+    assert ehdotukset.tulkitse(kentat, PAIKAT)[1] == "Anna kohteen 2 nimi."
     sivu = pyynto("/ehdota")[2]
-    assert '<fieldset class="ensimmainen">' in sivu and sivu.count('<fieldset class="lisarivi">') == 5
-    assert "Paikan toiminta-alue ja optimi" in sivu and "Yksi paikka kerrallaan" in sivu
+    assert '<fieldset class="ensimmainen">' in sivu
+    assert sivu.count('<fieldset class="lisarivi">') == ehdotukset.KOHTEITA_ENINTAAN - 1 == 6   # nappia 6 kertaa
+    assert 'id="lisaa-kohde">+ Lisää kohde</button>' in sivu and sivu.count('class="poista-kohde"') == 6

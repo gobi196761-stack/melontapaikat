@@ -29,7 +29,7 @@ from paikat import Kohde, Mittari, Paikka
 KOKOELMA = "ehdotukset"
 YLLAPITO = "yllapito_tilaukset"
 TILAT = ("odottaa", "hyvaksytty", "hylatty")
-KOHTEITA_ENINTAAN = 6
+KOHTEITA_ENINTAAN = 7           # ensimmäinen rivi + lomakkeen "+ Lisää kohde" enintään 6 kertaa
 LINKKEJA_ENINTAAN = 10
 TEKSTI_ENINTAAN = 3000
 NIMI_ENINTAAN = 100
@@ -142,15 +142,15 @@ def tulkitse(kentat: dict[str, list[str]], paikat: tuple[Paikka, ...], kieli: st
         sijainti = sijainti_tekstista(_kentta(kentat, "sijainti", 300))
         ehdotus["sijainti"] = list(sijainti) if sijainti else None
     kohteet = []
-    # uutena kohteena ehdotetaan yksi paikka kerrallaan: vain ensimmäinen rivi (nimi = paikan nimi,
-    # ellei toista anneta); täydennyksessä useita kohteita
-    for i in range(1, (1 if laji == "uusi" else KOHTEITA_ENINTAAN) + 1):
+    # uutena kohteena ehdotetaan yksi paikka kerrallaan; sen ensimmäisen kohteen nimi on oletuksena
+    # paikan nimi, ja lisää pelipaikkoja tai laskuosuuksia tulee "+ Lisää kohde" -napilla
+    for i in range(1, KOHTEITA_ENINTAAN + 1):
         nimi = _kentta(kentat, f"k{i}_nimi")
         arvot = [_kentta(kentat, f"k{i}_{x}", 20) for x in ("toimii_ala", "toimii_yla", "paras_ala", "paras_yla")]
         huom = _kentta(kentat, f"k{i}_huom", 300)
         if not nimi and not any(arvot) and not huom:
             continue
-        nimi = nimi or (ehdotus["nimi"] if laji == "uusi" else "")
+        nimi = nimi or (ehdotus["nimi"] if laji == "uusi" and i == 1 else "")
         try:
             ta, ty, pa, py = (luku(a) for a in arvot)
         except ValueError:
@@ -268,7 +268,9 @@ TEKSTIT = {
         "rajat_uusi": "Paikan toiminta-alue ja optimi",
         "rajat_uusi_ohje": "Yksi paikka kerrallaan: anna paikan rajat mittarin yksikössä. Toimii = alue, jolla "
                            "paikka toimii; optimi = paras alue (tyhjä = sama kuin toimii). Jätä toinen pää "
-                           "tyhjäksi, jos rajaa ei ole. Muut pelipaikat voit lisätä myöhemmin täydennyksenä.",
+                           "tyhjäksi, jos rajaa ei ole. Paikan pelipaikat tai laskuosuudet omine rajoineen saat "
+                           "lisättyä napilla + Lisää kohde.",
+        "lisaa_kohde": "+ Lisää kohde", "poista_kohde": "Poista kohde",
         "kohteen_nimi_uusi": "Kohteen tarkempi nimi (vapaaehtoinen, oletus = paikan nimi)",
         "kohteet_ohje": "Rajat mittarin yksikössä. Toimii = alue, jolla kohde toimii; optimi = paras alue "
                         "(tyhjä = sama kuin toimii). Jätä toinen pää tyhjäksi, jos rajaa ei ole (esim. vain "
@@ -332,7 +334,9 @@ TEKSTIT = {
         "rajat_uusi": "Working range and optimum of the spot",
         "rajat_uusi_ohje": "One spot at a time: give the spot's limits in the gauge's unit. Works = the range "
                            "where the spot works; optimum = the best range (empty = same as works). Leave one end "
-                           "empty if there is no limit. You can add other play spots later as an addition.",
+                           "empty if there is no limit. Add the spot's play spots or river sections with their own "
+                           "limits with the + Add feature button.",
+        "lisaa_kohde": "+ Add feature", "poista_kohde": "Remove feature",
         "kohteen_nimi_uusi": "More specific name of the feature (optional, default = name of the spot)",
         "kohteet_ohje": "Limits in the gauge's unit. Works = the range where the feature works; optimum = the "
                         "best range (empty = same as works). Leave one end empty if there is no limit (e.g. "

@@ -1877,6 +1877,10 @@ EHDOTUS_TYYLI = """
 .rajat-rivi input { width:7em !important; }
 .lomake .ohje { color:var(--heikko); font-size:.85rem; margin:2px 0; }
 .lomake .piilo { position:absolute; left:-9999px; }
+.lomake .lisaa-kohde { font:inherit; font-size:.9rem; padding:4px 10px; border:1px solid var(--viiva);
+                       border-radius:6px; background:var(--tausta); color:var(--linkki); cursor:pointer; }
+.lomake .lisaa-kohde:disabled { color:var(--heikko); cursor:default; }
+.lomake .poista-kohde { border:0; background:none; color:var(--huono); cursor:pointer; font-size:1rem; padding:0 6px; }
 .virhe { color:var(--huono); font-weight:600; }
 .tila-merkki { display:inline-block; padding:1px 8px; border-radius:999px; border:1px solid var(--viiva);
                font-size:.85rem; }
@@ -1965,8 +1969,12 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
     kohteet = {p.nimi: [k.nimi for k in p.kohteet] for p in paikat}
     rivit = []
     for i in range(1, ehdotukset.KOHTEITA_ENINTAAN + 1):
-        rivit.append(f"""<fieldset class="{"ensimmainen" if i == 1 else "lisarivi"}"><legend>{e(t["kohde"])} {i}</legend>
-<label for="k{i}_nimi"><span class="vain-taydenna">{e(t["kohteen_nimi"])}</span><span class="vain-uusi">{e(t["kohteen_nimi_uusi"])}</span></label>
+        poista = (f' <button type="button" class="poista-kohde" title="{e(t["poista_kohde"])}" '
+                  f'aria-label="{e(t["poista_kohde"])}">✕</button>' if i > 1 else "")
+        nimiteksti = (f'<span class="vain-taydenna">{e(t["kohteen_nimi"])}</span>'
+                      f'<span class="vain-uusi">{e(t["kohteen_nimi_uusi"])}</span>' if i == 1 else e(t["kohteen_nimi"]))
+        rivit.append(f"""<fieldset class="{"ensimmainen" if i == 1 else "lisarivi"}"><legend>{e(t["kohde"])} {i}{poista}</legend>
+<label for="k{i}_nimi">{nimiteksti}</label>
 <input type="text" id="k{i}_nimi" name="k{i}_nimi" maxlength="100" list="kohdenimet" value="{arvo(f"k{i}_nimi")}">
 <div class="rajat-rivi"><span>{e(t["toimii"])}</span>
 <input type="text" inputmode="decimal" name="k{i}_toimii_ala" placeholder="{e(t["ala"])}" value="{arvo(f"k{i}_toimii_ala")}">–
@@ -2012,6 +2020,8 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
 <p class="ohje"><span class="vain-taydenna">{e(t["kohteet_ohje"])}</span><span class="vain-uusi">{e(t["rajat_uusi_ohje"])}</span></p>
 <datalist id="kohdenimet"></datalist>
 {"".join(rivit)}
+<p><button type="button" class="lisaa-kohde" id="lisaa-kohde">{e(t["lisaa_kohde"])}</button>
+<span class="ohje" id="kohteita-jaljella"></span></p>
 <label for="linkit">{e(t["linkit"])}</label>
 <textarea id="linkit" name="linkit" rows="4">{arvo("linkit")}</textarea>
 <label for="teksti">{e(t["teksti"])}</label>
@@ -2036,9 +2046,6 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
     const taydenna = document.querySelector('input[name="laji"]:checked').value === "taydenna";
     document.getElementById("osa-taydenna").hidden = !taydenna;
     document.getElementById("osa-uusi").hidden = taydenna;
-    // uusi kohde: yksi paikka kerrallaan (vain ensimmäinen rivi, ei rivin otsikkoa)
-    document.querySelectorAll("fieldset.lisarivi").forEach(f => {{ f.hidden = !taydenna; f.disabled = !taydenna; }});
-    document.querySelector("fieldset.ensimmainen legend").hidden = !taydenna;
     document.querySelectorAll(".vain-uusi").forEach(x => {{ x.hidden = taydenna; }});
     document.querySelectorAll(".vain-taydenna").forEach(x => {{ x.hidden = !taydenna; }});
     avain.length = 0;
@@ -2046,6 +2053,38 @@ def ehdotuslomake(kieli: str, laji: str = "uusi", paikan_nimi: str = "", virhe: 
     document.getElementById("kohdenimet").replaceChildren(...(taydenna ? kohteet[paikka.value] || [] : [])
       .map(n => new Option(n)));
   }}
+  // kohderivit: ensimmäinen näkyy, "+ Lisää kohde" tuo seuraavan (enintään {ehdotukset.KOHTEITA_ENINTAAN - 1} kertaa),
+  // ✕ poistaa rivin; piilotetut rivit eivät lähde lomakkeen mukana (disabled)
+  const lisarivit = [...document.querySelectorAll("fieldset.lisarivi")], lisaa = document.getElementById("lisaa-kohde");
+  const tayttyy = f => [...f.querySelectorAll("input")].some(i => i.value.trim());
+  const nayta = (f, on) => {{ f.hidden = !on; f.disabled = !on; }};
+  function paivitaNappi() {{
+    let n = 0;   // näkyvät rivit numeroidaan järjestyksessä
+    document.querySelectorAll(".lomake fieldset").forEach(f => {{
+      if (!f.hidden) f.querySelector("legend").firstChild.textContent = {json.dumps(t["kohde"])} + " " + ++n;
+    }});
+    const jaljella = lisarivit.filter(f => f.hidden).length;
+    lisaa.disabled = !jaljella;
+    document.getElementById("kohteita-jaljella").textContent = jaljella ? "(" + jaljella + ")" : "";
+  }}
+  lisarivit.forEach(f => {{
+    nayta(f, tayttyy(f));
+    f.querySelector(".poista-kohde").addEventListener("click", () => {{
+      f.querySelectorAll("input").forEach(i => {{ i.value = ""; }});
+      nayta(f, false);
+      f.parentNode.insertBefore(f, lisaa.parentNode);   // vapautunut rivi jonon viimeiseksi
+      lisarivit.push(lisarivit.splice(lisarivit.indexOf(f), 1)[0]);
+      paivitaNappi();
+    }});
+  }});
+  lisaa.addEventListener("click", () => {{
+    const f = lisarivit.find(f => f.hidden);
+    if (!f) return;
+    nayta(f, true);
+    f.querySelector("input").focus();
+    paivitaNappi();
+  }});
+  paivitaNappi();
   document.querySelectorAll('input[name="laji"]').forEach(r => r.addEventListener("change", paivita));
   paikka.addEventListener("change", paivita);
   paivita();
