@@ -252,7 +252,7 @@ Asetukset (kerran):
 
 | Missä | Nimi | Arvo |
 |---|---|---|
-| GitHub: Settings → Secrets and variables → Actions | `CLAUDE_CODE_OAUTH_TOKEN` | komennon `claude setup-token` tulos (Claude-tilaus) |
+| GitHub: Settings → Secrets and variables → Actions | `ANTHROPIC_API_KEY` | API-avain (console.anthropic.com, käytön mukaan) – tai `CLAUDE_CODE_OAUTH_TOKEN` = komennon `claude setup-token` tulos (Pro/Max) |
 | GitHub: sama | `FIREBASE_SERVICE_ACCOUNT` | melontapaikkojen Firebase-palvelutilin JSON |
 | Vercel: Environment Variables | `GITHUB_TAYDENNYS_TOKEN` | fine-grained token, vain tämä repo, *Actions: Read and write* |
 
