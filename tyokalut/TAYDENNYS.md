@@ -36,22 +36,39 @@ välitä ympäristömuuttujia.
    (`mittari …`), mieluiten samalla joella tai sen alapuolella samassa vesistössä. Perustele valinta
    (`mittari_perustelu`), esim. "Aventojoella ei ole omaa asemaa; Oulankajoki on alavirrassa".
    Jos ehdottaja antoi mittarin, älä vaihda sitä.
-6. Vesitiedot melontapäiviltä: jos lähteessä on päivämäärä, hae sen päivän arvo `vesi <nro> <pvm>`.
+6. **Onko kohde jo olemassa toisella nimellä?** Aja `olemassa --nimi "<löytämäsi nimi>" --sijainti <lev> <pit>`
+   (lähtöpaikka tai reitin keskikohta). Se vertaa sovelluksen paikkoihin, Muihin kohteisiin ja muihin
+   ehdotuksiin nimen ja sijainnin (alle 3 km) perusteella. Tarkista osumat (avaa linkki tarvittaessa):
+   jos kyseessä on sama reitti tai pelipaikka, kerro se `huomiot`-kentän alussa muodossa
+   "Sama kohde kuin <nimi> (<osoite>): …" ja täydennä silti, jotta ylläpitäjä voi päättää. Eri osuus
+   samalla joella ei ole kaksoiskappale – mainitse se lyhyesti.
+   **Muut kohteet -osuma ei estä uutta paikkaa:** jos ehdotuksessa on (tai saat koottua) mittarin ja
+   rajat, siitä tehdään pisteytettävä paikka, vaikka sama reitti on Muut kohteet -listassa. Hae reitin
+   tiedot `muut <tunniste>` (osoitteen `/muut/<tunniste>` loppu) ja ota oleelliset tiedot (reitti, lähtö
+   ja loppu, kosket, vesitilanne melontapäivänä, korkeusero, matka) omin sanoin mukaan kuvaukseen.
+   Lisää lähteisiin `{"nimi": "Timo Piirainen: melontapäiväkirja", "url": ""}` – päiväkirjaa ei
+   linkitetä. Muut kohteet -listaa ei muuteta.
+   Jos kohde on **sovelluksen olemassa oleva paikka**, mutta lähteissä tai ehdotuksessa on sille
+   **uusia pelipaikkoja tai laskuosuuksia**, kirjaa ne `kohteet`-listaan rajoineen (paikan mittarin
+   yksikössä, jos käytät samaa mittaria) ja kirjoita `huomiot`-kenttään "Uusia kohteita paikkaan
+   <nimi>: …". Ylläpitäjä voi silloin yhdellä napilla muuttaa ehdotuksen paikan täydennykseksi.
+7. Vesitiedot melontapäiviltä: jos lähteessä on päivämäärä, hae sen päivän arvo `vesi <nro> <pvm>`.
    Tulvan harvinaisuuden arvioon `huiput <nro>` ja `tunnusluvut <mittari>` (MHQ = keskimääräinen
    kevättulvan huippu, MNQ = keskimääräinen alivirtaama).
-7. Rajat (kohteet): arvioi toimii- ja optimialue lähteiden vesitiedoista ja kuvauksista
+8. Rajat (kohteet): arvioi toimii- ja optimialue lähteiden vesitiedoista ja kuvauksista
    ("vain tulvalla", "kesällä matala"). Rajat ovat aina arvioita – kerro peruste kohteen `huom`-kentässä
    (esim. "melottu 16.5.2010 Oulankajoen 440 m³/s:lla; rajat arvioita"). Älä keksi rajoja, joille ei
    ole perustetta: jos mitään vesitietoa ei löydy, jätä kohteet pois ja kerro se `huomiot`-kentässä.
-8. Kirjoita kuvaus **omin sanoin** (ei suoria lainauksia): mikä paikka on, reitti (lähtö, loppu, pituus,
+9. Kirjoita kuvaus **omin sanoin** (ei suoria lainauksia): mikä paikka on, reitti (lähtö, loppu, pituus,
    kosket ja luokitus), vaarat, vesitilanne ja paras aika, mistä tiedot ovat. Kappaleet erotetaan
    tyhjällä rivillä.
-9. Älä mainitse henkilöiden nimiä (kirjoittajat, melojat, ehdottaja) äläkä henkilökohtaisia
-   tapaturmia tai sattumuksia. Lähteet nimetään sivuston tai julkaisijan mukaan.
-10. Kirjoita täydennys JSON-tiedostoon ja tallenna: `tallenna taydennys.json`. Komento tarkistaa
+10. Älä mainitse henkilöiden nimiä (kirjoittajat, melojat, ehdottaja) äläkä henkilökohtaisia
+   tapaturmia tai sattumuksia. Lähteet nimetään sivuston tai julkaisijan mukaan; poikkeus on lähde
+   "Timo Piirainen: melontapäiväkirja" (ilman linkkiä).
+11. Kirjoita täydennys JSON-tiedostoon ja tallenna: `tallenna taydennys.json`. Komento tarkistaa
     tiedoston, tallentaa sen ja lähettää ilmoitukset ylläpitäjälle ja ehdottajalle. Jos tarkistus
     hylkää tiedoston, korjaa ja yritä uudelleen.
-11. Jos täydennys ei onnistu (linkit eivät aukea, paikkaa ei löydy), aja `virhe "<syy suomeksi>"`.
+12. Jos täydennys ei onnistu (linkit eivät aukea, paikkaa ei löydy), aja `virhe "<syy suomeksi>"`.
 
 ## Täydennyksen JSON
 

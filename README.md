@@ -230,9 +230,16 @@ Sähköpostia ei kerätä.
   ympäristömuuttujaan **`YLLAPITO_SALASANA`**, ja tilaa sieltä push-ilmoitukset
   uusista ehdotuksista (puhelin tai tietokoneen selain). Ilmoituksesta pääsee
   esikatseluun, jossa on Hyväksy- ja Hylkää-napit.
-- Hyväksytyt uudet kohteet listataan etusivun luukussa ja täydennykset paikkasivun
-  osiossa "Käyttäjien lisäykset". Pisteytykseen ja hälytyksiin ne lisätään
-  erikseen `paikat.py`:hyn.
+- Hyväksytyt uudet kohteet tulevat paikkalistaan (`kaikki_paikat()`): ne pisteytetään
+  mittarin ja rajojen mukaan, saavat sään ja ajomatkan sijainnista ja ovat hälytysten
+  valinnoissa; sivu on `/ehdotus/<tunniste>`. Ne listataan myös etusivun luukussa.
+  Täydennykset näkyvät paikkasivun osiossa "Käyttäjien lisäykset".
+- Kaksoiskappaleet: uutta kohdetta verrataan sovelluksen paikkoihin, Muihin kohteisiin
+  ja muihin ehdotuksiin nimen ja sijainnin (alle 3 km) perusteella; mahdolliset osumat
+  näkyvät esikatselussa ja ylläpitäjän ilmoituksessa.
+- Jos uusi kohde onkin sovelluksen olemassa oleva paikka, ylläpitäjä voi esikatselussa
+  muuttaa sen yhdellä napilla paikan täydennykseksi: ehdotuksen uudet pelipaikat lisätään
+  paikan kohteiksi ja samannimiset rajakorjauksiksi (eri mittari lisätään paikalle).
 - Roskapostin esto: piilokenttä, enintään 5 ehdotusta tunnissa samasta
   osoitteesta ja enintään 100 odottavaa ehdotusta.
 
