@@ -1708,13 +1708,21 @@ def _rajat(raja: tuple, yksikko: str, muuttuja: str, kieli: str = "fi") -> str:
 
 
 def _mittarin_linkki(paikka, avain: str, kieli: str = "fi") -> str:
-    """Oma kaavio, jos sen voi piirtää ilman päivän lukemaa, muuten SYKE:n asemasivu."""
+    """Mittarin oma kaaviosivu (ei vesi.fi:tä). Muistissa olevan tilanteen lukemasta tiedetään,
+    piirretäänkö kaavio ajo.jsonista vai SYKE:n kuvasta; ilman sitä kaaviosivu kokeilee ensin
+    ajo.jsonia ja sitten kuvaa."""
     mittari = paikka.mittarit[avain]
-    oma = kaavion_osoite(paikka, avain, kieli=kieli)
+    lukema = None
+    if _tilanne:
+        tulos = next((t for t in _tilanne[1].tulokset if t.paikka.nimi == paikka.nimi), None)
+        lukema = tulos.lukemat.get(avain) if tulos else None
+    oma = kaavion_osoite(paikka, avain, lukema, kieli)
     if oma:
         return oma
-    alue, asema = kaavion_asema(mittari.kaavio)
-    return f"{osm.SYKE_POHJA}{alue}/{asema}/wqfi.html"
+    parametrit = {"paikka": paikka.nimi, **({"kieli": kieli} if kieli != "fi" else {})}
+    if lukema is not None:   # esim. lämpötila: sarjat SYKE:n kuvasta
+        parametrit["lahde"] = "kuva"
+    return f"/kaavio/syke/{mittari.kaavio.removesuffix('.png')}?{urlencode(parametrit)}"
 
 
 # Paikkasivun kiinteät tekstit englanniksi (kuvaukset: paikkasivut_en.py)
@@ -1835,8 +1843,14 @@ def paikkasivu(paikka, kieli: str = "fi") -> str:
     lahteet = list(paikkasivut.KUVAUKSET[paikka.nimi].lahteet if paikka.nimi in paikkasivut.KUVAUKSET else ())
     if paikka.url not in {url for _, url in lahteet}:
         lahteet.insert(0, (k_("Paikan pääsivu"), paikka.url))
-    lahteet_html = "".join(f'<li><a href="{e(url)}" target="_blank" rel="noopener">{e(otsikko)}</a></li>'
-                           if url else f"<li>{e(otsikko)}</li>" for otsikko, url in lahteet)
+    def lahde(otsikko: str, url: str | None) -> str:
+        if not url:
+            return f"<li>{e(otsikko)}</li>"
+        if url.startswith("/"):   # sovelluksen oma sivu (esim. mittarin kaavio): samaan ikkunaan
+            url += "&kieli=en" if en and url.startswith("/kaavio/") else ""
+            return f'<li><a href="{e(url)}">{e(otsikko)}</a></li>'
+        return f'<li><a href="{e(url)}" target="_blank" rel="noopener">{e(otsikko)}</a></li>'
+    lahteet_html = "".join(lahde(otsikko, url) for otsikko, url in lahteet)
     loppu = (k_("loppuhuomautus") if en else
              "Kuvaus on koottu lähteistä omin sanoin; tarkista olosuhteet aina paikan päällä. Suluissa olevat "
              "vesitiedot ovat kuvatun päivän vuorokausiarvoja SYKE:n hydrologiarajapinnasta (Ruotsin paikat: "

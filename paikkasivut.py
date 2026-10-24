@@ -958,7 +958,8 @@ KUVAUKSET: dict[str, Kuvaus] = {
           "https://julkaisut.metsa.fi/assets/pdf/lp/Esitteet/oulankamelonta-en.pdf"),
          ("Retkipaikka: Oulangan top-6 parhaat packrafting-melontareitit (2021)", RETKIPAIKKA_OULANKA),
          ("Kuusamon Koskimelojat: Kuusinkijoki (2009)", "https://koskimelojat.blogspot.com/2009/05/kuusinkijoki.html"),
-         ("SYKE: Myllykosken virtaama", "https://wwwi2.ymparisto.fi/i2/73/q7300350y/wqfi.html")),
+         ("Myllykosken virtaama ja ennuste (SYKE:n data, sovelluksen kaavio)",
+          "/kaavio/syke/73/q7300350y/qinlyhyt?paikka=Kuusinkijoki")),
     ),
     # ------------------------------------------------------------------
     "Savinajoki": Kuvaus(
@@ -991,7 +992,8 @@ KUVAUKSET: dict[str, Kuvaus] = {
          ("Kuusamon Koskimelojat: Savinajoki (2009)", "https://koskimelojat.blogspot.com/2009/05/savinajoki.html"),
          ("luontoon.fi: Oulankajoen koskimelontareitti Savilampi – Kiutaköngäs",
           "https://www.luontoon.fi/en/trails/oulankajoen-koskimelontareitti-savilampi-kiutakonkaan-leirintaalue-kuusamo-500518-en"),
-         ("SYKE: Oulankajoen virtaama", "https://wwwi2.ymparisto.fi/i2/73/q7300100y/wqfi.html")),
+         ("Oulankajoen virtaama ja ennuste (SYKE:n data, sovelluksen kaavio)",
+          "/kaavio/syke/73/q7300100y/qinlyhyt?paikka=Savinajoki")),
     ),
     # ------------------------------------------------------------------
     "Siiponjoki (Kalajoki)": Kuvaus(
