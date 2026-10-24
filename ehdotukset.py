@@ -129,43 +129,55 @@ def tulkitse(kentat: dict[str, list[str]], paikat: tuple[Paikka, ...], kieli: st
             return None, t["virhe_mittari"]
         ehdotus["mittari_avain"] = avain
         ehdotus["nimi"] = paikka.nimi
+        vanha_suure = suure_kaaviosta(paikka.mittarit[avain].kaavio) if avain in paikka.mittarit else None
     else:
         nimi = _kentta(kentat, "nimi")
         if not nimi and not any((kentat.get(k) or [""])[0].strip() for k in ("linkit", "yksityiset_linkit")):
             return None, t["virhe_nimi"]   # pelkkä linkki riittää: täydennys etsii nimen
         ehdotus["nimi"] = nimi
         ehdotus["tyyppi"] = "peli" if _kentta(kentat, "tyyppi") == "peli" else "retki"
-        suure = "vedenkorkeus" if _kentta(kentat, "suure") == "vedenkorkeus" else "virtaama"
-        mittari_teksti = _kentta(kentat, "mittari", 300)
-        kaavio = mittari_tekstista(mittari_teksti, suure)
-        if mittari_teksti and not kaavio:
-            return None, t["virhe_asema"]
-        ehdotus["mittari"] = kaavio or ""
+        # mittarit suureittain (vapaaehtoiset; täydennys etsii puuttuvat); vanha lomake: mittari + suure
+        vanha_suure = "vedenkorkeus" if _kentta(kentat, "suure") == "vedenkorkeus" else "virtaama"
+        for kentta, suure in (("mittari_virtaama", "virtaama"), ("mittari_vedenkorkeus", "vedenkorkeus"),
+                              ("mittari", vanha_suure)):
+            mittari_teksti = _kentta(kentat, kentta, 300)
+            kaavio = mittari_tekstista(mittari_teksti, suure)
+            if mittari_teksti and not kaavio:
+                return None, t["virhe_asema"]
+            if kaavio:
+                ehdotus.setdefault(f"mittari_{suure_kaaviosta(kaavio) or suure}", kaavio)
         sijainti = sijainti_tekstista(_kentta(kentat, "sijainti", 300))
         ehdotus["sijainti"] = list(sijainti) if sijainti else None
     kohteet = []
     # uutena kohteena ehdotetaan yksi paikka kerrallaan; sen ensimmäisen kohteen nimi on oletuksena
     # paikan nimi, ja lisää pelipaikkoja tai laskuosuuksia tulee "+ Lisää kohde" -napilla
+    # Kohteen rajat suureittain: k<i>_q_* = virtaama (m³/s), k<i>_w_* = vedenkorkeus (m); molemmat, toinen
+    # tai ei kumpaakaan. Avoin ala- tai yläraja sallitaan; pelkkä optimi käy myös toimii-alueeksi ja päinvastoin.
     for i in range(1, KOHTEITA_ENINTAAN + 1):
         nimi = _kentta(kentat, f"k{i}_nimi")
-        arvot = [_kentta(kentat, f"k{i}_{x}", 20) for x in ("toimii_ala", "toimii_yla", "paras_ala", "paras_yla")]
         huom = _kentta(kentat, f"k{i}_huom", 300)
-        if not nimi and not any(arvot) and not huom:
+        rajat = {}
+        for suure, lyh in (("virtaama", "q"), ("vedenkorkeus", "w")):
+            arvot = [_kentta(kentat, f"k{i}_{lyh}_{x}", 20) for x in ("toimii_ala", "toimii_yla", "paras_ala", "paras_yla")]
+            if suure == vanha_suure and not any(arvot):   # vanha lomake: k<i>_toimii_ala jne.
+                arvot = [_kentta(kentat, f"k{i}_{x}", 20) for x in ("toimii_ala", "toimii_yla", "paras_ala", "paras_yla")]
+            if not any(arvot):
+                continue
+            try:
+                ta, ty, pa, py = (luku(a) for a in arvot)
+            except ValueError:
+                return None, t["virhe_luku"].format(n=i)
+            if any(a is not None and b is not None and a > b for a, b in ((ta, ty), (pa, py))):
+                return None, t["virhe_jarjestys"].format(n=i)
+            toimii, paras = [ta, ty], [pa, py]
+            rajat[suure] = {"toimii": toimii if toimii != [None, None] else paras,
+                            "paras": paras if paras != [None, None] else toimii}
+        if not nimi and not rajat and not huom:
             continue
         nimi = nimi or (ehdotus["nimi"] if laji == "uusi" and i == 1 else "")
-        try:
-            ta, ty, pa, py = (luku(a) for a in arvot)
-        except ValueError:
-            return None, t["virhe_luku"].format(n=i)
         if not nimi:
             return None, t["virhe_kohteen_nimi"].format(n=i)
-        if ta is None and ty is None:
-            return None, t["virhe_rajat"].format(n=i)
-        if pa is None and py is None:
-            pa, py = ta, ty
-        if any(a is not None and b is not None and a > b for a, b in ((ta, ty), (pa, py))):
-            return None, t["virhe_jarjestys"].format(n=i)
-        kohteet.append({"nimi": nimi, "toimii": [ta, ty], "paras": [pa, py], "huom": huom})
+        kohteet.append({"nimi": nimi, "rajat": rajat, "huom": huom})
     def linkkirivit(kentta: str) -> tuple[list[str] | None, str]:
         urlit = []
         for rivi in (kentat.get(kentta) or [""])[0].splitlines():
@@ -213,9 +225,63 @@ def roskaa(kentat: dict[str, list[str]], ip: str, nyt: float | None = None) -> b
 # Ehdotus paikaksi (esikatselu ja julkaisu)
 # ---------------------------------------------------------------------------
 
-def _kohde(k: dict, avain: str) -> Kohde:
-    return Kohde(k["nimi"], tuple(k["toimii"]), tuple(k["paras"]), 1.0, avain, huom=k.get("huom", ""),
+SUUREET = ("virtaama", "vedenkorkeus")
+YKSIKOT = {"virtaama": "m3/s", "vedenkorkeus": "m"}
+
+
+def suure_kaaviosta(kaavio: str | None) -> str | None:
+    """'73/q7300100y/qinlyhyt.png' -> virtaama, '…/w3lyhyt.png' -> vedenkorkeus (SMHI: virtaama)."""
+    if not kaavio:
+        return None
+    if kaavio.startswith("smhi/"):
+        return "virtaama"
+    tiedosto = kaavio.rsplit("/", 1)[-1].lower()
+    return "virtaama" if tiedosto.startswith("q") else "vedenkorkeus" if tiedosto.startswith("w") else None
+
+
+def kohteen_rajat(k: dict, oletus_suure: str | None = None) -> dict[str, tuple[list, list]]:
+    """Kohteen rajat suureittain: {suure: (toimii, paras)}. Vanhassa muodossa (toimii/paras ilman
+    suuretta) rajat ovat ehdotuksen mittarin suureessa (oletus_suure)."""
+    if isinstance(k.get("rajat"), dict):
+        return {s: (list(r.get("toimii") or [None, None]), list(r.get("paras") or r.get("toimii") or [None, None]))
+                for s, r in k["rajat"].items() if s in SUUREET and isinstance(r, dict)}
+    if k.get("toimii") is not None and oletus_suure:
+        return {oletus_suure: (list(k["toimii"]), list(k.get("paras") or k["toimii"]))}
+    return {}
+
+
+def _kohde(k: dict, suureittain: dict[str, str], oletus_suure: str | None) -> Kohde | None:
+    """Pisteytettävä kohde: ensimmäinen suure (virtaama ensin), jolle on sekä rajat että mittari."""
+    rajat = kohteen_rajat(k, oletus_suure)
+    suure = next((s for s in SUUREET if s in rajat and s in suureittain), None)
+    if suure is None:
+        return None
+    toimii, paras = rajat[suure]
+    return Kohde(k["nimi"], tuple(toimii), tuple(paras), 1.0, suureittain[suure], huom=k.get("huom", ""),
                  lahde="arvio" if k.get("arvio") else "ehdotus")
+
+
+def ehdotuksen_mittarit(ehdotus: dict) -> dict[str, str]:
+    """Uuden kohteen mittarit suureittain: ehdottajan antamat ensin, sitten täydennyksen löytämät."""
+    t = valmis_taydennys(ehdotus)
+    tulos: dict[str, str] = {}
+    for kaavio in (ehdotus.get("mittari_virtaama"), ehdotus.get("mittari_vedenkorkeus"), ehdotus.get("mittari"),
+                   *(t.get("mittarit") or {}).values(), t.get("mittari")):
+        suure = suure_kaaviosta(kaavio)
+        if suure:
+            tulos.setdefault(suure, kaavio)
+    return tulos
+
+
+def oletussuure(ehdotus: dict, paikat: tuple[Paikka, ...] = ()) -> str | None:
+    """Vanhan muodon (rajat ilman suuretta) suure: ehdotuksen tai täydennyksen yksi mittari."""
+    if ehdotus.get("laji") == "taydenna":
+        if ehdotus.get("lisamittari"):
+            return suure_kaaviosta(ehdotus["lisamittari"])
+        paikka = next((p for p in paikat if p.nimi == ehdotus.get("paikka")), None)
+        mittari = paikka.mittarit.get(ehdotus.get("mittari_avain") or "") if paikka else None
+        return suure_kaaviosta(mittari.kaavio) if mittari else None
+    return suure_kaaviosta(ehdotus.get("mittari") or valmis_taydennys(ehdotus).get("mittari"))
 
 
 def valmis_taydennys(ehdotus: dict) -> dict:
@@ -249,20 +315,31 @@ def paikaksi(ehdotus: dict, paikat: tuple[Paikka, ...]) -> tuple[Paikka | None, 
     kohteet_ = kaikki_kohteet(ehdotus)
     uudet = {k["nimi"] for k in kohteet_}
     taydennys = valmis_taydennys(ehdotus)
+    oletus = oletussuure(ehdotus, paikat)
     if ehdotus.get("laji") == "taydenna":
         paikka = next((p for p in paikat if p.nimi == ehdotus.get("paikka")), None)
         if paikka is None:
             return None, uudet
         mittarit = dict(paikka.mittarit)
-        if ehdotus.get("lisamittari"):   # uudesta kohteesta muunnettu: ehdotuksen oma mittari rinnalle
+        valittu = ehdotus.get("mittari_avain")
+        suureittain: dict[str, str] = {}
+        for avain, m in paikka.mittarit.items():   # paikan mittari suureittain (valittu ensin)
+            s = suure_kaaviosta(m.kaavio)
+            if s and (s not in suureittain or avain == valittu):
+                suureittain[s] = avain
+        if ehdotus.get("lisamittari"):   # vanha muunnos: yksi ehdotuksen mittari rinnalle
             mittarit[LISAMITTARI] = Mittari(ehdotus["lisamittari"], lisakaavio=True)
-        avain = ehdotus.get("mittari_avain") or next(iter(mittarit), "paa")
-        ehdotetut = [_kohde(k, avain) for k in kohteet_]
-        vanhat = [k for k in paikka.kohteet if k.nimi not in uudet]
+            suureittain[suure_kaaviosta(ehdotus["lisamittari"]) or "virtaama"] = LISAMITTARI
+        for s, kaavio in (ehdotus.get("lisamittarit") or {}).items():   # muunnettu: ehdotuksen mittarit
+            mittarit[f"{LISAMITTARI}_{s}"] = Mittari(kaavio, lisakaavio=True)
+            suureittain[s] = f"{LISAMITTARI}_{s}"
+        ehdotetut = [x for x in (_kohde(k, suureittain, oletus) for k in kohteet_) if x]
+        korvatut = {k.nimi for k in ehdotetut}
+        vanhat = [k for k in paikka.kohteet if k.nimi not in korvatut]
         return replace(paikka, mittarit=mittarit, kohteet=tuple(vanhat + ehdotetut)), uudet
-    kaavio = ehdotus.get("mittari") or taydennys.get("mittari")
-    mittarit = {"paa": Mittari(kaavio, lisakaavio=True)} if kaavio else {}
-    kohteet = tuple(_kohde(k, "paa") for k in kohteet_) if mittarit else ()
+    kaaviot = ehdotuksen_mittarit(ehdotus)
+    mittarit = {s: Mittari(kaavio, lisakaavio=True) for s, kaavio in kaaviot.items()}
+    kohteet = tuple(x for x in (_kohde(k, {s: s for s in mittarit}, oletus) for k in kohteet_) if x)
     linkit = ehdotus.get("linkit") or []
     return Paikka(nimi(ehdotus), linkit[0]["url"] if linkit else "", ehdotus.get("tyyppi", "retki"),
                   None, (ehdotus.get("teksti") or taydennys.get("teksti") or "")[:300], mittarit, kohteet), uudet
@@ -293,22 +370,23 @@ def muunna_taydennykseksi(ehdotus: dict, paikka: Paikka) -> dict:
     täydennyksen kohteet tulevat paikan uusiksi kohteiksi (samanniminen = rajakorjaus); jos ehdotuksen
     mittari on eri kuin paikan, se lisätään paikalle kohteiden mittariksi."""
     t = valmis_taydennys(ehdotus)
+    oletus = oletussuure(ehdotus)
+    kohteet = [{**{x: v for x, v in k.items() if x not in ("toimii", "paras")}, "rajat": {
+        s: {"toimii": toimii, "paras": paras} for s, (toimii, paras) in kohteen_rajat(k, oletus).items()}}
+        for k in kaikki_kohteet(ehdotus)]   # rajat suureittain, jotta paikan mittari valitaan suureen mukaan
     uusi = {**ehdotus, "laji": "taydenna", "paikka": paikka.nimi, "alkuperainen_nimi": nimi(ehdotus),
-            "kohteet": kaikki_kohteet(ehdotus)}
+            "kohteet": kohteet}
     olemassa = {_nimiavain(k.nimi): k.nimi for k in paikka.kohteet}
     for k in uusi["kohteet"]:   # sama kohde eri kirjoitusasulla -> olemassa olevan nimi (rajakorjaus)
         k["nimi"] = olemassa.get(_nimiavain(k["nimi"]), k["nimi"])
     if t:
         uusi["taydennys"] = {**ehdotus["taydennys"], "kohteet": []}   # kohteet siirretty ehdotukseen
-    kaavio = ehdotus.get("mittari") or t.get("mittari")
-    omat = {m.kaavio: a for a, m in paikka.mittarit.items()}
-    if kaavio and kaavio in omat:
-        uusi["mittari_avain"] = omat[kaavio]
-    elif kaavio:
-        uusi["lisamittari"], uusi["mittari_avain"] = kaavio, LISAMITTARI
-    else:
-        uusi["mittari_avain"] = next(iter(paikka.mittarit), "paa")
-    for kentta in ("nimi", "mittari", "sijainti", "tyyppi"):
+    omat = {m.kaavio for m in paikka.mittarit.values()}
+    lisamittarit = {s: kaavio for s, kaavio in ehdotuksen_mittarit(ehdotus).items() if kaavio not in omat}
+    if lisamittarit:   # ehdotuksen rajat ovat sen omalla mittarilla: mittari paikalle kohteiden mittariksi
+        uusi["lisamittarit"] = lisamittarit
+    uusi["mittari_avain"] = next(iter(paikka.mittarit), "paa")
+    for kentta in ("nimi", "mittari", "mittari_virtaama", "mittari_vedenkorkeus", "sijainti", "tyyppi"):
         uusi.pop(kentta, None)
     uusi["nimi"] = paikka.nimi
     return uusi
@@ -340,6 +418,14 @@ def tarkista_taydennys(data, yksityiset: list[str] | tuple = ()) -> tuple[dict |
         if not kaavio:
             return None, f"mittari: tuntematon asema {data['mittari']!r}"
         tulos["mittari"] = kaavio
+    mittarit = {}
+    for suure, arvo in (data.get("mittarit") or {}).items() if isinstance(data.get("mittarit"), dict) else ():
+        kaavio = mittari_tekstista(str(arvo), str(suure)) if suure in SUUREET and arvo else None
+        if not kaavio:
+            return None, f"mittarit: tuntematon asema {arvo!r} ({suure})"
+        mittarit[suure_kaaviosta(kaavio) or suure] = kaavio
+    if mittarit:
+        tulos["mittarit"] = mittarit
     for kentta in ("sijainti", "lahto_sijainti", "loppu_sijainti"):
         arvo = data.get(kentta)
         if arvo:
@@ -354,15 +440,26 @@ def tarkista_taydennys(data, yksityiset: list[str] | tuple = ()) -> tuple[dict |
     for i, k in enumerate(data.get("kohteet") or [], 1):
         if not isinstance(k, dict) or not str(k.get("nimi") or "").strip():
             return None, f"kohde {i}: nimi puuttuu"
-        try:
-            toimii = [luku(str(x)) if x is not None else None for x in (k.get("toimii") or [None, None])[:2]]
-            paras = [luku(str(x)) if x is not None else None for x in (k.get("paras") or toimii)[:2]]
-        except ValueError:
-            return None, f"kohde {i}: rajat eivät ole lukuja"
-        if toimii == [None, None]:
-            return None, f"kohde {i}: toimii-raja puuttuu"
-        kohteet.append({"nimi": str(k["nimi"]).strip()[:NIMI_ENINTAAN], "toimii": toimii,
-                        "paras": paras if paras != [None, None] else toimii, "huom": str(k.get("huom") or "")[:300]})
+        oletus = suure_kaaviosta(tulos.get("mittari")) or (next(iter(mittarit)) if len(mittarit) == 1 else None)
+        lahteet_ = k["rajat"] if isinstance(k.get("rajat"), dict) else (
+            {oletus: {"toimii": k.get("toimii"), "paras": k.get("paras")}} if k.get("toimii") or k.get("paras") else {})
+        if None in lahteet_:
+            return None, f"kohde {i}: rajojen suure puuttuu (käytä rajat: {{virtaama|vedenkorkeus: …}})"
+        rajat = {}
+        for suure, r_ in lahteet_.items():
+            if suure not in SUUREET or not isinstance(r_, dict):
+                return None, f"kohde {i}: tuntematon suure {suure!r}"
+            try:
+                toimii = [luku(str(x)) if x is not None else None for x in (list(r_.get("toimii") or []) + [None, None])[:2]]
+                paras = [luku(str(x)) if x is not None else None for x in (list(r_.get("paras") or []) + [None, None])[:2]]
+            except ValueError:
+                return None, f"kohde {i}: rajat eivät ole lukuja"
+            if toimii == [None, None] and paras == [None, None]:
+                continue
+            rajat[suure] = {"toimii": toimii if toimii != [None, None] else paras,
+                            "paras": paras if paras != [None, None] else toimii}
+        kohteet.append({"nimi": str(k["nimi"]).strip()[:NIMI_ENINTAAN], "rajat": rajat,
+                        "huom": str(k.get("huom") or "")[:300]})
     if len(kohteet) > KOHTEITA_ENINTAAN:
         return None, f"enintään {KOHTEITA_ENINTAAN} kohdetta"
     tulos["kohteet"] = kohteet
@@ -446,24 +543,32 @@ TEKSTIT = {
         "suure": "Mittarin suure", "virtaama": "virtaama (m³/s)", "vedenkorkeus": "vedenkorkeus (m)",
         "paikan_mittari": "Mittari", "sijainti": "Sijainti (koordinaatit tai karttalinkki, vapaaehtoinen)",
         "kohteet": "Pelipaikat tai laskuosuudet ja niiden rajat",
-        "rajat_uusi": "Paikan toiminta-alue ja optimi",
-        "rajat_uusi_ohje": "Yksi paikka kerrallaan: anna paikan rajat mittarin yksikössä. Toimii = alue, jolla "
-                           "paikka toimii; optimi = paras alue (tyhjä = sama kuin toimii). Jätä toinen pää "
-                           "tyhjäksi, jos rajaa ei ole, ja paina + Lisää kohde. Paikan muut pelipaikat tai "
-                           "laskuosuudet lisätään samalla tavalla.",
+        "rajat_uusi": "Pelipaikat tai laskuosuudet ja niiden rajat",
+        "rajat_uusi_ohje": "Yksi paikka kerrallaan. Anna paikan pelipaikat tai laskuosuudet: valitse kullekin, "
+                           "annatko rajat virtaamana (m³/s), vedenkorkeutena (m), molempina vai ei lainkaan. "
+                           "Toimii = alue, jolla kohde toimii; optimi = paras alue. Ala- tai ylärajan voi jättää "
+                           "auki. Paina + Lisää kohde; seuraava samoin.",
         "lisaa_kohde": "+ Lisää kohde", "poista_kohde": "Poista kohde",
         "kohteita_enintaan": "Enintään {n} kohdetta.", "paikan_nimi": "(paikan nimi)",
         "kohteen_nimi_uusi": "Kohteen tarkempi nimi (vapaaehtoinen, oletus = paikan nimi)",
-        "kohteet_ohje": "Rajat mittarin yksikössä. Toimii = alue, jolla kohde toimii; optimi = paras alue "
-                        "(tyhjä = sama kuin toimii). Jätä toinen pää tyhjäksi, jos rajaa ei ole (esim. vain "
-                        "alaraja), ja paina + Lisää kohde; seuraava kohde samoin. Olemassa olevan kohteen nimellä "
-                        "korjaat sen rajoja.",
+        "kohteet_ohje": "Valitse kullekin kohteelle, annatko rajat virtaamana (m³/s), vedenkorkeutena (m), "
+                        "molempina vai ei lainkaan. Ala- tai ylärajan voi jättää auki. Paina + Lisää kohde; "
+                        "seuraava samoin. Olemassa olevan kohteen nimellä korjaat sen rajoja.",
         "kohde": "Kohde", "kohteen_nimi": "Nimi", "toimii": "Toimii", "optimi": "Optimi", "huom": "Huomio",
         "ala": "alaraja", "yla": "yläraja",
-        "linkit": "Julkaistavat linkit, yksi riviä kohden: vesitiedot, videot, kuvaukset (näytetään sivulla)",
-        "yksityiset_linkit": "Linkit vain sivun rakentamiseen (ei näytetä eikä linkitetä)",
-        "yksityiset_ohje": "Esim. omat kuvat, somepäivitykset tai muistiinpanot, joista täydennys saa tietoja. "
-                           "Linkkejä ei julkaista; ne näkyvät vain ylläpitäjälle.",
+        "linkit_otsikko": "Linkit",
+        "linkit_ohje": "Molempia linkkejä käytetään sivun rakentamiseen (täydennys lukee ne). Julkaistavat "
+                       "linkit näytetään sivulla; ei-julkaistavat näkyvät vain ylläpitäjälle. Yksi linkki riviä kohden.",
+        "linkit": "Julkaistavat linkit (vesitiedot, videot, kuvaukset)",
+        "yksityiset_linkit": "Ei-julkaistavat linkit (esim. omat kuvat, somepäivitykset, muistiinpanot)",
+        "yksityiset_ohje": "Näitä ei näytetä eikä linkitetä sivulla.",
+        "mittarit_otsikko": "Vesimittari ja sijainti (vapaaehtoinen)",
+        "mittarit_ohje": "Täytä vain, jos tiedät. Muuten mittari ja sijainti haetaan muiden tietojen perusteella.",
+        "mittari_virtaama": "Virtaama-asema (m³/s): SYKE-aseman numero tai linkki kaavioon",
+        "mittari_vedenkorkeus": "Vedenkorkeusasema (m): SYKE-aseman numero tai linkki kaavioon",
+        "yksikot": "Rajat (valitse yksi, molemmat tai ei kumpaakaan)", "yksikko_q": "virtaama m³/s",
+        "yksikko_w": "vedenkorkeus m", "ei_rajoja": "ei rajoja", "ei_pisteyteta": "ei pisteytetä: {syy}",
+        "syy_mittari": "mittari puuttuu", "syy_rajat": "rajat puuttuvat",
         "yksityiset_otsikko": "Vain sivun rakentamiseen (ei julkaista)", "teksti": "Oma teksti",
         "teksti_ohje": "Esim. lähtö- ja lopetuspaikat, kosket, pelipaikkojen kuvaukset, kokemukset eri vesillä.",
         "ehdottaja": "Nimesi tai nimimerkki (vapaaehtoinen)", "laheta": "Lähetä ehdotus",
@@ -536,24 +641,34 @@ TEKSTIT = {
         "suure": "Gauge quantity", "virtaama": "discharge (m³/s)", "vedenkorkeus": "water level (m)",
         "paikan_mittari": "Gauge", "sijainti": "Location (coordinates or a map link, optional)",
         "kohteet": "Play spots or river sections and their limits",
-        "rajat_uusi": "Working range and optimum of the spot",
-        "rajat_uusi_ohje": "One spot at a time: give the spot's limits in the gauge's unit. Works = the range "
-                           "where the spot works; optimum = the best range (empty = same as works). Leave one end "
-                           "empty if there is no limit, and press + Add feature. Other play spots or river "
-                           "sections of the spot are added the same way.",
+        "rajat_uusi": "Play spots or river sections and their limits",
+        "rajat_uusi_ohje": "One spot at a time. Give its play spots or river sections: choose for each whether "
+                           "you give limits as discharge (m³/s), water level (m), both or neither. Works = the "
+                           "range where it works; optimum = the best range. Lower or upper limits may be left open. "
+                           "Press + Add feature; the next one the same way.",
         "lisaa_kohde": "+ Add feature", "poista_kohde": "Remove feature",
         "kohteita_enintaan": "At most {n} features.", "paikan_nimi": "(name of the spot)",
         "kohteen_nimi_uusi": "More specific name of the feature (optional, default = name of the spot)",
-        "kohteet_ohje": "Limits in the gauge's unit. Works = the range where the feature works; optimum = the "
-                        "best range (empty = same as works). Leave one end empty if there is no limit (e.g. "
-                        "only a lower limit) and press + Add feature; the next feature the same way. Use the name of an "
-                        "existing feature to correct its limits.",
+        "kohteet_ohje": "Choose for each feature whether you give limits as discharge (m³/s), water level (m), "
+                        "both or neither. Lower or upper limits may be left open. Press + Add feature; the next one "
+                        "the same way. Use the name of an existing feature to correct its limits.",
         "kohde": "Feature", "kohteen_nimi": "Name", "toimii": "Works", "optimi": "Optimum", "huom": "Note",
         "ala": "lower", "yla": "upper",
-        "linkit": "Links to publish, one per line: water data, videos, descriptions (shown on the page)",
-        "yksityiset_linkit": "Links only for building the page (not shown or linked)",
-        "yksityiset_ohje": "E.g. your own photos, social media posts or notes the completion can draw on. The "
-                           "links are not published; only the administrator sees them.",
+        "linkit_otsikko": "Links",
+        "linkit_ohje": "Both kinds of links are used to build the page (the completion reads them). Links to "
+                       "publish are shown on the page; the others are seen only by the administrator. One link "
+                       "per line.",
+        "linkit": "Links to publish (water data, videos, descriptions)",
+        "yksityiset_linkit": "Links not to publish (e.g. your own photos, social media posts, notes)",
+        "yksityiset_ohje": "These are not shown or linked on the page.",
+        "mittarit_otsikko": "Water gauge and location (optional)",
+        "mittarit_ohje": "Fill in only if you know them. Otherwise the gauge and location are found from the other "
+                         "information.",
+        "mittari_virtaama": "Discharge gauge (m³/s): SYKE station number or a link to its chart",
+        "mittari_vedenkorkeus": "Water level gauge (m): SYKE station number or a link to its chart",
+        "yksikot": "Limits (choose one, both or neither)", "yksikko_q": "discharge m³/s",
+        "yksikko_w": "water level m", "ei_rajoja": "no limits", "ei_pisteyteta": "not scored: {syy}",
+        "syy_mittari": "gauge missing", "syy_rajat": "limits missing",
         "yksityiset_otsikko": "Only for building the page (not published)", "teksti": "Your text",
         "teksti_ohje": "E.g. put-in and take-out, rapids, play spot descriptions, experiences at different levels.",
         "ehdottaja": "Your name or nickname (optional)", "laheta": "Send suggestion",
