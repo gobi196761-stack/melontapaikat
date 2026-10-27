@@ -16,7 +16,7 @@ pisteytystä, ennusteita, arviomalleja tai kaavioita. Käyttöohje on README.md:
 | `melonta.py` | `kerää_tilanne` hakee kaiken rinnakkain. Sisältää myös CLI:n. |
 | `kaavio_svg.py` | Omat SVG-kaaviot (SYKE, SMHI, kuvasta luettu, Hawa'Ii-arvio ja tuntikaavio). |
 | `app.py` | WSGI-sivu ja API, sää, ajomatkat, surffi sekä sivun JS (`SKRIPTI`). |
-| `ennustearkisto.py` | Päivittäinen arkisto Firestoreen. Vercel Cron kutsuu `/api/arkistoi` klo 18 UTC. |
+| `ennustearkisto.py` | Päivittäinen arkisto Firestoreen (`ennusteet/YYYY-MM-DD`). Vercel Cron kutsuu `/api/arkistoi` klo 18 UTC. Arkistossa ovat SYKE:n päiväsarjat ja Hawa'Iin päiväarviot sekä tuntiarviot (`arviot.<asema>.tunnit`). Lisäksi osioon `syotteet` tallennetaan syöteasemien tuntimittaukset 48 tunnin ajalta ja Pudasjärven vedenkorkeus. |
 | `kapsi.py` | Maalismaan tuntimittaukset mpahkala.kapsi.fi-raportista Firestoreen (kokoelma `kapsi_maalismaa`, dokumentti per päivä). Ei näy sovelluksessa. Vercel Cron `/api/kapsi` klo 1, 9, 13 ja 21 UTC sekä `/api/halyta`- ja `/api/arkistoi`-ajojen yhteydessä; raportissa on noin 8 tunnin historia. |
 | `halytykset.py` | Push-hälytykset: tilauksen tarkistus, RFC 8291 -salaus, VAPID (avainpari Firestoressa tai ympäristömuuttujissa) ja aamun ajo (`/api/halyta`, Vercel Cron klo 5 UTC). Tilaus `/api/halytys`, service worker `/sw.js`. |
 | `kielet.py` | Englanninkielinen käyttöliittymä (sanakirja ja regex). Uusi suomenkielinen teksti tarvitsee käännöksen tänne. |

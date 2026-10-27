@@ -10,7 +10,12 @@ Jokaisen aseman ajo.jsonista tallennetaan
     qinlask_5/95 ennusteen 5 %:n ja 95 %:n rajat, ennusteen alusta 7 pv eteen
     qhav         havainnot viimeiseltä 7 päivältä (ennusteen alku mukaan lukien)
 ja arviomallien asemille (syke_data.ARVIOMALLIT) sovelluksen oma tämän
-päivän arvo ja ennuste samalla tavalla kuin melonta.py ne laskee.
+päivän arvo ja ennuste samalla tavalla kuin melonta.py ne laskee, sekä päivän
+tuntiarviot (syke_data.tuntiarviot: mitatut tunnit, loppupäivän ennuste, keskiarvo).
+
+Arviomallien syöteasemista (osio "syotteet") tallennetaan SYKE:n reaaliaikamittausten
+tuntikeskiarvot edelliseltä ja kuluvalta päivältä (48 h; SYKE säilyttää reaaliaikadataa vain
+n. 3 kk) ja vedenkorkeusasemalta lisäksi ajo.jsonin päiväsarjat whav ja wlask_ka.
 Tarkkuus lasketaan tyokalut/vertaa_ennusteet.py:llä.
 """
 
@@ -20,6 +25,7 @@ import datetime as dt
 import os
 
 import osm_sivut as osm
+import smhi_data
 import syke_data
 from syke_kaavio import Kaaviolukema
 
@@ -34,6 +40,10 @@ ASEMAT = {
     "61/q6100700y": "Kurenalus",
     "61/q6101210y": "Livojoki",
 }
+# Arviomallien syöteasemat, joiden tuntimittaukset arkistoidaan (TARKENNETUT.reaaliaika)
+SYOTEASEMAT = {"61/q6101600y": "Siurua", "61/q6100700y": "Kurenalus", "61/q6101210y": "Livojoki",
+               "61/l611331001y": "Pudasjärvi (vedenkorkeus)"}
+TUNTI_PAIVIA = 2   # tuntimittaukset edelliseltä ja kuluvalta päivältä
 
 
 def _paivat(sarja: dict | None, alku: dt.date, loppu: dt.date) -> dict[str, float]:
@@ -90,6 +100,32 @@ def oma_arvio(asema: str, ajot: dict[str, dict]) -> dict | None:
     }
 
 
+def syotetiedot(asema: str, ajot: dict[str, dict], paiva: dt.date) -> dict:
+    """Syöteaseman tuntimittaukset (päivät paiva − 1 … paiva) ja vedenkorkeusasemalta päiväsarjat."""
+    alku = (paiva - dt.timedelta(days=TUNTI_PAIVIA - 1)).isoformat()
+    tunnit = ajot.get(f"{asema}/reaaliaika_tunnit") or {}
+    tieto: dict = {"tunnit": {t: round(v, 3) for t, v in sorted(tunnit.items()) if alku <= t[:10] <= paiva.isoformat()}}
+    ajo = ajot.get(f"{asema}/ajo.json")
+    korkeusasemat = {m.korkeus_asema for m in (*syke_data.ARVIOMALLIT.values(), *syke_data.TARKENNETUT.values())}
+    if ajo and asema in korkeusasemat:   # mallien vedenkorkeusasema: myös päiväsarjat
+        t = dt.date.fromisoformat(ajo["ennustepvm_www"])
+        tieto["ennustepvm_www"] = t.isoformat()
+        tieto["whav"] = _paivat(ajo.get("whav"), t - dt.timedelta(days=HAVAINTO_PAIVIA - 1), t)
+        tieto["wlask_ka"] = _paivat(ajo.get("wlask_ka"), t - dt.timedelta(days=HAVAINTO_PAIVIA),
+                                    t + dt.timedelta(days=ENNUSTE_PAIVIA))
+    return tieto
+
+
+def tuntiarvio(asema: str, ajot: dict[str, dict], paiva: dt.date) -> dict | None:
+    """Toisen arvion tuntiarviot päivälle (syke_data.tuntiarviot) arkistoitavassa muodossa."""
+    tulos = syke_data.tuntiarviot(asema, ajot, paiva)
+    if not tulos:
+        return None
+    return {"paiva": paiva.isoformat(), "viim": tulos["viim"], "keskiarvo": round(tulos["keskiarvo"], 3),
+            "arviot": {f"{t:02d}": round(v, 3) for t, v in sorted(tulos["arviot"].items())},
+            "ennuste": {f"{t:02d}": round(v, 3) for t, v in sorted(tulos["ennuste"].items())}}
+
+
 def kokoa(ajot: dict[str, dict], arkistoitu: dt.datetime, virheet: dict[str, str] | None = None) -> dict:
     """`ajot`: ajo.json-avain ('61/q6101750y/ajo.json') -> luettu ajo.json."""
     asemat = {}
@@ -109,7 +145,23 @@ def kokoa(ajot: dict[str, dict], arkistoitu: dt.datetime, virheet: dict[str, str
             arvio = None
         if arvio:
             arviot[asema] = arvio
-    return {"arkistoitu": arkistoitu.isoformat(timespec="seconds"), "asemat": asemat, "arviot": arviot}
+    # tuntiarviot ja syöteasemien tuntimittaukset (Suomen päivän mukaan)
+    paiva = smhi_data._suomen_paiva(arkistoitu) if arkistoitu.tzinfo else arkistoitu.date()
+    for asema in syke_data.TARKENNETUT:
+        try:
+            tunnit = tuntiarvio(asema, ajot, paiva)
+        except (KeyError, TypeError, ValueError):
+            tunnit = None
+        if tunnit and asema in arviot:
+            arviot[asema]["tunnit"] = tunnit
+    syotteet = {}
+    for asema, nimi in SYOTEASEMAT.items():
+        try:
+            syotteet[asema] = {"nimi": nimi, **syotetiedot(asema, ajot, paiva)}
+        except (KeyError, TypeError, ValueError) as e:
+            syotteet[asema] = {"nimi": nimi, "virhe": f"{e!r}"}
+    return {"arkistoitu": arkistoitu.isoformat(timespec="seconds"), "asemat": asemat, "arviot": arviot,
+            "syotteet": syotteet}
 
 
 def onnistuneet(arkisto: dict) -> list[str]:

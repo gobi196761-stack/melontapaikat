@@ -63,6 +63,32 @@ def test_oma_arvio_kuten_sovelluksessa():
         odotettu + ka["2026-10-19"] - ka["2026-10-18"], abs=1e-3)
 
 
+def test_tuntimittaukset_ja_tuntiarviot():
+    """Syöteasemien tuntimittaukset (edellinen ja kuluva päivä) ja Maalismaan päivän tuntiarviot."""
+    a = ajot()
+    perus = {"61/q6101600y": 66.8, "61/q6100700y": 120.0, "61/q6101210y": 40.0, "61/l611331001y": 108.59}
+    for asema, v in perus.items():
+        a[f"{asema}/reaaliaika_tunnit"] = {f"2026-10-{d}T{t:02d}": v for d in (16, 17, 18) for t in range(24)
+                                           if (d, t) <= (18, 15)}
+    arkisto = ennustearkisto.kokoa(a, ARKISTOITU)
+    s = arkisto["syotteet"]
+    assert set(s) == set(ennustearkisto.SYOTEASEMAT)
+    siurua = s["61/q6101600y"]["tunnit"]
+    assert min(siurua) == "2026-10-17T00" and max(siurua) == "2026-10-18T15" and len(siurua) == 24 + 16
+    pudas = s["61/l611331001y"]
+    assert pudas["nimi"] == "Pudasjärvi (vedenkorkeus)" and pudas["whav"]["2026-10-18"] == 108.59
+    assert "2026-10-25" in pudas["wlask_ka"] and "whav" not in s["61/q6101600y"]
+    tunnit = arkisto["arviot"]["61/q6101750y"]["tunnit"]
+    assert tunnit["paiva"] == "2026-10-18" and tunnit["viim"] == 15
+    assert list(tunnit["arviot"]) == [f"{t:02d}" for t in range(16)]
+    assert list(tunnit["ennuste"]) == [f"{t:02d}" for t in range(15, 24)]
+    assert tunnit["keskiarvo"] == pytest.approx(
+        syke_data.tuntiarviot("61/q6101750y", a, dt.date(2026, 10, 18))["keskiarvo"], abs=1e-3)
+    # ilman reaaliaikadataa: tyhjät tuntisarjat, ei tuntiarviota
+    ilman = ennustearkisto.kokoa(ajot(), ARKISTOITU)
+    assert ilman["syotteet"]["61/q6101600y"]["tunnit"] == {} and "tunnit" not in ilman["arviot"]["61/q6101750y"]
+
+
 def test_puuttuva_asema():
     a = ajot()
     del a["61/q6101600y/ajo.json"]
