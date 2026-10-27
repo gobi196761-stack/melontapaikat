@@ -83,3 +83,13 @@ def test_verkkovirhe_ei_merkitse_haetuksi(monkeypatch):
             raise OSError("ei verkkoa")
     paikat = [Paikka("Kipinä (Iijoki)", "", "peli", None, "")]
     assert kuvat.paivita(Rikki(), None, paikat) == {}
+
+
+def test_kielletty_valinta_haetaan_uudelleen(monkeypatch):
+    tanaan = __import__("datetime").date.today().isoformat()
+    monkeypatch.setattr(kuvat, "_kuvat", {"Lieksa": {"nimi": "Lieksa", "otsikko": "File:Lieksa, Pier.jpg",
+                                                     "kuva": "x", "haettu": tanaan}})
+    monkeypatch.setitem(paikat_.SIJAINNIT, "Lieksa", (63.39, 30.45))
+    tiedot = {"File:Neitikoski.jpg": _tiedot("File:Neitikoski.jpg", kuvaus="Neitikoski, Lieksanjoki")}
+    tulos = kuvat.paivita(Hakija(list(tiedot), tiedot), None, [Paikka("Lieksa", "", "peli", None, "")])
+    assert tulos["Lieksa"]["otsikko"] == "File:Neitikoski.jpg"
