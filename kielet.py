@@ -25,7 +25,7 @@ SANAT = {
     "osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet": "spot descriptions from osm.fi + SYKE and SMHI hydrological forecasts",
     "päivitetty klo": "updated",
     "📍 Sijainti ja lähtöaika": "📍 Location and departure time",
-    "Melontapaikat": "Paddling spots",
+    "Melontakohteet": "Paddling spots",
     "🏄 Surffi": "🏄 Surf",
     "Surffi": "Surf",
     "Sijainti": "Location",

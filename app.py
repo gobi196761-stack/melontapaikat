@@ -1354,7 +1354,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <style>{TYYLI}</style>
 </head>
 <body><main class="etusivu">
-<h1>{k_("Melontapaikat")}</h1>
+<h1>{k_("Melontakohteet")}</h1>
 <div class="varoitusrivi">{_turvaosio(tilanne, kieli)}<button type="button" class="info" id="info"
 aria-controls="merkinnat" aria-expanded="false" title="{k_("Merkinnät ja kuvakkeet")}">ⓘ</button></div>
 {_selitykset(kieli)}
@@ -1377,8 +1377,8 @@ placeholder="{k_("esim. Rovaniemi")}"></label></p>
 <button type="button" data-avaa="paneeli-ehdota"><span class="lamppu">💡</span>{k_("Ehdota")}</button>
 {vaihto}
 </nav>
-<div class="haku"><label>🔍 <input id="haku" type="search" autocomplete="off" placeholder="{k_("Hae paikkaa…")}"
-aria-label="{k_("Hae paikkaa…")}"></label>
+<div class="haku"><label>🔍 <input id="haku" type="search" autocomplete="off" placeholder="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"
+aria-label="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"></label>
 <select id="jarjestys" aria-label="{k_("Järjestys")}"><option value="pisteet">{k_("Pisteiden mukaan")}</option>
 <option value="etaisyys">{k_("Etäisyyden mukaan")}</option></select></div>
 <nav class="kategoriat">{suodattimet}</nav>
