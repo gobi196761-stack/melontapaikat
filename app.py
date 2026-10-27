@@ -373,9 +373,11 @@ main.etusivu { padding-top:12px; padding-bottom:96px; }
 .etusivu h1 { font-size:1.35rem; margin:0 0 8px; line-height:1.3; text-align:center; }
 .varoitusrivi { display:flex; gap:8px; align-items:flex-start; margin:0 0 6px; }
 .varoitusrivi .turva { flex:1; margin:0; }
-.info { flex:none; margin-left:auto; width:34px; height:34px; border-radius:50%; border:1px solid var(--viiva);
-        background:var(--pinta); color:var(--linkki); font-size:1.15rem; line-height:1; cursor:pointer; }
-.info[aria-expanded="true"] { background:var(--linkki); color:var(--tausta); }
+.otsikkorivi { display:flex; justify-content:center; align-items:center; gap:10px; margin:0 0 8px; }
+.otsikkorivi h1 { margin:0; }
+.varoitusrivi .kieli, .otsikkorivi .kieli { flex:none; margin:0; padding:6px; border-radius:50%; }
+.varoitusrivi .kieli { margin-left:auto; }
+.alapalkki .info > span { color:var(--linkki); font-size:1.45rem; }
 .etusivu .selitykset:not([open]) { display:none; }
 .alapaneelit > details:not([open]) { display:none; }
 .etusivu .alapaneelit > details[open] { position:fixed; left:max(0px, calc(50% - 480px)); right:max(0px, calc(50% - 480px));
@@ -859,12 +861,7 @@ SKRIPTI = """
     nayta([lev, pit], "", lev + "," + pit, muistettu.paikkakunta);
   }
   else if (muistettu === true) hae();   // lupa annettu aiemmin: päivitä suoraan
-  // ⓘ avaa merkinnät ja kuvakkeet; alapalkin kuvakkeet avaavat paneelin (yksi kerrallaan)
-  const info = document.getElementById("info"), merkinnat = document.getElementById("merkinnat");
-  if (info && merkinnat) {
-    info.addEventListener("click", () => { merkinnat.open = !merkinnat.open; });
-    merkinnat.addEventListener("toggle", () => info.setAttribute("aria-expanded", merkinnat.open));
-  }
+  // alapalkin kuvakkeet (myös ⓘ merkinnät ja kuvakkeet) avaavat paneelin, yksi kerrallaan
   const palkki = [...document.querySelectorAll("[data-avaa]")];
   const paneelit = [...document.querySelectorAll(".alapaneelit > details")];
   for (const p of paneelit) p.addEventListener("toggle", () => {
@@ -1347,6 +1344,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     vaihto = (f'<a class="kieli" href="{e(_osoite(tyyppi=valittu, kieli=toinen))}" hreflang="{toinen}" '
               f'lang="{toinen}" title="{"Suomeksi" if toinen == "fi" else "In English"}" '
               f'aria-label="{"Suomeksi" if toinen == "fi" else "In English"}"><span>{LIPUT[toinen]}</span></a>')
+    turva = _turvaosio(tilanne, kieli)
     arvioidut = [t for t in tulokset if t.pisteet is not None]
     rivit = "".join(_paikan_rivi(i, t, kieli, tilanne.saa.get(t.paikka.nimi), tilanne.ajo_min.get(t.paikka.nimi),
                                  ajo_km=tilanne.ajo_km.get(t.paikka.nimi), kuva=tilanne.kuvat.get(t.paikka.nimi))
@@ -1381,11 +1379,10 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <style>{TYYLI}</style>
 </head>
 <body><main class="etusivu">
-<h1>{k_("Melontakohteet")}</h1>
-<div class="varoitusrivi">{_turvaosio(tilanne, kieli)}<button type="button" class="info" id="info"
-aria-controls="merkinnat" aria-expanded="false" title="{k_("Merkinnät ja kuvakkeet")}">ⓘ</button></div>
-{_selitykset(kieli)}
+{f'<h1>{k_("Melontakohteet")}</h1><div class="varoitusrivi">{turva}{vaihto}</div>' if turva else
+ f'<div class="otsikkorivi"><h1>{k_("Melontakohteet")}</h1>{vaihto}</div>'}
 <div class="alapaneelit">
+{_selitykset(kieli)}
 <details class="surffipaneeli" id="paneeli-surffi"><summary>{k_("🏄 Surffi")}</summary>
 <div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div></details>
 <details class="valinnat" id="paneeli-sijainti"><summary>{k_("📍 Sijainti ja lähtöaika")}</summary>
@@ -1402,7 +1399,7 @@ value="Oulu" placeholder="{k_("esim. Rovaniemi")}"></label></p>
 <button type="button" data-avaa="paneeli-sijainti" aria-label="{k_("Sijainti")}" title="{k_("Sijainti")}"><span>📍</span></button>
 <button type="button" data-avaa="halytys" aria-label="{k_("Hälytys")}" title="{k_("Hälytys")}"><span>🔔</span></button>
 <button type="button" data-avaa="paneeli-ehdota" aria-label="{k_("Ehdota")}" title="{k_("Ehdota")}"><span class="lamppu">💡</span></button>
-{vaihto}
+<button type="button" data-avaa="merkinnat" class="info" aria-label="{k_("Merkinnät ja kuvakkeet")}" title="{k_("Merkinnät ja kuvakkeet")}"><span>ⓘ</span></button>
 </nav>
 <div class="haku"><label>🔍 <input id="haku" type="search" autocomplete="off" placeholder="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"
 aria-label="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"></label>
