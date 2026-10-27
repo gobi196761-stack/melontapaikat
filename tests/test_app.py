@@ -952,7 +952,7 @@ def test_omat_kuvat_ja_alapalkki(palvelin):
     assert pyynto("/omat-kuvat/../app.py")[0] == "404 Not Found"
     runko = pyynto("/")[2]
     palkki = runko.split('<nav class="alapalkki"')[1].split("</nav>")[0]
-    assert 'aria-label="Surffi"' in palkki and "</span>Surffi" not in palkki
+    assert 'aria-label="Surffi: ei surffattavaa"' in palkki and "</span>Surffi" not in palkki
     assert "text-align:center" in runko
 
 
@@ -970,3 +970,17 @@ def test_nimeton_asema_vesitilanteena():
     paikka = next(p for p in PAIKAT if p.mittarit)
     assert app._kaavion_otsikko(paikka, "60/q6000110y/qinlyhyt.png", "fi") == f"{paikka.nimi} – Vesitilanne"
     assert app._kaavion_otsikko(paikka, "60/q6000110y/qinlyhyt.png", "en") == f"{paikka.nimi} – Water situation"
+
+
+
+def test_surffin_merkkivalo_ja_selitykset():
+    """Surffikuvakkeen merkkivalo kertoo, onko surffattavaa; selityksissä alapalkin kuvakkeet."""
+    k_ = lambda t: t   # noqa: E731
+    assert 'class="surffi-nyt" aria-label="Surffi: surffattavaa nyt"' in app._surffinappi({"nyt": ["tauvo"]}, k_)
+    assert 'class="surffi-ennuste"' in app._surffinappi({"nyt": [], "ennuste": ["yppari"]}, k_)
+    assert 'class="surffi-ei"' in app._surffinappi({}, k_)
+    selitykset = app._selitykset("fi")
+    for teksti in ("Alapalkin kuvakkeet", "surffattavaa nyt", "ennusteessa", "ei surffattavaa", "<b>📍</b>",
+                   "<b>🔔</b>", "<b>💡</b>", "<b>ⓘ</b>", "In English"):
+        assert teksti in selitykset, teksti
+    assert "Bottom bar icons" in app._selitykset("en")

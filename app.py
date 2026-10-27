@@ -393,8 +393,11 @@ main.etusivu { padding-top:12px; padding-bottom:96px; }
   text-decoration:none; padding:2px 0; margin:0; cursor:pointer; }
 .alapalkki > * > span { font-size:1.35rem; line-height:1.2; position:relative; display:flex; align-items:center; height:1.7rem; }
 .alapalkki [aria-expanded="true"] { color:var(--linkki); }
-.alapalkki .ok > span::after { content:""; position:absolute; top:0; right:-6px; width:8px; height:8px; border-radius:50%;
-  background:var(--hyva); }
+.alapalkki [class^="surffi-"] > span::after { content:""; position:absolute; top:0; right:-6px; width:9px; height:9px;
+  border-radius:50%; border:1.5px solid var(--tausta); background:var(--heikko); }
+.alapalkki .surffi-nyt > span::after { background:var(--hyva); }
+.alapalkki .surffi-ennuste > span::after { background:#e3b008; }
+.merkkivalo { display:inline-block; width:9px; height:9px; border-radius:50%; vertical-align:1px; }
 .etusivu .haku label { display:flex; align-items:center; gap:6px; flex:1; min-width:0; }
 .etusivu .haku input { min-width:0; width:100%; max-width:none; }
 .etusivu .haku select { flex:none; max-width:46%; }
@@ -1003,6 +1006,16 @@ SELITYKSET = {
            ("🌡", "air and water on arrival; the air link opens the local weather, red when a thunderstorm is forecast"),
            ("☀️ ⛅ ☁️ 🌧️ ⛈️", "sunny, partly cloudy, cloudy, rain, thunderstorm")],
 }
+PALKKI = {   # alapalkin kuvakkeet: surffi, sijainti, hälytys, ehdota, merkinnät, kieli, otsikko
+    "fi": ("Surffi: Merelle Surffaamaan -spotit ja niiden sää", "sijainti ja lähtöaika: etäisyydet ja perillä-ajat",
+           "hälytys puhelimeen, kun valitsemasi kohde toimii", "ehdota uutta kohdetta tai täydennä vanhaa",
+           "merkinnät ja kuvakkeet (tämä selitys)", "kieli: In English", "Alapalkin kuvakkeet"),
+    "en": ("Surf: Merelle Surffaamaan spots and their weather", "location and departure time: distances and arrival times",
+           "phone alert when a spot you choose is running", "suggest a new spot or add to an existing one",
+           "symbols and icons (this explanation)", "language: suomeksi", "Bottom bar icons"),
+}
+PALKKI_VALOT = {"fi": ("surffattavaa nyt", "ennusteessa", "ei surffattavaa"),
+                "en": ("surf now", "in the forecast", "no surf")}
 SELITE = {
     "fi": "Kajakit: suositeltu tyyppi kohteen nimen perässä. Pisteet (0–100) kertovat, miten veden määrä "
           "osuu paikan kuvauksen optimiin; tasapisteissä lähempi paikka ensin. Tarkista aina olosuhteet "
@@ -1017,10 +1030,17 @@ def _selitykset(kieli: str) -> str:
     """Merkintöjen ja kuvakkeiden selitykset sivun alkuun (aiemmin osa sivun lopussa)."""
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
     merkit = "".join(f"<li><b>{e(m)}</b> {e(t)}</li>" for m, t in SELITYKSET[kieli])
+    valot = "".join(f'<span class="merkkivalo" style="background:{v}"></span> {e(t)} '
+                    for v, t in zip(("var(--hyva)", "#e3b008", "var(--heikko)"), PALKKI_VALOT[kieli]))
+    palkki = (f'<li><b>🏄</b> {e(PALKKI[kieli][0])}: {valot}</li>'
+              + "".join(f"<li><b>{m}</b> {e(t)}</li>" for m, t in zip(("📍", "🔔", "💡", "ⓘ"), PALKKI[kieli][1:]))
+              + f'<li><b>{LIPUT["en" if kieli == "fi" else "fi"]}</b> {e(PALKKI[kieli][5])}</li>')
     kajakit = "".join(f'<li>{_kajakki_svg(tyyppi, k_, selite=True)} {e(k_(KAJAKKI_KUVAKKEET[tyyppi][0]))}</li>'
                       for tyyppi in KAJAKKI_KUVAKKEET)
     return (f'<details class="selitykset" id="merkinnat"><summary>{e(k_("Merkinnät ja kuvakkeet"))}</summary>'
-            f'<ul class="pieni">{merkit}{kajakit}</ul><p class="pieni">{SELITE[kieli]}</p></details>')
+            f'<ul class="pieni">{merkit}{kajakit}</ul>'
+            f'<p class="pieni"><b>{e(PALKKI[kieli][6])}</b></p><ul class="pieni">{palkki}</ul>'
+            f'<p class="pieni">{SELITE[kieli]}</p></details>')
 # Kielen vaihto: Ison-Britannian lippu englanniksi, Suomen lippu takaisin suomeksi
 LIPUT = {
     "en": ('<svg viewBox="0 0 60 30" width="28" height="14" aria-hidden="true">'
@@ -1397,7 +1417,7 @@ value="Oulu" placeholder="{k_("esim. Rovaniemi")}"></label></p>
 {_ehdotusluukku(kieli)}
 </div>
 <nav class="alapalkki" aria-label="{k_("Valikot")}">
-<button type="button" data-avaa="paneeli-surffi"{' class="ok"' if tilanne.surffi.get("nyt") else ""} aria-label="{k_("Surffi")}" title="{k_("Surffi")}"><span>🏄</span></button>
+{_surffinappi(tilanne.surffi, k_)}
 <button type="button" data-avaa="paneeli-sijainti" aria-label="{k_("Sijainti")}" title="{k_("Sijainti")}"><span>📍</span></button>
 <button type="button" data-avaa="halytys" aria-label="{k_("Hälytys")}" title="{k_("Hälytys")}"><span>🔔</span></button>
 <button type="button" data-avaa="paneeli-ehdota" aria-label="{k_("Ehdota")}" title="{k_("Ehdota")}"><span class="lamppu">💡</span></button>
@@ -1423,6 +1443,16 @@ aria-label="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"></label
 <script>{SKRIPTI}</script>
 </body>
 </html>"""
+
+
+def _surffinappi(surffi: dict, k_) -> str:
+    """Alapalkin surffikuvake ja sen merkkivalo: vihreä = surffattavaa nyt, keltainen = ennusteessa,
+    harmaa = ei surffattavaa (Surffiennustajan tilanne)."""
+    tila = "nyt" if surffi.get("nyt") else "ennuste" if surffi.get("ennuste") else "ei"
+    selite = {"nyt": "surffattavaa nyt", "ennuste": "surffattavaa ennusteessa", "ei": "ei surffattavaa"}[tila]
+    nimi = f'{k_("Surffi")}: {k_(selite)}'
+    return (f'<button type="button" data-avaa="paneeli-surffi" class="surffi-{tila}" aria-label="{e(nimi)}" '
+            f'title="{e(nimi)}"><span>🏄</span></button>')
 
 
 def _halytysosio(k_) -> str:
