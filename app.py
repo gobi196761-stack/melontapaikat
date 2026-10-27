@@ -2351,7 +2351,8 @@ def kaikki_ehdotukset(pakota: bool = False) -> dict[str, dict]:
 
 
 def hyvaksytyt_ehdotukset() -> list[tuple[str, dict]]:
-    return sorted(((t, e) for t, e in kaikki_ehdotukset().items() if e.get("tila") == "hyvaksytty"),
+    return sorted(((t, e) for t, e in kaikki_ehdotukset().items()
+                   if e.get("tila") == "hyvaksytty" and t not in ehdotukset.KORVATUT),
                   key=lambda x: x[1].get("kasitelty") or x[1].get("luotu") or "")
 
 
@@ -2395,7 +2396,8 @@ def _kaksoisehdokkaat(oma_tunniste: str) -> list[dict]:
     muut = [{"nimi": f"{ehdotukset.nimi(ed)} (ehdotus)", "osoite": f"/ehdotus/{tun}",
              "sanat": ehdotukset._sanat(ehdotukset.nimi(ed)), "pisteet": ehdotukset.ehdotuksen_sijainnit(ed)}
             for tun, ed in kaikki_ehdotukset().items()
-            if tun != oma_tunniste and ed.get("laji") == "uusi" and ed.get("tila") != "hylatty"]
+            if tun != oma_tunniste and ed.get("laji") == "uusi" and ed.get("tila") != "hylatty"
+            and tun not in ehdotukset.KORVATUT]
     return _kaksois_pohja + muut
 
 
@@ -2925,6 +2927,14 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
                           f'{e((taydennys.get("aika") or "")[:16].replace("T", " "))}</p>')
     elif taydennys.get("tila") == "virhe" and yllapitaja:
         taydennys_tila = f'<p class="virhe">{e(t["taydennys_virhe"])}: {e(taydennys.get("virhe", ""))}</p>'
+    if yllapitaja:   # menivätkö ylläpidon push-ilmoitukset perille
+        for avain, mista in (("ilmoitus_laitteille", ehdotus), ("ilmoitus_laitteille", taydennys)):
+            if avain in mista:
+                n = mista[avain]
+                vaihe = "täydennyksestä" if mista is taydennys else "uudesta ehdotuksesta"
+                taydennys_tila += (f'<p class="pieni">🔔 Ilmoitus {vaihe} lähetetty {n} laitteelle.</p>' if n else
+                                   f'<p class="virhe">🔔 Ilmoitusta {vaihe} ei saatu perille yhdellekään laitteelle – '
+                                   f'ota ilmoitukset uudelleen käyttöön <a href="/yllapito">ylläpitosivulla</a>.</p>')
     if taydennys.get("kaannos") == "kaynnissa" and yllapitaja:
         taydennys_tila += f'<p class="huom">{e(t["kaannos_kaynnissa"])}</p>'
     elif taydennys.get("kaannos") == "virhe" and yllapitaja:
@@ -3064,7 +3074,7 @@ def tallenna_ehdotus(kentat: dict[str, list[str]], kieli: str, ip: str) -> tuple
     laji = "täydennys" if ehdotus["laji"] == "taydenna" else "uusi kohde"
     kaksoset = [k for k in ehdotuksen_kaksoiskappaleet(tunniste, ehdotus) if not k["osoite"].startswith("/muut/")]
     try:
-        _push_kaikille(kanta, ehdotukset.YLLAPITO, {
+        ehdotus["ilmoitus_laitteille"] = _push_kaikille(kanta, ehdotukset.YLLAPITO, {
             "otsikko": f"Uusi ehdotus: {ehdotukset.nimi(ehdotus)}",
             "teksti": f"{laji}: {len(ehdotus['kohteet'])} kohdetta, {len(ehdotus['linkit'])} linkkiä"
                       + (f" – {ehdotus['ehdottaja']}" if ehdotus.get("ehdottaja") else "")
@@ -3072,6 +3082,7 @@ def tallenna_ehdotus(kentat: dict[str, list[str]], kieli: str, ip: str) -> tuple
             "url": f"/ehdotus/{tunniste}",
             # ilmoituksen nappi (Android, työpöytä): service worker kutsuu rajapintaa ja avaa esikatselun
             "toiminnot": [{"action": "taydenna", "title": "🔍 Täydennä", "api": f"/api/ehdotus/{tunniste}/taydenna"}]})
+        kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
     except (firestore.FirestoreVirhe, OSError):
         pass   # ehdotus on tallessa, vaikka ilmoitus epäonnistuisi
     return tunniste, ""
@@ -3117,12 +3128,13 @@ def ilmoita_taydennyksesta(tunniste: str) -> bool:
     kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
     nimi = ehdotukset.nimi(ehdotus)
     try:
-        _push_kaikille(kanta, ehdotukset.YLLAPITO, {
+        taydennys["ilmoitus_laitteille"] = _push_kaikille(kanta, ehdotukset.YLLAPITO, {
             "otsikko": f"Täydennetty: {nimi}", "teksti": "Esikatselu valmis – hyväksy tai hylkää." + "".join(
                 f" ⚠️ Mahdollisesti sama kuin {k['nimi']} ({k['syy']})."
                 for k in [k for k in ehdotuksen_kaksoiskappaleet(tunniste, ehdotus)
                           if not k["osoite"].startswith("/muut/")][:1]),
-            "url": f"/ehdotus/{tunniste}"})
+            "url": f"/ehdotus/{tunniste}?y=1"})
+        kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)   # ylläpitäjä näkee, menikö ilmoitus perille
         avainpari = halytykset.avaimet(kanta)
         if ehdotus.get("tilaus") and avainpari:
             en = ehdotus.get("kieli") == "en"
@@ -3197,8 +3209,13 @@ def yllapitosivu(kirjautunut: bool, virhe: str = "") -> str:
     vapid = halytykset.avaimet(uudelleen=False)
     tilaus = ""
     if vapid:
+        kanta_ = _kanta()
+        laitteita = len(kanta_.listaa(ehdotukset.YLLAPITO)) if kanta_ else 0
         tilaus = f"""<p><button class="nappi" type="button" id="tilaa">🔔 Ilmoitukset uusista ehdotuksista tälle laitteelle</button>
+<button class="nappi toissijainen" type="button" id="testi">Lähetä testi-ilmoitus</button>
 <span id="tilaus-tila" class="pieni"></span></p>
+<p class="pieni">Ilmoitukset tilattu {laitteita} laitteelle. Jos ilmoituksia ei tule, paina ilmoitusnappia uudelleen
+tällä laitteella (vanhentunut tilaus poistuu automaattisesti) ja tarkista puhelimen ilmoitusasetukset.</p>
 <script>
 (() => {{
   const nappi = document.getElementById("tilaa"), tila = document.getElementById("tilaus-tila");
@@ -3217,6 +3234,13 @@ def yllapitosivu(kirjautunut: bool, virhe: str = "") -> str:
       if (!v.ok) throw new Error("HTTP " + v.status);
       tila.textContent = "Tilattu – saat ilmoituksen jokaisesta uudesta ehdotuksesta.";
     }} catch (virhe) {{ tila.textContent = "Tilaus epäonnistui: " + virhe.message; }}
+  }});
+  document.getElementById("testi").addEventListener("click", async () => {{
+    try {{
+      const v = await (await fetch("/api/yllapito/testi", {{method: "POST"}})).json();
+      tila.textContent = v.laitteita ? "Testi-ilmoitus lähetetty: " + v.onnistui + " / " + v.laitteita + " laitetta."
+        : "Yhtään laitetta ei ole tilattu – paina yllä olevaa nappia.";
+    }} catch (virhe) {{ tila.textContent = "Testi epäonnistui: " + virhe.message; }}
   }});
 }})();
 </script>"""
@@ -3281,6 +3305,8 @@ def ehdotus_api(polku: str, environ, metodi: str):
             if not kasittele_ehdotus(tunniste, toiminto):
                 return "404 Not Found", html_tyyppi, b"Ehdotusta ei loydy."
             return ohjaa(f"/ehdotus/{tunniste}?y=1")
+        if tunniste in ehdotukset.KORVATUT:   # korvattu uudemmalla ehdotuksella
+            return ohjaa(f"/ehdotus/{ehdotukset.KORVATUT[tunniste]}" + ("?kieli=en" if kieli == "en" else ""))
         kanta = _kanta()
         ehdotus = (kanta.lue(ehdotukset.KOKOELMA, tunniste)
                    if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None)
@@ -3330,6 +3356,14 @@ def ehdotus_api(polku: str, environ, metodi: str):
                                    "teksti": "Saat ilmoituksen uusista ehdotuksista.", "url": "/yllapito"},
                           halytykset.avaimet(kanta))
         return json_vastaus("200 OK", {"tilattu": True})
+    if polku == "/api/yllapito/testi" and metodi == "POST":   # ylläpitosivun "Lähetä testi-ilmoitus"
+        kanta = _kanta()
+        if not yllapitaja or not kanta:
+            return json_vastaus("403 Forbidden", {"virhe": "kirjaudu ensin"})
+        laitteita = len(kanta.listaa(ehdotukset.YLLAPITO))
+        onnistui = _push_kaikille(kanta, ehdotukset.YLLAPITO, {
+            "otsikko": "Testi-ilmoitus", "teksti": "Ylläpidon ilmoitukset toimivat tällä laitteella.", "url": "/yllapito"})
+        return json_vastaus("200 OK", {"laitteita": laitteita, "onnistui": onnistui})
     if polku == "/yllapito":
         if metodi == "POST":
             kentat = runko_lomake()

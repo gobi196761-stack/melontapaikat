@@ -293,6 +293,7 @@ def test_pelkka_linkki_ja_taydennys(ymparisto, monkeypatch):
     assert json.loads(pyynto(f"/api/ehdotus/{tunniste}/taydennys-valmis", metodi="POST")[2]) == {"ilmoitettu": True}
     assert json.loads(pyynto(f"/api/ehdotus/{tunniste}/taydennys-valmis", metodi="POST")[2]) == {"ilmoitettu": False}
     assert [v["otsikko"] for _, v in lahetetyt] == ["Täydennetty: Aventojoki (Ollilanjärvi – Aventolampi)"]
+    assert "🔔 Ilmoitus täydennyksestä lähetetty 1 laitteelle." in pyynto(osoite, evaste=evaste)[2]
     sivu = pyynto(osoite)[2]
     assert "<h1>Aventojoki (Ollilanjärvi – Aventolampi)</h1>" in sivu and "✓ Täydennetty lähteistä" in sivu
     assert "<h2>Koottu lähteistä</h2>" in sivu and "Pieni tulvajoki." in sivu and "Oulankajoki alavirrassa." in sivu
@@ -634,3 +635,24 @@ def test_julkaistu_kohde_valimuistiin(ymparisto):
     evaste = ylla["Set-Cookie"].split(";")[0]
     assert pyynto(f"/ehdotus/{tunniste}", "y=1", evaste=evaste)[1]["Cache-Control"] == "no-store"
     assert f'href="/ehdotus/{tunniste}?y=1"' in pyynto("/yllapito", evaste=evaste)[2]
+
+
+def test_korvattu_kohde_ja_ilmoitusten_seuranta(ymparisto, monkeypatch):
+    """Korvattu julkaistu kohde piilotetaan ja ohjataan uuteen; ylläpitäjä näkee, menikö ilmoitus perille."""
+    kanta, lahetetyt = ymparisto
+    vanha, uusi = next(iter(ehdotukset.KORVATUT.items()))
+    for tun in (vanha, uusi):
+        kanta.kirjoita(ehdotukset.KOKOELMA, tun, {"laji": "uusi", "nimi": "Kiiminkijoki: Kivarinjärvi-Kalliuskoski",
+                                                  "tyyppi": "retki", "tila": "hyvaksytty", "kohteet": [], "linkit": [],
+                                                  "mittari_virtaama": "60/q6000110y/qinlyhyt.png"})
+    nimet = [p.nimi for p in app.kaikki_paikat()]
+    assert nimet.count("Kiiminkijoki: Kivarinjärvi-Kalliuskoski") == 1 and "(käyttäjän ehdotus)" not in "".join(nimet)
+    status, otsakkeet, _ = pyynto(f"/ehdotus/{vanha}")
+    assert status == "303 See Other" and otsakkeet["Location"] == f"/ehdotus/{uusi}"
+    # testi-ilmoitus ylläpitosivulta: laitteiden määrä ja onnistuneet
+    _, ylla, _ = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))
+    evaste = ylla["Set-Cookie"].split(";")[0]
+    assert json.loads(pyynto("/api/yllapito/testi", metodi="POST", evaste=evaste)[2]) == {"laitteita": 0, "onnistui": 0}
+    kanta.kirjoita(ehdotukset.YLLAPITO, "laite", {"endpoint": TILAUS["endpoint"], "p256dh": "x", "auth": "y"})
+    assert json.loads(pyynto("/api/yllapito/testi", metodi="POST", evaste=evaste)[2])["laitteita"] == 1
+    assert "Ilmoitukset tilattu 1 laitteelle" in pyynto("/yllapito", evaste=evaste)[2]
