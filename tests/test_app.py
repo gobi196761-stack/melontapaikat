@@ -929,6 +929,9 @@ def test_paikkasivu_vesitilanne_ylimpana(monkeypatch, tilanne):
     assert 'class="olot' in runko and f'<div class="tilanne-rivi" data-paikka="{nimi}"' in runko
     # sama skripti kuin etusivulla: lähtöaika, sää perillä ja kaaviolinkkien reissu pysyvät samassa ajassa
     assert 'id="lahtoaika"' in runko and "melonta-lahtoaika" in runko
+    # mittarilinkissä aseman nimen sijaan suure
+    assert ">Vedenkorkeus: " in runko or ">Virtaama: " in runko
+    assert "Listaus pisteiden mukaan" in pyynto("/")[2]
     assert runko.index('class="paikan-tilanne"') < runko.index("<h2>Lähteet</h2>")
     assert "upload.wikimedia" not in runko and "<figure" not in runko and nimi in runko
 
