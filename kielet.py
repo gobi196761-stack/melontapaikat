@@ -33,6 +33,7 @@ SANAT = {
     "Ehdota": "Suggest",
     "Valikot": "Menus",
     "Järjestys": "Order",
+    "Kategoria": "Category",
     "Pisteiden mukaan": "By score",
     "Etäisyyden mukaan": "By distance",
     "Kuvat: tekijät ja lisenssit": "Photos: authors and licences",

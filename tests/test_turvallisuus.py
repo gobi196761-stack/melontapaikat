@@ -61,12 +61,12 @@ def test_viestit_kuivapuku_ja_maatuuli():
              "maatuuli": {"ms": 7.5, "puuska": 11.0, "suunta": 135, "aika": 0, "alkaa": 0}}
     fi = turvallisuus.viestit(turva, [4.2, 6.8], "fi", ajankohta)
     otsikot = [o for o, _ in fi]
-    assert otsikot == ["🥶 Kylmä vesi: kuivapuku on ainoa oikea ratkaisu", "💨 Maatuuli ja matala vesi"]
+    assert otsikot == ["🥶 Kylmä vesi: kuivapuku", "💨 Maatuuli ja matala vesi"]
     assert "joissa 4.2–6.8 °C, merellä Oulun edustalla 7.6 °C" in fi[0][1]
     assert "kaakkoistuulta 7.5 m/s, puuskissa 11 m/s (ke 21.00)" in fi[1][1]
     assert "Mustasalmi" in fi[1][1] and "nyt -19 cm, ennuste -31 cm" in fi[1][1]
     en = turvallisuus.viestit(turva, [4.2, 6.8], "en", ajankohta)
-    assert en[0][0] == "🥶 Cold water: a dry suit is the only right choice"
+    assert en[0][0] == "🥶 Cold water: dry suit"
     assert "south-easterly wind 7.5 m/s" in en[1][1] and "Mustasalmi" in en[1][1]
 
 

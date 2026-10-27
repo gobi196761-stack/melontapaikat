@@ -396,7 +396,10 @@ main.etusivu { padding-top:12px; padding-bottom:96px; }
 .etusivu .haku label { display:flex; align-items:center; gap:6px; flex:1; min-width:0; }
 .etusivu .haku input { min-width:0; width:100%; max-width:none; }
 .etusivu .haku select { flex:none; max-width:46%; }
-.etusivu .haku select { padding:6px 10px; border:1px solid var(--viiva); border-radius:999px; font:inherit; font-size:.88rem;
+.etusivu .haku nav { margin:0; flex:none; max-width:50%; }
+.etusivu .haku nav select { max-width:100%; }
+.etusivu .jarjestysrivi { margin:0 0 10px; }
+.etusivu .haku select, .etusivu .jarjestysrivi select { padding:6px 10px; border:1px solid var(--viiva); border-radius:999px; font:inherit; font-size:.88rem;
   background:var(--tausta); color:var(--teksti); }
 .etusivu nav { margin:10px 0 10px; gap:6px; }
 .tyokalut { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; align-items:flex-start; }
@@ -508,7 +511,8 @@ li[hidden] { display:none; }
 .matka, .lampotilat { margin:1px 0; }
 .kajakit { white-space:nowrap; }
 .turva { background:var(--pinta); border-radius:8px; padding:6px 12px; margin:6px 0; }
-.turva summary { color:var(--huono); font-weight:600; font-size:.92rem; }
+.turva summary { color:var(--huono); font-weight:600; font-size:.92rem; white-space:nowrap; overflow:hidden;
+                 text-overflow:ellipsis; }
 .turva-otsikko { display:inline; }
 .turva-otsikko + .turva-otsikko::before { content:" · "; color:var(--heikko); font-weight:400; }
 .turva h3 { margin:10px 0 2px; font-size:.95rem; color:var(--huono); }
@@ -614,8 +618,8 @@ SKRIPTI = """
     if (ilman) ilman.textContent = m + " " + (m === 1 ? T.paikka : T.paikkaa);
     const ilmanOsio = document.getElementById("ilman");   // suosikeissa vain suosikit, hakiessa vain osumat
     if (ilmanOsio) ilmanOsio.hidden = vainSuosikit || m === 0;
-    const suosikkimaara = document.getElementById("suosikkimaara");
-    if (suosikkimaara) suosikkimaara.textContent = suosikit.size;
+    const suosikkimaara = document.getElementById("suosikkimaara");   // kategoriavalikon vaihtoehto
+    if (suosikkimaara) suosikkimaara.textContent = suosikkimaara.dataset.nimi + " (" + suosikit.size + ")";
   }
   // Haku: paikan nimen osa, isoilla ja pienillä kirjaimilla ei väliä
   const hakukentta = document.getElementById("haku");
@@ -1307,7 +1311,7 @@ def _turvaosio(tilanne: Tilanne, kieli: str) -> str:
     if not viestit:
         return ""
     en = kieli == "en"
-    otsikot = "".join(f'<span class="turva-otsikko">{e(o)}</span>' for o, _ in viestit)
+    otsikot = f'<span class="turva-otsikko">{e(viestit[0][0])}</span>'   # vain ensimmäinen; avattuna kaikki
     tekstit = "".join(f"<h3>{e(o)}</h3><p>{e(t)}</p>" for o, t in viestit)
     lahde = ("Sources: Finnish Meteorological Institute (Oulu Toppila), SYKE." if en else
              "Lähteet: Ilmatieteen laitos (Oulu Toppila), SYKE.")
@@ -1325,16 +1329,19 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     valittu = kysely.get("tyyppi", [""])[0]
     kieli = kielet.kieli(kysely)
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
-    def maara(arvo: str) -> str:
-        if arvo == "suosikit":   # suosikit ovat selaimessa: skripti täyttää määrän
-            return ' <span class="maara" id="suosikkimaara"></span>'
-        return f' <span class="maara">{sum(1 for p in kaikki_paikat() if nakyy(p, arvo or None))}</span>'
-    suodattimet = "".join(
-        f'<a href="{e(_osoite(tyyppi=arvo, kieli=kieli))}"{" class=valittu" if valittu == arvo else ""}>'
-        f'{k_(nimi)}{maara(arvo)}</a>'
+    def vaihtoehto(osoite: str, nimi: str, maara: int | None, valittuna: bool, tunnus: str = "") -> str:
+        teksti = nimi + (f" ({maara})" if maara is not None else "")
+        return (f'<option value="{e(osoite)}"{tunnus}{" selected" if valittuna else ""} data-nimi="{e(nimi)}">'
+                f'{e(teksti)}</option>')
+    suodattimet = "".join(   # suosikit ovat selaimessa: skripti täyttää niiden määrän
+        vaihtoehto(_osoite(tyyppi=arvo, kieli=kieli), k_(nimi),
+                   None if arvo == "suosikit" else sum(1 for p in kaikki_paikat() if nakyy(p, arvo or None)),
+                   valittu == arvo, ' id="suosikkimaara"' if arvo == "suosikit" else "")
         for arvo, nimi in [("", "Kaikki"), ("peli", "Pelipaikat"), ("retki", "Retket"), ("ruotsi", "Ruotsi"),
-                           ("suosikit", "♥ Suosikit")]) + (
-        f'<a href="/muut">{k_("Muut kohteet")} <span class="maara">{len(muut_kohteet.KOHTEET)}</span></a>')
+                           ("suosikit", "♥ Suosikit")]) + vaihtoehto(
+        "/muut" + ("?kieli=en" if kieli == "en" else ""), k_("Muut kohteet"), len(muut_kohteet.KOHTEET), False)
+    suodattimet = (f'<select id="kategoria" aria-label="{k_("Kategoria")}" '
+                   f'onchange="location.href = this.value">{suodattimet}</select>')
     toinen = "fi" if kieli == "en" else "en"
     vaihto = (f'<a class="kieli" href="{e(_osoite(tyyppi=valittu, kieli=toinen))}" hreflang="{toinen}" '
               f'lang="{toinen}" title="{"Suomeksi" if toinen == "fi" else "In English"}" '
@@ -1398,9 +1405,9 @@ value="Oulu" placeholder="{k_("esim. Rovaniemi")}"></label></p>
 </nav>
 <div class="haku"><label>🔍 <input id="haku" type="search" autocomplete="off" placeholder="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"
 aria-label="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"></label>
-<select id="jarjestys" aria-label="{k_("Järjestys")}"><option value="pisteet">{k_("Pisteiden mukaan")}</option>
+<nav class="kategoriat">{suodattimet}</nav></div>
+<div class="jarjestysrivi"><select id="jarjestys" aria-label="{k_("Järjestys")}"><option value="pisteet">{k_("Pisteiden mukaan")}</option>
 <option value="etaisyys">{k_("Etäisyyden mukaan")}</option></select></div>
-<nav class="kategoriat">{suodattimet}</nav>
 <datalist id="kunnat">{KUNTALISTA}</datalist>
 <script type="application/json" id="paikkakunnat">{KUNNAT_JSON}</script>
 <p id="sijainti-tila" class="pieni" hidden></p>
