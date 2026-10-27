@@ -366,8 +366,11 @@ TYYLI = """
 * { box-sizing: border-box; }
 body { margin:0; background:var(--tausta); color:var(--teksti);
        font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { max-width:960px; margin:0 auto; padding:12px 16px 48px; }
-h1 { font-size:1.15rem; margin:0 0 2px; line-height:1.3; }
+main { max-width:960px; margin:0 auto; padding:24px 16px 48px; }
+h1 { font-size:1.45rem; margin:0 0 4px; }
+main.etusivu { padding-top:12px; }
+.etusivu h1 { font-size:1.15rem; margin:0 0 2px; line-height:1.3; }
+.etusivu nav { margin:10px 0 10px; gap:6px; }
 .tyokalut { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; align-items:flex-start; }
 .tyokalut > details { margin:0; padding:4px 12px; border-radius:999px; background:var(--pinta); }
 .tyokalut > details[open] { flex-basis:100%; border-radius:8px; padding:8px 12px; }
@@ -383,7 +386,7 @@ h1 { font-size:1.15rem; margin:0 0 2px; line-height:1.3; }
                   background:var(--pinta); }
 .paikkakuva figcaption { color:var(--heikko); font-size:.8rem; margin-top:4px; overflow-wrap:anywhere; }
 .meta, .pieni { color:var(--heikko); font-size:.88rem; }
-nav { margin:10px 0 10px; display:flex; gap:6px; flex-wrap:wrap; }
+nav { margin:14px 0 18px; display:flex; gap:8px; flex-wrap:wrap; }
 nav > a, .surffi { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px;
                    color:var(--teksti); text-decoration:none; font-size:.9rem; }
 .surffirivi { margin:4px 0 6px; }
@@ -421,7 +424,8 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
 .suosikki { background:none; border:0; padding:0 4px; cursor:pointer; font-size:1.1rem;
             color:var(--heikko); line-height:1; vertical-align:-1px; }
 .suosikki[aria-pressed="true"] { color:var(--huono); }
-.otsake { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+.otsake { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.etusivu .otsake { align-items:baseline; }
 .kieli { display:inline-flex; align-items:center; gap:6px; font-size:.85rem; color:var(--heikko);
          text-decoration:none; margin-top:4px; white-space:nowrap; }
 .kieli svg { border:1px solid var(--viiva); border-radius:2px; display:block; }
@@ -1214,7 +1218,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <meta name="apple-mobile-web-app-title" content="{k_("Melonta")}">
 <style>{TYYLI}</style>
 </head>
-<body><main>
+<body><main class="etusivu">
 <div class="otsake"><h1>{k_("Melontapaikkojen tilanne")} {tilanne.paivitetty:%d.%m.%Y}</h1>{vaihto}</div>
 <div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div>
 {_turvaosio(tilanne, kieli)}
