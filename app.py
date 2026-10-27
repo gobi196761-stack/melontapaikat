@@ -368,8 +368,35 @@ body { margin:0; background:var(--tausta); color:var(--teksti);
        font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
 main { max-width:960px; margin:0 auto; padding:24px 16px 48px; }
 h1 { font-size:1.45rem; margin:0 0 4px; }
-main.etusivu { padding-top:12px; }
-.etusivu h1 { font-size:1.15rem; margin:0 0 2px; line-height:1.3; }
+main.etusivu { padding-top:12px; padding-bottom:96px; }
+.etusivu h1 { font-size:1.35rem; margin:0 0 8px; line-height:1.3; }
+.varoitusrivi { display:flex; gap:8px; align-items:flex-start; margin:0 0 6px; }
+.varoitusrivi .turva { flex:1; margin:0; }
+.info { flex:none; margin-left:auto; width:34px; height:34px; border-radius:50%; border:1px solid var(--viiva);
+        background:var(--pinta); color:var(--linkki); font-size:1.15rem; line-height:1; cursor:pointer; }
+.info[aria-expanded="true"] { background:var(--linkki); color:var(--tausta); }
+.etusivu .selitykset:not([open]) { display:none; }
+.alapaneelit > details:not([open]) { display:none; }
+.etusivu .alapaneelit > details[open] { position:fixed; left:max(0px, calc(50% - 480px)); right:max(0px, calc(50% - 480px));
+  bottom:calc(60px + env(safe-area-inset-bottom)); max-height:70vh; overflow:auto; z-index:20; margin:0;
+  background:var(--tausta); border:1px solid var(--viiva); border-bottom:0; border-radius:14px 14px 0 0;
+  box-shadow:0 -6px 18px rgba(0,0,0,.15); padding:12px 16px; }
+.etusivu .alapaneelit > details > summary { font-weight:600; color:var(--teksti); font-size:1rem; margin:0 0 8px; }
+.etusivu .alapalkki { position:fixed; left:0; right:0; bottom:0; z-index:21; display:flex; justify-content:space-around;
+  gap:0; margin:0; background:var(--tausta); border-top:1px solid var(--viiva);
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom)); }
+.etusivu .alapalkki > button, .etusivu .alapalkki > a { flex:1; display:flex; flex-direction:column; align-items:center;
+  gap:2px; border:0; border-radius:0; background:none; font:inherit; font-size:.72rem; color:var(--heikko);
+  text-decoration:none; padding:2px 0; margin:0; cursor:pointer; }
+.alapalkki > * > span { font-size:1.35rem; line-height:1.2; position:relative; display:flex; align-items:center; height:1.7rem; }
+.alapalkki [aria-expanded="true"] { color:var(--linkki); }
+.alapalkki .ok > span::after { content:""; position:absolute; top:0; right:-6px; width:8px; height:8px; border-radius:50%;
+  background:var(--hyva); }
+.etusivu .haku label { display:flex; align-items:center; gap:6px; flex:1; min-width:0; }
+.etusivu .haku input { min-width:0; width:100%; max-width:none; }
+.etusivu .haku select { flex:none; max-width:46%; }
+.etusivu .haku select { padding:6px 10px; border:1px solid var(--viiva); border-radius:999px; font:inherit; font-size:.88rem;
+  background:var(--tausta); color:var(--teksti); }
 .etusivu nav { margin:10px 0 10px; gap:6px; }
 .tyokalut { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; align-items:flex-start; }
 .tyokalut > details { margin:0; padding:4px 12px; border-radius:999px; background:var(--pinta); }
@@ -409,10 +436,10 @@ details.tiedot > summary { font-size:.88rem; }
 ul.kortit { list-style:none; padding:0; }
 ul.kortit > li { border-bottom:1px solid var(--viiva); padding:14px 0; margin:0; }
 ul.kortit .kortti-tiedot .pieni { padding-right:0; }
-.paikkakuva { margin:12px 0; }
-.paikkakuva img { width:100%; max-width:720px; aspect-ratio:4/3; object-fit:cover; border-radius:8px; display:block;
-                  background:var(--pinta); }
-.paikkakuva figcaption { color:var(--heikko); font-size:.8rem; margin-top:4px; overflow-wrap:anywhere; }
+.paikan-tilanne { background:var(--pinta); border-radius:10px; padding:4px 14px 12px; margin:12px 0 18px; }
+.paikan-tilanne h2 { margin-top:10px; }
+.tilanne-pisteet { font-weight:700; font-size:1.5rem; margin-left:6px; vertical-align:middle; }
+.tilanne-pisteet small { font-size:.8rem; }
 .meta, .pieni { color:var(--heikko); font-size:.88rem; }
 nav { margin:14px 0 18px; display:flex; gap:8px; flex-wrap:wrap; }
 nav > a, .surffi { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px;
@@ -671,6 +698,23 @@ SKRIPTI = """
   // Lähtöpäivä muu kuin tänään: vesitilanne, kohteiden arviot ja pisteet sen päivän ennusteesta,
   // paikat sen mukaiseen järjestykseen (sama sääntö kuin palvelimella: pisteet 5:n tarkkuudella, lähempi ensin)
   const paivaTila = document.getElementById("paiva-tila");
+  // Järjestys: pisteet (5:n tarkkuudella, lähempi ensin) tai etäisyys (oma sijainti / paikkakunta / Oulu)
+  const jarjestysV = document.getElementById("jarjestys");
+  function jarjesta() {
+    const etaisyys = jarjestysV && jarjestysV.value === "etaisyys";
+    const pist = r => Number(r.dataset.nyt ?? (JSON.parse(r.dataset.pisteet || "{}")[0] ?? -1));
+    const km = r => Number(r.dataset.etaisyys ?? r.dataset.oulusta);
+    rivit.sort((a, b) => etaisyys ? (km(a) - km(b)) || (pist(b) - pist(a))
+      : (Math.round(pist(b) / 5) - Math.round(pist(a) / 5)) || (km(a) - km(b)));
+    const runko = rivit[0] && rivit[0].parentElement;
+    if (runko) rivit.forEach(r => runko.appendChild(r));
+    paivita();
+  }
+  if (jarjestysV) {
+    jarjestysV.value = lue("melonta-jarjestys", "pisteet") === "etaisyys" ? "etaisyys" : "pisteet";
+    jarjestysV.addEventListener("change", () => { kirjoita("melonta-jarjestys", jarjestysV.value); jarjesta(); });
+    if (jarjestysV.value !== "pisteet") jarjesta();
+  }
   const luokka = p => p >= 60 ? "p-hyva" : p >= 30 ? "p-keski" : "p-huono";
   function naytaPaiva() {
     if (!taulukko || !lahtoKentta) return;
@@ -690,10 +734,7 @@ SKRIPTI = """
       }
       r.dataset.nyt = p[nn] ?? -1;
     }
-    rivit.sort((a, b) => (Math.round(b.dataset.nyt / 5) - Math.round(a.dataset.nyt / 5)) || (a.dataset.km - b.dataset.km));
-    const runko = rivit[0] && rivit[0].parentElement;
-    if (runko) rivit.forEach(r => runko.appendChild(r));
-    paivita();
+    jarjesta();
     paivaTila.textContent = n ? T.paivaTila + " " + lahtoPv.toLocaleDateString(T.kieli, {weekday: "short", day: "numeric", month: "numeric"}) : "";
     paivaTila.hidden = !n;
   }
@@ -739,6 +780,7 @@ SKRIPTI = """
     for (const r of rivit) {
       const km = r.querySelector(".km");
       if (km) { km.dataset.oulu ??= km.textContent; km.textContent = km.dataset.oulu; }
+      delete r.dataset.etaisyys;
       const reitti = r.querySelector(".reitti");
       if (reitti) {
         const url = new URL(reitti.href);
@@ -748,7 +790,7 @@ SKRIPTI = """
     }
     tila.textContent = oma ? T.lasketaan : "";
     tila.hidden = !oma;
-    if (!oma) { saaOulusta(); return; }
+    if (!oma) { saaOulusta(); if (jarjestysV && jarjestysV.value === "etaisyys") jarjesta(); return; }
     const oma2 = oma.map(v => v.toFixed(2)), tama = ++kysely;
     fetch("/api/ajomatkat?v=2&lahto=" + oma2.join(","))   // v: vastauksen muoto (ajoajat mukana)
       .then(v => v.ok ? v.json() : Promise.reject(v.status))
@@ -759,7 +801,9 @@ SKRIPTI = """
           const m = d.min ? d.min[r.dataset.paikka] : null;
           if (km && k != null) km.textContent = "~" + Math.round(k) + " km" + (m != null ? " / " + kesto(m) : "") + T.km
                                                 + (nimi ? ", " + T.lahto + " " + nimi : "");
+          if (k != null) r.dataset.etaisyys = k;
         }
+        if (jarjestysV && jarjestysV.value === "etaisyys") jarjesta();
         ajoajat = d.min || null;
         paivitaSaat();
         tila.textContent = teksti;
@@ -795,6 +839,24 @@ SKRIPTI = """
   const muistettu = lue(SIJ, false);
   if (muistettu && muistettu.paikkakunta && kentta) valitse(muistettu.paikkakunta, false);
   else if (muistettu === true) hae();   // lupa annettu aiemmin: päivitä suoraan
+  // ⓘ avaa merkinnät ja kuvakkeet; alapalkin kuvakkeet avaavat paneelin (yksi kerrallaan)
+  const info = document.getElementById("info"), merkinnat = document.getElementById("merkinnat");
+  if (info && merkinnat) {
+    info.addEventListener("click", () => { merkinnat.open = !merkinnat.open; });
+    merkinnat.addEventListener("toggle", () => info.setAttribute("aria-expanded", merkinnat.open));
+  }
+  const palkki = [...document.querySelectorAll("[data-avaa]")];
+  const paneelit = [...document.querySelectorAll(".alapaneelit > details")];
+  for (const p of paneelit) p.addEventListener("toggle", () => {
+    if (p.open) paneelit.forEach(x => { if (x !== p) x.open = false; });
+    palkki.forEach(b => b.setAttribute("aria-expanded", document.getElementById(b.dataset.avaa)?.open || false));
+  });
+  for (const b of palkki) b.addEventListener("click", () => {
+    const p = document.getElementById(b.dataset.avaa);
+    if (p) p.open = !p.open;
+  });
+  const nakyvatNapit = () => palkki.forEach(b => { const p = document.getElementById(b.dataset.avaa); b.hidden = !p || p.hidden; });
+
   // Hälytys hyvistä oloista: ehdot (paikka tai kohde; toimii / optimi / pisteraja) ja ennusteen pituus,
   // push-tilaus (service worker /sw.js) ja asetukset palvelimelle (/api/halytys)
   const halytys = document.getElementById("halytys");
@@ -899,6 +961,7 @@ SKRIPTI = """
   }
   kaavionMuoto();
   addEventListener("resize", kaavionMuoto);
+  nakyvatNapit();   // hälytyksen kuvake vain, kun selain tukee ilmoituksia
 })();
 """
 
@@ -939,7 +1002,7 @@ def _selitykset(kieli: str) -> str:
     merkit = "".join(f"<li><b>{e(m)}</b> {e(t)}</li>" for m, t in SELITYKSET[kieli])
     kajakit = "".join(f'<li>{_kajakki_svg(tyyppi, k_, selite=True)} {e(k_(KAJAKKI_KUVAKKEET[tyyppi][0]))}</li>'
                       for tyyppi in KAJAKKI_KUVAKKEET)
-    return (f'<details class="selitykset"><summary>{e(k_("Merkinnät ja kuvakkeet"))}</summary>'
+    return (f'<details class="selitykset" id="merkinnat"><summary>{e(k_("Merkinnät ja kuvakkeet"))}</summary>'
             f'<ul class="pieni">{merkit}{kajakit}</ul><p class="pieni">{SELITE[kieli]}</p></details>')
 # Kielen vaihto: Ison-Britannian lippu englanniksi, Suomen lippu takaisin suomeksi
 LIPUT = {
@@ -1088,7 +1151,9 @@ def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt:
 
 
 def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_min: float | None = None,
-                 nyt: float | None = None, ajo_km: float | None = None, kuva: dict | None = None) -> str:
+                 nyt: float | None = None, ajo_km: float | None = None, kuva: dict | None = None,
+                 vain_tiedot: bool = False) -> str:
+    """Etusivun kortti (taulukon rivi); vain_tiedot: pelkät vesitilannetiedot paikkasivun alkuun."""
     p = t.paikka
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
     def mittarit(paiva: int) -> str:
@@ -1146,7 +1211,13 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
     lampo = f'\n<div class="pieni lampotilat">{lampo}</div>' if lampo else ""
     matka = " · ".join(x for x in (reitti, saapuminen) if x)
     matka = f'\n<div class="pieni matka">{matka}</div>' if matka else ""
-    return f"""<tr data-paikka="{e(p.nimi)}"{sijainti} data-pisteet='{pisteet_json}' data-km="{p.km_oulusta or 0}">
+    if vain_tiedot:
+        return (f'<p>{_olot(t.pisteet, kieli)} <span class="tilanne-pisteet {_pisteluokka(t.pisteet)}">'
+                f'{t.pisteet:.0f}<small>/100</small></span></p>'
+                + (f'<div class="pieni">{km}</div>' if km else "") + f'{matka}{lampo}\n{versiot}')
+    oulusta = ajo_km if ajo_km is not None else p.km_oulusta
+    return f"""<tr data-paikka="{e(p.nimi)}"{sijainti} data-pisteet='{pisteet_json}' data-km="{p.km_oulusta or 0}"\
+ data-oulusta="{oulusta if oulusta is not None else 99999:.0f}">
 <td class="sija">{sija}.</td>
 <td>{_kortti(p, kuva, kieli, km, _olot(t.pisteet, kieli))}
 <details class="tiedot"><summary>{k_("Näytä tiedot")}</summary>{matka}{lampo}
@@ -1182,15 +1253,23 @@ def _kortti(paikka, kuva: dict | None, kieli: str, km: str = "", merkki: str = "
             f'{merkki}<div class="pieni">{tiedot}</div></div></div>')
 
 
-def kuvaosio(nimi: str, kieli: str) -> str:
-    """Paikkasivun kuva ja sen tekijä, lisenssi ja lähde (Wikimedia Commons)."""
-    kuva = kuvat.kuva(nimi, _kanta())
-    if not kuva:
-        return ""
-    selite = "Photo" if kieli == "en" else "Kuva"
-    return (f'<figure class="paikkakuva"><img src="{e(kuva["kuva"])}" alt="{e(nimi)}" loading="lazy">'
-            f'<figcaption>{selite}: {e(kuva["tekija"])} · {e(kuva["lisenssi"])} · '
-            f'<a href="{e(kuva["sivu"])}" target="_blank" rel="noopener">Wikimedia Commons</a></figcaption></figure>')
+def kuvasivu(kieli: str) -> str:
+    """Etusivun korttien kuvat: paikka, tekijä, lisenssi ja linkki Wikimedia Commonsiin."""
+    en = kieli == "en"
+    tallessa = kuvat.lataa(_kanta())
+    rivit = "".join(
+        f'<li><b>{e(nimi)}</b>: {e(k["tekija"])} · {e(k["lisenssi"])} · '
+        f'<a href="{e(k["sivu"])}" target="_blank" rel="noopener">Wikimedia Commons</a></li>'
+        for nimi, k in sorted(tallessa.items()) if k.get("kuva"))
+    oma = ("Spots without a photo of their own show the app's own photo." if en else
+           "Paikoilla, joille ei löytynyt omaa kuvaa, näkyy sovelluksen oma kuva.")
+    return f"""<!doctype html>
+<html lang="{kieli}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{"Photos" if en else "Kuvat"}</title><style>{TYYLI}</style></head>
+<body><main class="kuvaus"><a class="takaisin" href="{_osoite(kieli=kieli)}">{"← All spots" if en else "← Kaikki paikat"}</a>
+<h1>{"Photos" if en else "Kuvat"}</h1>
+<p>{"Photos from Wikimedia Commons under free licences." if en else "Kuvat ovat Wikimedia Commonsista vapailla lisensseillä."}</p>
+<ul class="lahteet">{rivit}</ul><p class="pieni">{e(oma)}</p></main></body></html>"""
 
 
 def _lukumaara(n: int, k_) -> str:
@@ -1237,7 +1316,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
         f'<a href="/muut">{k_("Muut kohteet")} <span class="maara">{len(muut_kohteet.KOHTEET)}</span></a>')
     toinen = "fi" if kieli == "en" else "en"
     vaihto = (f'<a class="kieli" href="{e(_osoite(tyyppi=valittu, kieli=toinen))}" hreflang="{toinen}" '
-              f'lang="{toinen}">{LIPUT[toinen]}{"Suomeksi" if toinen == "fi" else "In English"}</a>')
+              f'lang="{toinen}"><span>{LIPUT[toinen]}</span>{"Suomeksi" if toinen == "fi" else "English"}</a>')
     arvioidut = [t for t in tulokset if t.pisteet is not None]
     rivit = "".join(_paikan_rivi(i, t, kieli, tilanne.saa.get(t.paikka.nimi), tilanne.ajo_min.get(t.paikka.nimi),
                                  ajo_km=tilanne.ajo_km.get(t.paikka.nimi), kuva=tilanne.kuvat.get(t.paikka.nimi))
@@ -1272,12 +1351,14 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <style>{TYYLI}</style>
 </head>
 <body><main class="etusivu">
-<div class="otsake"><h1>{k_("Melontapaikkojen tilanne")} {tilanne.paivitetty:%d.%m.%Y}</h1>{vaihto}</div>
-<div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div>
-{_turvaosio(tilanne, kieli)}
-<div class="tyokalut">
+<h1>{k_("Melontapaikat")}</h1>
+<div class="varoitusrivi">{_turvaosio(tilanne, kieli)}<button type="button" class="info" id="info"
+aria-controls="merkinnat" aria-expanded="false" title="{k_("Merkinnät ja kuvakkeet")}">ⓘ</button></div>
 {_selitykset(kieli)}
-<details class="valinnat"><summary>{k_("📍 Sijainti ja lähtöaika")}</summary>
+<div class="alapaneelit">
+<details class="surffipaneeli" id="paneeli-surffi"><summary>{k_("🏄 Surffi")}</summary>
+<div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div></details>
+<details class="valinnat" id="paneeli-sijainti"><summary>{k_("📍 Sijainti ja lähtöaika")}</summary>
 <p><button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button></p>
 <p><label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
 placeholder="{k_("esim. Rovaniemi")}"></label></p>
@@ -1286,9 +1367,18 @@ placeholder="{k_("esim. Rovaniemi")}"></label></p>
 {_halytysosio(k_)}
 {_ehdotusluukku(kieli)}
 </div>
-<label class="haku">🔍 <input id="haku" type="search" autocomplete="off" placeholder="{k_("Hae paikkaa…")}"
+<nav class="alapalkki" aria-label="{k_("Valikot")}">
+<button type="button" data-avaa="paneeli-surffi"{' class="ok"' if tilanne.surffi.get("nyt") else ""}><span>🏄</span>{k_("Surffi")}</button>
+<button type="button" data-avaa="paneeli-sijainti"><span>📍</span>{k_("Sijainti")}</button>
+<button type="button" data-avaa="halytys"><span>🔔</span>{k_("Hälytys")}</button>
+<button type="button" data-avaa="paneeli-ehdota"><span class="lamppu">💡</span>{k_("Ehdota")}</button>
+{vaihto}
+</nav>
+<div class="haku"><label>🔍 <input id="haku" type="search" autocomplete="off" placeholder="{k_("Hae paikkaa…")}"
 aria-label="{k_("Hae paikkaa…")}"></label>
-<nav>{suodattimet}</nav>
+<select id="jarjestys" aria-label="{k_("Järjestys")}"><option value="pisteet">{k_("Pisteiden mukaan")}</option>
+<option value="etaisyys">{k_("Etäisyyden mukaan")}</option></select></div>
+<nav class="kategoriat">{suodattimet}</nav>
 <datalist id="kunnat">{KUNTALISTA}</datalist>
 <script type="application/json" id="paikkakunnat">{KUNNAT_JSON}</script>
 <p id="sijainti-tila" class="pieni" hidden></p>
@@ -1300,7 +1390,7 @@ aria-label="{k_("Hae paikkaa…")}"></label>
 </table>
 {ilman_html}
 {varoitukset}
-{f'<p class="pieni">{k_("Kuvat: Wikimedia Commons (vapaat lisenssit); tekijä ja lisenssi paikan sivulla.")}</p>' if tilanne.kuvat else ""}
+{f'<p class="pieni"><a href="/kuvat{"?kieli=en" if kieli == "en" else ""}">{k_("Kuvat: tekijät ja lisenssit")}</a></p>' if tilanne.kuvat else ""}
 </main>
 <script>{SKRIPTI}</script>
 </body>
@@ -1838,7 +1928,29 @@ PAIKKASIVU_EN = {
 }
 
 
-def paikkasivu(paikka, kieli: str = "fi") -> str:
+def _paikkasivun_tilanne() -> Tilanne | None:
+    """Etusivun tilanne paikkasivulle; virhe ei estä kuvauksen näyttämistä."""
+    try:
+        return hae_tilanne()
+    except Exception:   # noqa: BLE001
+        return None
+
+
+def paikan_vesitilanne(nimi: str, kieli: str, tilanne: Tilanne | None) -> str:
+    """Paikkasivun alku: sama vesitilanne kuin etusivun kortissa (pisteet, reitti, sää, mittarit, kohteet)."""
+    t = next((r for r in tilanne.tulokset if r.paikka.nimi == nimi), None) if tilanne else None
+    if t is None:
+        return ""
+    k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
+    if t.pisteet is None:
+        sisalto = "".join(f'<p class="huom">{e(k_(h))}</p>' for h in t.huomiot)
+    else:
+        sisalto = _paikan_rivi(0, t, kieli, tilanne.saa.get(nimi), tilanne.ajo_min.get(nimi),
+                               ajo_km=tilanne.ajo_km.get(nimi), vain_tiedot=True)
+    return f'<section class="paikan-tilanne"><h2>{k_("Vesitilanne")}</h2>{sisalto}</section>'
+
+
+def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None) -> str:
     """Paikan koostesivu: lähteistä koottu kuvaus, kohteet ja niiden rajat (paikat.py) sekä lähteet.
     Englanniksi (kieli="en") kuvaukset, lähtö- ja loppupaikat ja huomiot tulevat paikkasivut_en.py:stä."""
     en = kieli == "en"
@@ -1955,7 +2067,7 @@ def paikkasivu(paikka, kieli: str = "fi") -> str:
 <div class="otsake"><a class="takaisin" href="{e(etusivu)}">{k_("← Kaikki paikat")}</a>{vaihto}</div>
 <h1>{e(paikka.nimi)}</h1>
 <div class="meta">{tiedot_html}</div>
-{kuvaosio(paikka.nimi, kieli)}
+{paikan_vesitilanne(paikka.nimi, kieli, tilanne)}
 {"".join(osat)}
 {paikat_html}
 {retkilinkit}
@@ -2113,7 +2225,7 @@ def _ehdotusluukku(kieli: str) -> str:
         lista = (f'<p><b>{e(t["kayttajien_kohteet"])}</b></p><ul>' + "".join(
             f'<li><a href="/ehdotus/{e(tun)}{"?kieli=en" if kieli == "en" else ""}">{e(ehdotukset.nimi(ed))}</a></li>'
             for tun, ed in uudet) + "</ul>")
-    return (f'<details class="ehdota"><summary><span class="lamppu" aria-hidden="true">💡</span> {e(t["luukku"])}</summary><p>{e(t["luukku_teksti"])}</p>'
+    return (f'<details class="ehdota" id="paneeli-ehdota"><summary><span class="lamppu" aria-hidden="true">💡</span> {e(t["luukku"])}</summary><p>{e(t["luukku_teksti"])}</p>'
             f'<a class="nappi" href="/ehdota?laji=uusi{q}">{e(t["uusi"])}</a>'
             f'<a class="nappi toissijainen" href="/ehdota?laji=taydenna{q}">{e(t["taydenna"])}</a>{lista}</details>')
 
@@ -2631,8 +2743,7 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
             for k in kaksoset) + f"</ul>{muunnot}</div>")
     if ehdotus.get("alkuperainen_nimi"):
         kaksois_html += f'<p class="pieni">{e(t["muunnettu"].format(nimi=ehdotus["alkuperainen_nimi"]))}</p>'
-    kuva_html = kuvaosio(otsikko, kieli) if ehdotus.get("laji") == "uusi" and tila == "hyvaksytty" else ""
-    runko = (f"<h1>{e(otsikko)}</h1>{meta}{kuva_html}{alku}{kaksois_html}{taydennys_tila}{hallinta}{ilmoitus}"
+    runko = (f"<h1>{e(otsikko)}</h1>{meta}{alku}{kaksois_html}{taydennys_tila}{hallinta}{ilmoitus}"
              f"{_ehdotuksen_sisalto(tunniste, ehdotus, kieli, hakija)}{yksityiset}")
     return _sivupohja(otsikko, runko, kieli, _osoite(kieli=kieli))
 
@@ -3084,8 +3195,10 @@ def app(environ, start_response):
         paikka = PAIKKASIVUT.get(polku.removeprefix("/paikka/"))
         if paikka is None:
             return vastaa("404 Not Found", "text/plain; charset=utf-8", "Paikkaa ei löydy.\n")
-        return vastaa("200 OK", "text/html; charset=utf-8", paikkasivu(paikka, kielet.kieli(kysely)),
-                      "public, max-age=3600")
+        return vastaa("200 OK", "text/html; charset=utf-8", paikkasivu(paikka, kielet.kieli(kysely), _paikkasivun_tilanne()),
+                      CACHE_CONTROL)
+    if polku == "/kuvat":   # etusivun kuvien tekijät ja lisenssit
+        return vastaa("200 OK", "text/html; charset=utf-8", kuvasivu(kielet.kieli(kysely)), "public, max-age=3600")
     if polku not in ("/", "/api"):
         return vastaa("404 Not Found", "text/plain; charset=utf-8", "Ei löydy.\n")
 

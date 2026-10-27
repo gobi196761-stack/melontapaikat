@@ -68,10 +68,10 @@ def test_sivu(palvelin):
     assert runko.index("Matkakoski") < runko.index("Kipinä (Iijoki)") < runko.index("Niskakoski")
     assert "Oikean silta-aukon surffiaalto" in runko
     # alussa merkintöjen ja kuvakkeiden selitykset (Kipinän veden lämpötila -laatikko poistettu)
-    assert '<details class="selitykset"><summary>Merkinnät ja kuvakkeet</summary>' in runko   # suljettu oletuksena
+    assert '<details class="selitykset" id="merkinnat"><summary>Merkinnät ja kuvakkeet</summary>' in runko   # suljettu oletuksena
     assert 'id="haku"' in runko
     assert '<div class="lukumaara" id="lukumaara">3 paikkaa</div>' in runko   # Kipinä, Matkakoski, Niskakoski
-    assert runko.index('class="selitykset"') < runko.index("<nav>") < runko.index("<table")   # kategorioiden yläpuolella
+    assert runko.index('class="selitykset"') < runko.index('<nav class="kategoriat">') < runko.index("<table")   # kategorioiden yläpuolella
     assert "Veden lämpötila" not in runko and "OpenStreetMap" not in runko
     assert "<b>★</b> parhaimmillaan" in runko and "river runner -kajakki" in runko.split("<table")[0]
     assert "16.05" not in runko and "osm.fi:n paikkakuvaukset" not in runko   # ei kellonaikaa
@@ -361,7 +361,7 @@ def test_suosikit_ja_sijainti_sivulla(palvelin):
 
 def test_englanninkielinen_sivu(palvelin):
     fi = pyynto("/")[2]
-    assert '<html lang="fi">' in fi and 'href="/?kieli=en" hreflang="en"' in fi and "In English" in fi
+    assert '<html lang="fi">' in fi and 'href="/?kieli=en" hreflang="en"' in fi and "English</a>" in fi
     en = pyynto("/", "kieli=en")[2]
     assert '<html lang="en">' in en and "<title>Paddling conditions</title>" in en
     assert 'href="/" hreflang="fi"' in en and "Suomeksi" in en
@@ -594,7 +594,7 @@ def test_ajomatka_ja_kesto_oulusta(palvelin, tilanne):
     runko = pyynto("/")[2]
     assert '<span class="km">~181 km / 2 h 30 min, lähtö Oulu</span>' in runko
     # surffilinkki heti otsikon alla
-    assert runko.index("</h1>") < runko.index("Merelle Surffaamaan") < runko.index('class="selitykset"')
+    assert runko.index("</h1>") < runko.index("Merelle Surffaamaan") < runko.index('<nav class="alapalkki"')
     assert "~181 km / 2 h 30 min, from Oulu" in pyynto("/", "kieli=en")[2]
     tilanne.ajo_km, tilanne.ajo_min, tilanne.surffi = {}, {}, {}
 
@@ -784,7 +784,7 @@ def test_halytysosio(palvelin, monkeypatch):
     monkeypatch.setattr(halytykset, "avaimet", lambda kanta=None: ("JULKINEN-avain", "x"))
     runko = pyynto("/")[2]
     assert '<details id="halytys" class="halytys" hidden data-vapid="JULKINEN-avain">' in runko
-    assert runko.index('class="selitykset"') < runko.index('id="halytys"') < runko.index("<nav>")
+    assert runko.index('class="selitykset"') < runko.index('id="halytys"') < runko.index('<nav class="kategoriat">')
     assert '<option value="60" selected>60 – hyvä</option>' in runko and '<option value="3" selected>3 pv</option>' in runko
     assert '<script type="application/json" id="halytys-valinnat">{"Kipinä (Iijoki)":{"":["toimii","paras","pisteet"]' in runko
     assert 'navigator.serviceWorker.register("/sw.js")' in runko and 'fetch("/api/halytys"' in runko
@@ -894,8 +894,8 @@ def test_turvavaroitukset_avattavana_osiona(monkeypatch, tilanne):
     assert '<details class="turva"><summary><span class="turva-otsikko">🥶 Kylmä vesi' in fi
     assert '<span class="turva-otsikko">💨 Maatuuli ja matala vesi</span></summary>' in fi
     assert "itätuulta 6 m/s" in fi and "Mustasalmi" in fi
-    assert fi.index('<details class="turva">') < fi.index('<details class="selitykset">') \
-        < fi.index('<details class="ehdota">')
+    assert fi.index('<details class="turva">') < fi.index('<details class="selitykset" id="merkinnat">') \
+        < fi.index('<details class="ehdota" id="paneeli-ehdota">')
     assert 'id="turva"' not in fi and "turva-tausta" not in fi   # ei ponnahdusikkunaa
     en = pyynto("/", "kieli=en")[2]
     assert "Cold water: a dry suit is the only right choice" in en and "Offshore wind on the Oulu coast" in en
@@ -904,3 +904,14 @@ def test_turvavaroitukset_avattavana_osiona(monkeypatch, tilanne):
     assert ('<details class="turva">' in ilman) == any(
         l is not None and l.veden_lampotila is not None and l.veden_lampotila < 15
         for t in tilanne.tulokset for l in t.lukemat.values())
+
+
+def test_paikkasivu_vesitilanne_ylimpana(monkeypatch, tilanne):
+    """Paikkasivun alussa sama vesitilanne kuin etusivulla (pisteet, mittarit, kohteet); ei valokuvia."""
+    monkeypatch.setattr(app, "_paikkasivun_tilanne", lambda: tilanne)
+    nimi = tilanne.tulokset[0].paikka.nimi
+    osoite = app.paikan_osoite(tilanne.tulokset[0].paikka)
+    runko = pyynto(osoite)[2]
+    assert '<section class="paikan-tilanne"><h2>Vesitilanne</h2>' in runko and 'class="olot' in runko
+    assert runko.index('class="paikan-tilanne"') < runko.index("<h2>Lähteet</h2>")
+    assert "upload.wikimedia" not in runko and "<figure" not in runko and nimi in runko
