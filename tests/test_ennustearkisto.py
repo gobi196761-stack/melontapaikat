@@ -64,7 +64,7 @@ def test_oma_arvio_kuten_sovelluksessa():
 
 
 def test_tuntimittaukset_ja_tuntiarviot():
-    """Syöteasemien tuntimittaukset (edellinen ja kuluva päivä) ja Maalismaan päivän tuntiarviot."""
+    """Syöteasemien tuntimittaukset (kaksi edellistä ja kuluva päivä) ja Maalismaan päivän tuntiarviot."""
     a = ajot()
     perus = {"61/q6101600y": 66.8, "61/q6100700y": 120.0, "61/q6101210y": 40.0, "61/l611331001y": 108.59}
     for asema, v in perus.items():
@@ -74,7 +74,7 @@ def test_tuntimittaukset_ja_tuntiarviot():
     s = arkisto["syotteet"]
     assert set(s) == set(ennustearkisto.SYOTEASEMAT)
     siurua = s["61/q6101600y"]["tunnit"]
-    assert min(siurua) == "2026-10-17T00" and max(siurua) == "2026-10-18T15" and len(siurua) == 24 + 16
+    assert min(siurua) == "2026-10-16T00" and max(siurua) == "2026-10-18T15" and len(siurua) == 24 + 24 + 16
     pudas = s["61/l611331001y"]
     assert pudas["nimi"] == "Pudasjärvi (vedenkorkeus)" and pudas["whav"]["2026-10-18"] == 108.59
     assert "2026-10-25" in pudas["wlask_ka"] and "whav" not in s["61/q6101600y"]

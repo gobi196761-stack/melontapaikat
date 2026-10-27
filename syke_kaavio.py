@@ -312,6 +312,8 @@ class Kaaviolukema:
     tietolahde: str = "kaavio"      # "kaavio" | "SYKE-data" | "arvio <malli>" (ks. syke_data.py)
     veden_lampotila: float | None = None  # aseman ajo.jsonin vesistömallin veden lämpötila tänään (°C)
     toinen_arvio: tuple[str, float] | None = None  # (mallin nimi, arvo) arviomallin rinnalla, ks. syke_data
+    kolmas_arvio: tuple[str, float] | None = None  # (mallin nimi, arvo): eilinen + tuntiarvioiden derivaatta
+    neljas_arvio: tuple[str, float] | None = None  # (mallin nimi, arvo): eilinen + tuntikäyrän muutos
 
     @property
     def arvo(self) -> float | None:

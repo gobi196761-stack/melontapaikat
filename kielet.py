@@ -108,6 +108,10 @@ SANAT = {
     "keskivirhe": "mean error",
     "arvio tänään": "estimate today",
     "toinen arvio tänään": "second estimate today",
+    "kolmas arvio tänään": "third estimate today",
+    "neljäs arvio tänään": "fourth estimate today",
+    "viimeisin mittaus + tuntikäyrän muutos": "latest measurement + change of the hourly curve",
+    "viimeisin mittaus + tuntiarvioiden derivaatta": "latest measurement + derivative of the hourly estimates",
     "toinen arvio tunneittain SYKE:n reaaliaikamittauksista": "second estimate hourly from SYKE real-time measurements",
     "päivän keskiarvo-ennuste": "forecast daily mean",
     "arvio mitatuista syötteistä": "estimate from measured inputs",
@@ -168,6 +172,8 @@ KORVAUKSET = [
     (r", (\d+) pv: ", r", \1 d: "),
     (r"tulvaindeksi", "flood index"),
     (r"toinen arvio", "second estimate"),
+    (r"kolmas arvio", "third estimate"),
+    (r"neljäs arvio", "fourth estimate"),
     (r"\(ennuste \+(\d+) pv\)", r"(forecast +\1 d)"),
 ]
 

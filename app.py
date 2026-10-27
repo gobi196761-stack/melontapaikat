@@ -1924,6 +1924,10 @@ def _arvio_kaavio(paikka, avain, mittari, asema: str, hakija: osm.Hakija, otsikk
         eilen = syke_data._arvo(oma.get("qhav") or {}, tanaan - dt.timedelta(days=1))
         if eilen is not None:
             vertailu.append((kielet.kaanna("eilen mitattu", kieli), eilen, "#1b1f24"))
+        if lukema.kolmas_arvio is not None:
+            vertailu.append((kielet.kaanna("kolmas arvio", kieli), lukema.kolmas_arvio[1], "#00897b"))
+        if lukema.neljas_arvio is not None:
+            vertailu.append((kielet.kaanna("neljäs arvio", kieli), lukema.neljas_arvio[1], "#1e88e5"))
         nimi = f"{paikka.nimi} – {kielet.kaanna('tuntiarvio', kieli)} {tanaan.day}.{tanaan.month}."
         kuva = kaavio_svg.pinoa(kuva, kaavio_svg.tunti_svg(nimi, tanaan, tunnit, vertailu, kieli))
     return kuva

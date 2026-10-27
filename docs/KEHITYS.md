@@ -16,7 +16,7 @@ pisteytystä, ennusteita, arviomalleja tai kaavioita. Käyttöohje on README.md:
 | `melonta.py` | `kerää_tilanne` hakee kaiken rinnakkain. Sisältää myös CLI:n. |
 | `kaavio_svg.py` | Omat SVG-kaaviot (SYKE, SMHI, kuvasta luettu, Hawa'Ii-arvio ja tuntikaavio). |
 | `app.py` | WSGI-sivu ja API, sää, ajomatkat, surffi sekä sivun JS (`SKRIPTI`). |
-| `ennustearkisto.py` | Päivittäinen arkisto Firestoreen (`ennusteet/YYYY-MM-DD`). Vercel Cron kutsuu `/api/arkistoi` klo 18 UTC. Arkistossa ovat SYKE:n päiväsarjat ja Hawa'Iin päiväarviot sekä tuntiarviot (`arviot.<asema>.tunnit`). Lisäksi osioon `syotteet` tallennetaan syöteasemien tuntimittaukset 48 tunnin ajalta ja Pudasjärven vedenkorkeus. |
+| `ennustearkisto.py` | Päivittäinen arkisto Firestoreen (`ennusteet/YYYY-MM-DD`). Vercel Cron kutsuu `/api/arkistoi` klo 18 UTC. Arkistossa ovat SYKE:n päiväsarjat ja Hawa'Iin päiväarviot sekä tuntiarviot (`arviot.<asema>.tunnit`). Lisäksi osioon `syotteet` tallennetaan syöteasemien tuntimittaukset 72 tunnin ajalta ja Pudasjärven vedenkorkeus. |
 | `kapsi.py` | Maalismaan tuntimittaukset mpahkala.kapsi.fi-raportista Firestoreen (kokoelma `kapsi_maalismaa`, dokumentti per päivä). Ei näy sovelluksessa. Vercel Cron `/api/kapsi` klo 1, 9, 13 ja 21 UTC sekä `/api/halyta`- ja `/api/arkistoi`-ajojen yhteydessä; raportissa on noin 8 tunnin historia. |
 | `halytykset.py` | Push-hälytykset: tilauksen tarkistus, RFC 8291 -salaus, VAPID (avainpari Firestoressa tai ympäristömuuttujissa) ja aamun ajo (`/api/halyta`, Vercel Cron klo 5 UTC). Tilaus `/api/halytys`, service worker `/sw.js`. |
 | `kielet.py` | Englanninkielinen käyttöliittymä (sanakirja ja regex). Uusi suomenkielinen teksti tarvitsee käännöksen tänne. |
@@ -86,6 +86,12 @@ Maalismaa on PVO:n voimala, joten aseman oma päivän arvo julkaistaan vasta seu
 **Tuntiarvio (`tuntiarviot`)** käyttää TARKENNETUT-mallia syötteiden tuntimittauksiin.
 - Loppupäivän syöte jatkaa viimeisen 6 tunnin lineaarista trendiä (`TUNTITRENDI`).
 - Malli on sovitettu päiväarvoihin, joten tuntiarvo kertoo, mihin päivän keskiarvo on menossa.
+
+**Kolmas ja neljäs arvio** näytetään vain tekstinä ja kaaviossa, ja ne arkistoidaan kenttiin `tanaan3` ja `tanaan4`. Kumpikin perustuu Maalismaan tuoreimpaan mitattuun päiväarvoon ja toisen arvion tuntiarvioihin. SYKE julkaisee edellisen päivän arvon noin klo 20 Suomen aikaa (ajo.json `utc_aikaleima` noin 17–18 UTC), joten päivällä tuorein mittaus on toissapäivältä.
+- Kolmas arvio (`kolmas_arvio`) = mittaus + derivaatta × 24 h kutakin mittauspäivän jälkeistä päivää kohden. Derivaatta on pienimmän neliösumman suoran kulmakerroin tuntiarvioihin mittauspäivän klo 12:sta viimeiseen mitattuun tuntiin.
+- Neljäs arvio (`neljas_arvio`) = mittaus + (tämän päivän tuntikäyrän keskiarvo − mittauspäivän tuntiarvioiden keskiarvo).
+  - Mitatut tunnit otetaan käyrään sellaisinaan.
+  - Loppupäivä jatketaan kahden viimeisen tunnin derivaatalla.
 
 ## Reaaliaikamittaukset (SYKE)
 

@@ -242,6 +242,10 @@ def kuvaa_lukema(l: Kaaviolukema, ennustepaiva: int = 3) -> str:
         teksti += f", tulvaindeksi {ti:.2f}"
     if l.toinen_arvio is not None:   # toinen arviomalli rinnalla (syke_data.TARKENNETUT)
         teksti += f", toinen arvio {_luku(l.toinen_arvio[1], l.yksikko)}"
+    if l.kolmas_arvio is not None:   # eilinen + tuntiarvioiden derivaatta (syke_data.kolmas_arvio)
+        teksti += f", kolmas arvio {_luku(l.kolmas_arvio[1], l.yksikko)}"
+    if l.neljas_arvio is not None:   # eilinen + tuntikäyrän muutos (syke_data.neljas_arvio)
+        teksti += f", neljäs arvio {_luku(l.neljas_arvio[1], l.yksikko)}"
     return teksti
 
 

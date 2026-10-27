@@ -428,6 +428,85 @@ def tuntiarviot(asema: str, ajot: dict[str, dict], paiva: dt.date) -> dict | Non
             "keskiarvo": sum(arvot.values()) / 24, "viim": viim}
 
 
+KOLMAS_NIMI = "viimeisin mittaus + tuntiarvioiden derivaatta"
+NELJAS_NIMI = "viimeisin mittaus + tuntikäyrän muutos"
+DERIVAATTA_ALKU = 12     # derivaatta mittauspäivän klo 12:sta (päiväkeskiarvon keskikohta) alkaen
+DERIVAATTA_MIN_TUNTEJA = 6
+NELJAS_DERIVAATTA_TUNTEJA = 2   # loppupäivä jatketaan kahden viimeisen mitatun tunnin derivaatalla
+
+
+def _viimeisin_mittaus(asema: str, ajot: dict[str, dict], paiva: dt.date) -> tuple[dt.date, float] | None:
+    """Aseman tuorein mitattu päiväarvo ennen päivää (enintään HAVAINTO_MAX_IKA päivää vanha).
+    Maalismaan edellisen päivän arvo julkaistaan vasta n. klo 20, joten päivällä se on toissapäivän."""
+    oma = (ajot.get(f"{asema}/ajo.json") or {}).get("qhav")
+    for n in range(1, HAVAINTO_MAX_IKA + 1):
+        p = paiva - dt.timedelta(days=n)
+        v = _arvo(oma, p) if oma else None
+        if v is not None:
+            return p, v
+    return None
+
+
+def kolmas_arvio(asema: str, ajot: dict[str, dict], paiva: dt.date) -> tuple[float, float] | None:
+    """Kolmas arvio päivälle: tuorein mitattu päiväarvo + derivaatta × tunnit mittauspäivän
+    keskikohdasta tämän päivän keskikohtaan (24 h päivää kohden).
+
+    Derivaatta (m³/s tunnissa) on pienimmän neliösumman suoran kulmakerroin toisen arvion
+    tuntiarvioihin (vain mitatuista syötteistä) mittauspäivän klo DERIVAATTA_ALKU:sta viimeiseen
+    mitattuun tuntiin. Palauttaa (arvo, derivaatta) tai None, jos mittausta tai tuntiarvioita ei ole."""
+    mittaus = _viimeisin_mittaus(asema, ajot, paiva)
+    if mittaus is None:
+        return None
+    p0, q0 = mittaus
+    pisteet = []
+    for n in range((paiva - p0).days + 1):
+        p = p0 + dt.timedelta(days=n)
+        tunnit = tuntiarviot(asema, ajot, p)
+        if tunnit:
+            pisteet += [(24 * n + t + 0.5, v) for t, v in tunnit["arviot"].items()
+                        if n > 0 or t >= DERIVAATTA_ALKU]
+    if len(pisteet) < DERIVAATTA_MIN_TUNTEJA:
+        return None
+    xs, ys = [x for x, _ in pisteet], [v for _, v in pisteet]
+    xk, yk = sum(xs) / len(xs), sum(ys) / len(ys)
+    nimittaja = sum((x - xk) ** 2 for x in xs)
+    if nimittaja == 0:
+        return None
+    derivaatta = sum((x - xk) * (v - yk) for x, v in pisteet) / nimittaja
+    return q0 + 24 * (paiva - p0).days * derivaatta, derivaatta
+
+
+def neljas_arvio(asema: str, ajot: dict[str, dict], paiva: dt.date) -> tuple[float, float] | None:
+    """Neljäs arvio päivälle: tuorein mitattu päiväarvo + tuntikäyrän muutos mittauspäivästä.
+
+    Tämän päivän tuntikäyrä = toisen arvion tuntiarviot mitatuilta tunneilta sellaisenaan (kaikki
+    muutokset mukana, kellonaikaan asti), loppupäivä viimeisestä mitatusta tunnista kahden viimeisen
+    tunnin derivaatalla. Muutos = tämän päivän käyrän keskiarvo − mittauspäivän tuntiarvioiden
+    keskiarvo, joten mallin oma harha kumoutuu ja arvo ankkuroituu mittaukseen (eilinen tai,
+    ennen SYKE:n iltapäivitystä, toissapäiväinen).
+    Palauttaa (arvo, derivaatta m³/s tunnissa) tai None, jos tietoja puuttuu."""
+    mittaus = _viimeisin_mittaus(asema, ajot, paiva)
+    if mittaus is None:
+        return None
+    p0, q0 = mittaus
+    pohja, tanaan = tuntiarviot(asema, ajot, p0), tuntiarviot(asema, ajot, paiva)
+    if not pohja or not pohja["arviot"] or not tanaan:
+        return None
+    mitatut = tanaan["arviot"]
+    viim = tanaan["viim"]
+    if viim not in mitatut:
+        return None
+    aiempi = mitatut.get(viim - NELJAS_DERIVAATTA_TUNTEJA)
+    if aiempi is None:   # aamulla: kahden tunnin takainen arvo eilisestä
+        eiliset = tuntiarviot(asema, ajot, paiva - dt.timedelta(days=1)) or {"arviot": {}}
+        aiempi = eiliset["arviot"].get(24 + viim - NELJAS_DERIVAATTA_TUNTEJA)
+    derivaatta = (mitatut[viim] - aiempi) / NELJAS_DERIVAATTA_TUNTEJA if aiempi is not None else 0.0
+    kayra = [mitatut[t] if t in mitatut and t <= viim else mitatut[viim] + derivaatta * (t - viim)
+             for t in range(24)]
+    muutos = sum(kayra) / 24 - sum(pohja["arviot"].values()) / len(pohja["arviot"])
+    return q0 + muutos, derivaatta
+
+
 def _mallin_arvo(malli: Arviomalli, k: Kertoimet, ajot: dict[str, dict], paiva: dt.date) -> float | None:
     q = _syote(ajot, malli.virtaama_asema, paiva)
     h = _syote(ajot, malli.korkeus_asema, paiva, vedenkorkeus=True)
@@ -480,8 +559,14 @@ def arvioi_tanaan(lukema: Kaaviolukema, ajot: dict[str, dict]) -> str | None:
         return f"{asema}: arviomallin ({malli.nimi}) syötteitä puuttuu – käytetään havaintoa"
     lukema.havaittu, lukema.havaittu_paivia_sitten = arvo, 0
     lukema.tietolahde = f"arvio {malli.nimi}"
-    if asema in TARKENNETUT:   # toinen arvio rinnalle (ei vaikuta pisteisiin)
+    if asema in TARKENNETUT:   # toinen ja kolmas arvio rinnalle (eivät vaikuta pisteisiin)
         arvo2 = arvioi_paiva2(asema, ajot, tanaan)
         if arvo2 is not None:
             lukema.toinen_arvio = (TARKENNETUT[asema].nimi, arvo2)
+        kolmas = kolmas_arvio(asema, ajot, tanaan)
+        if kolmas is not None:
+            lukema.kolmas_arvio = (KOLMAS_NIMI, kolmas[0])
+        neljas = neljas_arvio(asema, ajot, tanaan)
+        if neljas is not None:
+            lukema.neljas_arvio = (NELJAS_NIMI, neljas[0])
     return None

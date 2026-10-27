@@ -278,6 +278,8 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
            jalkikateen_arviot: dict[dt.date, float] | None = None,
            paivan_arvo: tuple[float, str] | None = None,
            toinen_arvio: tuple[str, float] | None = None,
+           kolmas_arvio: tuple[str, float] | None = None,
+           neljas_arvio: tuple[str, float] | None = None,
            tunnus: list[tuple[str, float, str]] | None = None,
            alueet: list[Alue] | None = None,
            kieli: str = "fi") -> str:
@@ -318,6 +320,8 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         + [v for t in tausta.values() for v in t] + [v for t in ennuste_vali.values() for v in t] \
         + list(aiemmat_arviot.values()) + list(jalkikateen_arviot.values()) \
         + ([toinen_arvio[1]] if toinen_arvio else []) \
+        + ([kolmas_arvio[1]] if kolmas_arvio else []) \
+        + ([neljas_arvio[1]] if neljas_arvio else []) \
         + ([arvio] if arvio is not None else []) \
         + ([paivan_arvo[0]] if paivan_arvo else [])
     if not arvot:
@@ -453,6 +457,16 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         ryhma.append(vinonelio(tx, ty, 7, "#6a1b9a", ontto=True))
         ryhma.append(f'<text x="{tx - 10:.1f}" y="{ty + 18:.1f}" text-anchor="end" fill="#6a1b9a" font-weight="600" '
                      f'stroke="#fff" stroke-width="3" paint-order="stroke">{luku(toinen_arvio[1])}</text>')
+    if kolmas_arvio is not None:   # kolmas arvio: turkoosi ontto vinoneliö, arvo oikealle alas
+        ky = y(kolmas_arvio[1])
+        ryhma.append(vinonelio(tx, ky, 7, "#00897b", ontto=True))
+        ryhma.append(f'<text x="{tx + 10:.1f}" y="{ky + 18:.1f}" fill="#00897b" font-weight="600" '
+                     f'stroke="#fff" stroke-width="3" paint-order="stroke">{luku(kolmas_arvio[1])}</text>')
+    if neljas_arvio is not None:   # neljäs arvio: sininen ontto vinoneliö, arvo vasemmalle ylös
+        ny4 = y(neljas_arvio[1])
+        ryhma.append(vinonelio(tx, ny4, 7, "#1e88e5", ontto=True))
+        ryhma.append(f'<text x="{tx - 10:.1f}" y="{ny4 - 9:.1f}" text-anchor="end" fill="#1e88e5" font-weight="600" '
+                     f'stroke="#fff" stroke-width="3" paint-order="stroke">{luku(neljas_arvio[1])}</text>')
     if lukema is not None:   # tämän päivän lukema numerona, kuten Hawa'Iin arvio
         ryhma.append(vinonelio(tx, y(lukema), 7, "#ef6c00"))
         ryhma.append(f'<text x="{tx + 10:.1f}" y="{y(lukema) - 8:.1f}" fill="#ef6c00" font-weight="600" '
@@ -528,6 +542,10 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         selite.append(("onttovino", "#6a1b9a", f"{_t('toinen arvio tänään')} ({toinen_arvio[0]})"))
     elif paivan_arvo:
         selite.append(("vino", "#ef6c00", f"{_t('tänään')}: {luku(paivan_arvo[0])} ({_t(paivan_arvo[1])})"))
+    if kolmas_arvio is not None:
+        selite.append(("onttovino", "#00897b", f"{_t('kolmas arvio tänään')} ({_t(kolmas_arvio[0])})"))
+    if neljas_arvio is not None:
+        selite.append(("onttovino", "#1e88e5", f"{_t('neljäs arvio tänään')} ({_t(neljas_arvio[0])})"))
     if ennuste_vali:
         selite.append(("alue", "#bcdcf7", _t("ennusteen 5–95 %")))
     if tausta:
@@ -800,6 +818,7 @@ def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: l
                   f"{_t('(' + lukema.lahde)[1:]} · {_t('ennuste tehty')} {tanaan.day}.{tanaan.month}.")
     return piirra(otsikko, alaotsikko, tanaan, ennuste=ennuste, ennuste_vali=vali, havainnot=havainnot,
                   havainto_viiva=True, arvio=arvio, aiemmat_arviot=aiemmat, jalkikateen_arviot=jalkikateen,
-                  toinen_arvio=lukema.toinen_arvio,
+                  toinen_arvio=lukema.toinen_arvio, kolmas_arvio=lukema.kolmas_arvio,
+                  neljas_arvio=lukema.neljas_arvio,
                   tunnus=tunnus, alueet=alueet,
                   kieli=kieli)

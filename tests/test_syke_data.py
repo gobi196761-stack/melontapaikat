@@ -220,6 +220,81 @@ def test_lampotila_ja_puuttuva_sarja_ohitetaan():
     assert l.havaittu == 10.50 and l.tietolahde == "kaavio"
 
 
+def test_kolmas_arvio_eilinen_plus_tuntiarvioiden_derivaatta():
+    """Kolmas arvio = eilinen havainto + 24 h × tuntiarvioiden (mitatut tunnit) suoran kulmakerroin."""
+    m = syke_data.TARKENNETUT["61/q6101750y"]
+    ajot = arvioajot2()
+    ajot["61/q6101600y/reaaliaika_tunnit"] = {f"2026-10-18T{t:02d}": 70.0 - 0.5 * t for t in range(0, 11)}
+    ajot["61/q6100700y/reaaliaika_tunnit"] = {f"2026-10-18T{t:02d}": 205.0 for t in range(0, 11)}
+    ajot["61/q6101210y/reaaliaika_tunnit"] = {f"2026-10-18T{t:02d}": 40.0 for t in range(0, 11)}
+    ajot["61/l611331001y/reaaliaika_tunnit"] = {f"2026-10-18T{t:02d}": 108.59 for t in range(0, 9)}
+    arvo, derivaatta = syke_data.kolmas_arvio("61/q6101750y", ajot, dt.date(2026, 10, 18))
+    # vain Siurua muuttuu (−0.5/h): tuntiarvio muuttuu Siuruan kertoimen verran (eilinen ≥ 350: iso)
+    assert derivaatta == pytest.approx(m.iso[3] * -0.5)
+    assert arvo == pytest.approx(398.97 + 24 * m.iso[3] * -0.5)
+    l = maalismaa()
+    syke_data.arvioi_tanaan(l, ajot)
+    assert l.kolmas_arvio == (syke_data.KOLMAS_NIMI, pytest.approx(arvo))
+    # ilman tuntimittauksia tai eilistä havaintoa ei kolmatta arviota
+    assert syke_data.kolmas_arvio("61/q6101750y", arvioajot2(), dt.date(2026, 10, 18)) is None
+    ajot["61/q6101750y/ajo.json"] = ajo(qhav=sarja("2026-10-15", 401.49))
+    assert syke_data.kolmas_arvio("61/q6101750y", ajot, dt.date(2026, 10, 18)) is None
+
+
+def test_neljas_arvio_eilinen_plus_tuntikayran_muutos():
+    """Neljäs arvio = eilinen havainto + (tämän päivän tuntikäyrän ka − eilisen tuntiarvioiden ka); käyrä
+    mitatuilta tunneilta sellaisenaan, loppupäivä kahden viimeisen tunnin derivaatalla."""
+    m = syke_data.TARKENNETUT["61/q6101750y"]
+    ajot = {
+        "61/q6101750y/ajo.json": ajo(qhav=sarja("2026-10-15", 404.0, 401.49, 398.97)),
+        "61/q6101600y/ajo.json": ajo(qhav=sarja("2026-10-16", 68.0, "67.3", "66.8")),
+        "61/q6100700y/ajo.json": ajo(qhav=sarja("2026-10-16", 212.0, 210.0, 205.0)),
+        "61/q6101210y/ajo.json": ajo(qhav=sarja("2026-10-16", 42.0, 41.0, 40.0)),
+        "61/l611331001y/ajo.json": ajo(whav=sarja("2026-10-15", 108.55, 108.56, 108.56),
+                                       wlask_ka=sarja("2026-10-17", 108.40, 108.43)),
+    }
+    tunnit = lambda paiva, f, n=24: {f"2026-10-{paiva}T{t:02d}": f(t) for t in range(n)}   # noqa: E731
+    ajot["61/q6101600y/reaaliaika_tunnit"] = {**tunnit(17, lambda t: 67.3), **tunnit(18, lambda t: 67.0 - 0.4 * t, 11)}
+    ajot["61/q6100700y/reaaliaika_tunnit"] = {**tunnit(17, lambda t: 210.0), **tunnit(18, lambda t: 205.0, 11)}
+    ajot["61/q6101210y/reaaliaika_tunnit"] = {**tunnit(17, lambda t: 41.0), **tunnit(18, lambda t: 40.0, 11)}
+    ajot["61/l611331001y/reaaliaika_tunnit"] = {**tunnit(17, lambda t: 108.56), **tunnit(18, lambda t: 108.59, 11)}
+    paiva = dt.date(2026, 10, 18)
+    arvo, derivaatta = syke_data.neljas_arvio("61/q6101750y", ajot, paiva)
+    # kahden viimeisen tunnin derivaatta: vain Siurua muuttuu (−0.4/h)
+    assert derivaatta == pytest.approx(m.iso[3] * -0.4)
+    e = syke_data.tuntiarviot("61/q6101750y", ajot, paiva - dt.timedelta(days=1))["arviot"]
+    t = syke_data.tuntiarviot("61/q6101750y", ajot, paiva)
+    kayra = [t["arviot"][h] if h <= t["viim"] else t["arviot"][t["viim"]] + derivaatta * (h - t["viim"])
+             for h in range(24)]
+    assert arvo == pytest.approx(398.97 + sum(kayra) / 24 - sum(e.values()) / len(e))
+    l = maalismaa()
+    syke_data.arvioi_tanaan(l, ajot)
+    assert l.neljas_arvio == (syke_data.NELJAS_NIMI, pytest.approx(arvo))
+    # ennen SYKE:n iltapäivitystä tuorein mittaus on toissapäivältä: ankkuri 16.10., käyrän muutos siitä
+    ajot2 = dict(ajot)
+    ajot2["61/q6101750y/ajo.json"] = ajo(qhav=sarja("2026-10-14", 406.0, 404.0, 401.49))
+    for a, v in (("61/q6101600y", 68.0), ("61/q6100700y", 212.0), ("61/q6101210y", 42.0), ("61/l611331001y", 108.55)):
+        ajot2[f"{a}/reaaliaika_tunnit"] = {**tunnit(16, lambda t, v=v: v), **ajot[f"{a}/reaaliaika_tunnit"]}
+    for a, sarjat in (("61/q6101600y", (69.0, 68.0, "67.3", "66.8")), ("61/q6100700y", (214.0, 212.0, 210.0, 205.0)),
+                      ("61/q6101210y", (43.0, 42.0, 41.0, 40.0))):
+        ajot2[f"{a}/ajo.json"] = ajo(qhav=sarja("2026-10-15", *sarjat))
+    ajot2["61/l611331001y/ajo.json"] = ajo(whav=sarja("2026-10-14", 108.55, 108.55, 108.56, 108.56),
+                                           wlask_ka=sarja("2026-10-17", 108.40, 108.43))
+    arvo2, _ = syke_data.neljas_arvio("61/q6101750y", ajot2, paiva)
+    pohja = syke_data.tuntiarviot("61/q6101750y", ajot2, dt.date(2026, 10, 16))["arviot"]
+    t2 = syke_data.tuntiarviot("61/q6101750y", ajot2, paiva)
+    d2 = (t2["arviot"][t2["viim"]] - t2["arviot"][t2["viim"] - 2]) / 2
+    kayra2 = [t2["arviot"][h] if h <= t2["viim"] else t2["arviot"][t2["viim"]] + d2 * (h - t2["viim"])
+              for h in range(24)]
+    assert arvo2 == pytest.approx(401.49 + sum(kayra2) / 24 - sum(pohja.values()) / len(pohja))
+    k3, d3 = syke_data.kolmas_arvio("61/q6101750y", ajot2, paiva)
+    assert k3 == pytest.approx(401.49 + 48 * d3)   # kaksi päivää mittauksesta
+    # ilman mittauspäivän tuntiarvioita (sen syötteitä ei ole) ei neljättä arviota
+    for a in ("61/q6101600y", "61/q6100700y", "61/q6101210y", "61/l611331001y"):
+        ajot[f"{a}/reaaliaika_tunnit"] = {k: v for k, v in ajot[f"{a}/reaaliaika_tunnit"].items() if "-18T" in k}
+    assert syke_data.neljas_arvio("61/q6101750y", ajot, paiva) is None
+
+
 def test_tuntiarviot_ja_loppupaivan_ennuste():
     """Tuntiarvo syötteiden tuntimittauksista; loppupäivälle syötteiden 6 h trendi jatkuu."""
     m = syke_data.TARKENNETUT["61/q6101750y"]

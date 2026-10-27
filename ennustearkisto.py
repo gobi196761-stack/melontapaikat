@@ -14,7 +14,7 @@ päivän arvo ja ennuste samalla tavalla kuin melonta.py ne laskee, sekä päiv�
 tuntiarviot (syke_data.tuntiarviot: mitatut tunnit, loppupäivän ennuste, keskiarvo).
 
 Arviomallien syöteasemista (osio "syotteet") tallennetaan SYKE:n reaaliaikamittausten
-tuntikeskiarvot edelliseltä ja kuluvalta päivältä (48 h; SYKE säilyttää reaaliaikadataa vain
+tuntikeskiarvot kahdelta edelliseltä ja kuluvalta päivältä (72 h; SYKE säilyttää reaaliaikadataa vain
 n. 3 kk) ja vedenkorkeusasemalta lisäksi ajo.jsonin päiväsarjat whav ja wlask_ka.
 Tarkkuus lasketaan tyokalut/vertaa_ennusteet.py:llä.
 """
@@ -43,7 +43,7 @@ ASEMAT = {
 # Arviomallien syöteasemat, joiden tuntimittaukset arkistoidaan (TARKENNETUT.reaaliaika)
 SYOTEASEMAT = {"61/q6101600y": "Siurua", "61/q6100700y": "Kurenalus", "61/q6101210y": "Livojoki",
                "61/l611331001y": "Pudasjärvi (vedenkorkeus)"}
-TUNTI_PAIVIA = 2   # tuntimittaukset edelliseltä ja kuluvalta päivältä
+TUNTI_PAIVIA = 3   # tuntimittaukset kahdelta edelliseltä ja kuluvalta päivältä (tuoreimmasta mittauksesta asti)
 
 
 def _paivat(sarja: dict | None, alku: dt.date, loppu: dt.date) -> dict[str, float]:
@@ -95,6 +95,10 @@ def oma_arvio(asema: str, ajot: dict[str, dict]) -> dict | None:
         "tanaan": None if lukema.arvo is None else round(lukema.arvo, 3),
         # toinen arvio (syke_data.TARKENNETUT), tallennetaan vertailua varten
         "tanaan2": None if lukema.toinen_arvio is None else round(lukema.toinen_arvio[1], 3),
+        # kolmas arvio: tuorein havainto + tuntiarvioiden derivaatta (syke_data.kolmas_arvio)
+        "tanaan3": None if lukema.kolmas_arvio is None else round(lukema.kolmas_arvio[1], 3),
+        # neljäs arvio: tuorein havainto + tuntikäyrän muutos (syke_data.neljas_arvio)
+        "tanaan4": None if lukema.neljas_arvio is None else round(lukema.neljas_arvio[1], 3),
         "ennuste": ennuste,
         "varoitukset": varoitukset,
     }
