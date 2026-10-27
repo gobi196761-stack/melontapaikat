@@ -41,6 +41,8 @@ SANAT = {
     "Listaus etäisyyden mukaan": "Sorted by distance",
     "Kuvat: tekijät ja lisenssit": "Photos: authors and licences",
     "Vesitilanne": "Water situation",
+    "Haetaan vesitilannetta…": "Loading the water situation…",
+    "Vesitilannetta ei saatu juuri nyt.": "The water situation is not available right now.",
     "Kaikki": "All",
     "Pelipaikat": "Play spots",
     "Retket": "River runs",

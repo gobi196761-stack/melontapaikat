@@ -26,6 +26,7 @@ välimuistiin (Cache-Control: s-maxage). Näin vain harva pyyntö odottaa.
 
 from __future__ import annotations
 
+import base64
 import datetime as dt
 import re
 import hmac
@@ -33,7 +34,9 @@ import html
 import json
 import math
 import os
+import pickle
 import threading
+import zlib
 import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -65,6 +68,7 @@ from paikkakunnat import PAIKKAKUNNAT, RUOTSI
 
 VALIMUISTI_S = 60 * 60   # SYKE:n data päivittyy kerran päivässä; pidempi aika säästää suoritinaikaa
 CACHE_CONTROL = "public, max-age=300, s-maxage=3600, stale-while-revalidate=3600, stale-if-error=86400"
+ODOTUS_CACHE = "public, max-age=0, s-maxage=30"   # paikkasivu ilman valmista vesitilannetta (haetaan jälkikäteen)
 
 
 def suomen_aika() -> dt.datetime:
@@ -95,15 +99,66 @@ _tilanne: tuple[float, Tilanne] | None = None
 _tilanteen_paikat: set[str] | None = None   # laskennan paikat (hyväksytty uusi kohde laskee uudelleen)
 
 
-def hae_tilanne() -> Tilanne:
-    """Laskee kaikkien paikkojen tilanteen tai palauttaa tuoreen tuloksen muistista."""
+TILANNE_DOKUMENTTI = ("asetukset", "tilanne")   # viimeksi laskettu tilanne (kylmä käynnistys lukee sen)
+JULKAISU = os.environ.get("VERCEL_DEPLOYMENT_ID") or os.environ.get("VERCEL_GIT_COMMIT_SHA") or "paikallinen"
+
+
+def _tallenna_tilanne(tilanne: Tilanne, paikat) -> None:
+    """Laskettu tilanne Firestoreen pakattuna (n. 60 kt), jotta uusi palvelininstanssi saa sen heti."""
+    kanta = _kanta()
+    if not kanta:
+        return
+    try:
+        data = base64.b64encode(zlib.compress(pickle.dumps(tilanne, protocol=5), 9)).decode("ascii")
+        kanta.kirjoita(*TILANNE_DOKUMENTTI, {"data": data, "aika": time.time(), "julkaisu": JULKAISU,
+                                             "paikat": sorted(p.nimi for p in paikat)})
+    except Exception:   # noqa: BLE001 – tallennus on vain nopeutus
+        pass
+
+
+def _lataa_tilanne(paikat, enintaan_s: float) -> tuple[float, Tilanne] | None:
+    """Firestoreen tallennettu tilanne (ikä s, tilanne), jos se on tästä julkaisusta, tältä päivältä,
+    samoille paikoille ja enintään enintaan_s vanha."""
+    kanta = _kanta()
+    if not kanta:
+        return None
+    try:
+        doc = kanta.lue(*TILANNE_DOKUMENTTI) or {}
+        ika = time.time() - float(doc.get("aika") or 0)
+        if doc.get("julkaisu") != JULKAISU or ika > enintaan_s or doc.get("paikat") != sorted(p.nimi for p in paikat):
+            return None
+        tilanne = pickle.loads(zlib.decompress(base64.b64decode(doc["data"])))   # oma, palvelimen kirjoittama data
+        return (ika, tilanne) if tilanne.paivitetty.date() == suomen_aika().date() else None
+    except Exception:   # noqa: BLE001
+        return None
+
+
+def _muistissa(paikat, enintaan_s: float = VALIMUISTI_S) -> Tilanne | None:
+    if _tilanne and time.monotonic() - _tilanne[0] < enintaan_s \
+            and _tilanne[1].paivitetty.date() == suomen_aika().date() \
+            and _tilanteen_paikat == {p.nimi for p in paikat}:
+        return _tilanne[1]   # uusi hyväksytty kohde laskee tilanteen uudelleen
+    return None
+
+
+def hae_tilanne(laske: bool = True) -> Tilanne | None:
+    """Kaikkien paikkojen tilanne: muistista, Firestoreen tallennettuna (kylmä käynnistys) tai laskemalla.
+    laske=False: vain valmis tilanne (paikkasivu ei odota laskentaa), muuten None."""
     global _tilanne, _tilanteen_paikat
+    if not laske:   # ei odoteta käynnissä olevaa laskentaa
+        paikat = kaikki_paikat()
+        tilanne = _muistissa(paikat, 2 * VALIMUISTI_S)
+        if tilanne is None and (tallessa := _lataa_tilanne(paikat, 2 * VALIMUISTI_S)):
+            tilanne = tallessa[1]
+        return tilanne
     with _lukko:   # samanaikaiset pyynnöt odottavat yhtä laskentaa
         paikat = kaikki_paikat()
-        if _tilanne and time.monotonic() - _tilanne[0] < VALIMUISTI_S \
-                and _tilanne[1].paivitetty.date() == suomen_aika().date() \
-                and _tilanteen_paikat == {p.nimi for p in paikat}:
-            return _tilanne[1]   # uusi hyväksytty kohde laskee tilanteen uudelleen
+        if (tilanne := _muistissa(paikat)) is not None:
+            return tilanne
+        if tallessa := _lataa_tilanne(paikat, VALIMUISTI_S):
+            _tilanne = (time.monotonic() - tallessa[0], tallessa[1])
+            _tilanteen_paikat = {p.nimi for p in paikat}
+            return tallessa[1]
         nyt = suomen_aika()
         hakija = osm.Hakija(aikaraja=20)
         sivun_kaaviot, lukemat, varoitukset = melonta.kerää_tilanne(hakija, paikat, lisakaaviot=False)
@@ -121,6 +176,7 @@ def hae_tilanne() -> Tilanne:
         if lukemat:   # epäonnistunutta hakua ei jätetä muistiin
             _tilanne = (time.monotonic(), tilanne)
             _tilanteen_paikat = {p.nimi for p in paikat}
+            _tallenna_tilanne(tilanne, paikat)
         return tilanne
 
 
@@ -1995,15 +2051,40 @@ PAIKKASIVU_EN = {
 
 
 def _paikkasivun_tilanne() -> Tilanne | None:
-    """Etusivun tilanne paikkasivulle; virhe ei estä kuvauksen näyttämistä."""
+    """Valmis tilanne paikkasivulle (muistista tai Firestoresta); ei odoteta laskentaa – silloin
+    vesitilanne haetaan sivulle jälkikäteen (/api/vesitilanne). Virhe ei estä kuvauksen näyttämistä."""
     try:
-        return hae_tilanne()
+        return hae_tilanne(laske=False)
     except Exception:   # noqa: BLE001
         return None
 
 
-def paikan_vesitilanne(nimi: str, kieli: str, tilanne: Tilanne | None) -> str:
-    """Paikkasivun alku: sama vesitilanne kuin etusivun kortissa (pisteet, reitti, sää, mittarit, kohteet)."""
+def _vesitilanne_myohemmin(nimi: str, kieli: str) -> str:
+    """Paikkasivun vesitilanne, kun tilanne lasketaan vielä: selain hakee osion ja ottaa skriptin käyttöön."""
+    k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
+    osoite = "/api/vesitilanne?" + urlencode({"paikka": nimi, **({"kieli": kieli} if kieli != "fi" else {})})
+    return f"""<section class="paikan-tilanne" id="vesitilanne-tulossa"><h2>{k_("Vesitilanne")}</h2>
+<p class="pieni">{k_("Haetaan vesitilannetta…")}</p></section>
+<script>
+(() => {{
+  const osio = document.getElementById("vesitilanne-tulossa");
+  fetch({json.dumps(osoite)}).then(v => v.ok ? v.text() : Promise.reject(v.status)).then(html => {{
+    const pohja = document.createElement("div");
+    pohja.innerHTML = html;
+    const skripti = pohja.querySelector("script");
+    if (skripti) skripti.remove();
+    osio.replaceWith(...pohja.childNodes);
+    if (skripti) {{ const s = document.createElement("script"); s.textContent = skripti.textContent; document.body.appendChild(s); }}
+  }}).catch(() => {{ osio.querySelector("p").textContent = {json.dumps(k_("Vesitilannetta ei saatu juuri nyt."))}; }});
+}})();
+</script>"""
+
+
+def paikan_vesitilanne(nimi: str, kieli: str, tilanne: Tilanne | None, myohemmin: bool = False) -> str:
+    """Paikkasivun alku: sama vesitilanne kuin etusivun kortissa (pisteet, reitti, sää, mittarit, kohteet).
+    myohemmin: ilman valmista tilannetta selain hakee osion jälkikäteen."""
+    if tilanne is None and myohemmin:
+        return _vesitilanne_myohemmin(nimi, kieli)
     t = next((r for r in tilanne.tulokset if r.paikka.nimi == nimi), None) if tilanne else None
     if t is None:
         return ""
@@ -2184,7 +2265,7 @@ def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None, ehdotu
 <div class="otsake"><a class="takaisin" href="{e(etusivu)}">{k_("← Kaikki paikat")}</a>{vaihto}</div>
 <h1>{e(paikka.nimi)}</h1>
 <div class="meta">{tiedot_html}</div>
-{paikan_vesitilanne(paikka.nimi, kieli, tilanne)}
+{paikan_vesitilanne(paikka.nimi, kieli, tilanne, myohemmin=True)}
 {"".join(osat)}
 {paikat_html}
 {retkilinkit}
@@ -3102,7 +3183,7 @@ def yllapitosivu(kirjautunut: bool, virhe: str = "") -> str:
         omat = sorted(((tun, ed) for tun, ed in kaikki.items() if ed.get("tila") == tila),
                       key=lambda x: x[1].get("luotu", ""), reverse=True)
         rivit = "".join(
-            f'<li><a href="/ehdotus/{e(tun)}">{e(ehdotukset.nimi(ed))}</a> <span class="pieni">· '
+            f'<li><a href="/ehdotus/{e(tun)}?y=1">{e(ehdotukset.nimi(ed))}</a> <span class="pieni">· '
             f'{"täydennys" if ed.get("laji") == "taydenna" else "uusi kohde"} · {e(ed.get("luotu", "")[:16])}'
             f'{" · " + e(ed["ehdottaja"]) if ed.get("ehdottaja") else ""}</span></li>' for tun, ed in omat)
         osat.append(f"<h2>{otsikko} ({len(omat)})</h2><ul>{rivit or '<li class=pieni>–</li>'}</ul>")
@@ -3192,7 +3273,7 @@ def ehdotus_api(polku: str, environ, metodi: str):
             toiminto = (runko_lomake().get("toiminto") or [""])[0]
             if not kasittele_ehdotus(tunniste, toiminto):
                 return "404 Not Found", html_tyyppi, b"Ehdotusta ei loydy."
-            return ohjaa(f"/ehdotus/{tunniste}")
+            return ohjaa(f"/ehdotus/{tunniste}?y=1")
         kanta = _kanta()
         ehdotus = (kanta.lue(ehdotukset.KOKOELMA, tunniste)
                    if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None)
@@ -3201,9 +3282,14 @@ def ehdotus_api(polku: str, environ, metodi: str):
         paikka = (next((p for p in kaikki_paikat() if p.url == f"/ehdotus/{tunniste}"), None)
                   if ehdotus.get("tila") == "hyvaksytty" and ehdotus.get("laji") == "uusi" else None)
         if paikka is not None:   # julkaistu kohde: sama rakenne kuin muilla paikkasivuilla
-            return "200 OK", html_tyyppi, paikkasivu(paikka, kieli, _paikkasivun_tilanne(), ehdotus,
-                                                     _julkaistun_yllapito(tunniste, ehdotus, kieli, yllapitaja)
-                                                     ).encode("utf-8")
+            tilanne_ = _paikkasivun_tilanne()
+            # välimuistiin kuten muut paikkasivut; ylläpitäjä avaa sivun ?y=1 (oma välimuistiavain, ei tallenneta)
+            yllapitonakyma = yllapitaja and "y" in kysely
+            otsakkeet = ([("Content-Type", "text/html; charset=utf-8"),
+                          ("Cache-Control", CACHE_CONTROL if tilanne_ else ODOTUS_CACHE)]
+                         if not yllapitonakyma else html_tyyppi)
+            return "200 OK", otsakkeet, paikkasivu(paikka, kieli, tilanne_, ehdotus, _julkaistun_yllapito(
+                tunniste, ehdotus, kieli, yllapitonakyma)).encode("utf-8")
         return "200 OK", html_tyyppi, ehdotussivu(tunniste, ehdotus, kieli, yllapitaja).encode("utf-8")
     m = re.fullmatch(r"/api/ehdotus/([A-Za-z0-9_-]+)/(taydenna|taydennys-valmis)", polku)
     if m and metodi == "POST":
@@ -3347,8 +3433,15 @@ def app(environ, start_response):
         paikka = PAIKKASIVUT.get(polku.removeprefix("/paikka/"))
         if paikka is None:
             return vastaa("404 Not Found", "text/plain; charset=utf-8", "Paikkaa ei löydy.\n")
-        return vastaa("200 OK", "text/html; charset=utf-8", paikkasivu(paikka, kielet.kieli(kysely), _paikkasivun_tilanne()),
-                      CACHE_CONTROL)
+        tilanne_ = _paikkasivun_tilanne()
+        return vastaa("200 OK", "text/html; charset=utf-8", paikkasivu(paikka, kielet.kieli(kysely), tilanne_),
+                      CACHE_CONTROL if tilanne_ else ODOTUS_CACHE)
+    if polku == "/api/vesitilanne":   # paikkasivun vesitilanne jälkikäteen (tilanne lasketaan tässä)
+        nimi = parse_qs(environ.get("QUERY_STRING", "")).get("paikka", [""])[0]
+        if nimi not in {p.nimi for p in kaikki_paikat()}:
+            return vastaa("404 Not Found", "text/plain; charset=utf-8", "Paikkaa ei löydy.\n")
+        html_ = paikan_vesitilanne(nimi, kielet.kieli(kysely), hae_tilanne())
+        return vastaa("200 OK", "text/html; charset=utf-8", html_, CACHE_CONTROL)
     if polku == "/kuvat":   # etusivun kuvien tekijät ja lisenssit
         return vastaa("200 OK", "text/html; charset=utf-8", kuvasivu(kielet.kieli(kysely)), "public, max-age=3600")
     if polku not in ("/", "/api"):
