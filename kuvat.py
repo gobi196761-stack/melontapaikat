@@ -31,7 +31,7 @@ EI_KUVAA: set[str] = set()
 VESISANAT = ("koski", "joki", "köngäs", "kongas", "fors", "älv", "river", "rapid", "virta", "melon", "kajak",
              "kayak", "canoe", "suvanto", "vesi", "putous", "waterfall", "ström", "niva", "kuohu")
 KIELLETYT = ("kirkko", "church", "kartta", "map", "logo", "kyltti", "sign", "muistomerk", "memorial", "hauta",
-             "grave", "talo", "house", "koulu", "school", "asema", "station", "silta-kyltti", "interior",
+             "grave", "pier", "laituri", "harbour", "satama", "talo", "house", "koulu", "school", "asema", "station", "silta-kyltti", "interior",
              "sisäkuva", "portrait", "muotokuva", "auto", "bus", "train", "juna", "coat of arms", "vaakuna")
 
 _kuvat: dict[str, dict] | None = None   # nimi -> {"kuva", "pieni", "sivu", "tekija", "lisenssi", "haettu"} tai {"haettu"}
@@ -141,8 +141,14 @@ def paivita(hakija: osm.Hakija, kanta, paikat, enintaan: int = 12) -> dict[str, 
     """Hakee puuttuvat ja vanhentuneet kuvat (enintään `enintaan` paikkaa kerralla) ja tallentaa ne."""
     kuvat = lataa(kanta)
     raja = (dt.date.today() - dt.timedelta(days=UUSINTA_PV)).isoformat()
-    vanhat = [p for p in paikat if (kuvat.get(p.nimi) or {}).get("haettu", "") < raja
-              or (p.nimi in KIINTEAT and (kuvat.get(p.nimi) or {}).get("otsikko") != KIINTEAT[p.nimi])]
+    def vanha(p) -> bool:
+        rivi = kuvat.get(p.nimi) or {}
+        if p.nimi in KIINTEAT:
+            return rivi.get("otsikko") != KIINTEAT[p.nimi]
+        # vanhentunut tai valittu ennen kuin sen sana lisättiin kiellettyihin
+        return rivi.get("haettu", "") < raja or any(k in rivi.get("otsikko", "").lower() for k in KIELLETYT)
+
+    vanhat = [p for p in paikat if vanha(p)]
     if not vanhat:
         return kuvat
     def hae(p):
