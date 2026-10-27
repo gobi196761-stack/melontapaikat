@@ -415,7 +415,8 @@ main.etusivu { padding-top:12px; padding-bottom:96px; }
 .etusivu thead th:nth-child(2) .lukumaara { font-size:.8rem; color:var(--heikko); }
 .etusivu tbody tr { display:block; position:relative; border-bottom:1px solid var(--viiva); padding:14px 0; }
 .etusivu tbody td { display:block; border:0; padding:0; }
-.etusivu td.sija, .etusivu td.ennuste { display:none; }
+.etusivu td.sija, .etusivu td.ennuste, .etusivu tbody tr[hidden] { display:none; }
+#ilman[hidden] { display:none; }
 .etusivu td.pisteet { position:absolute; right:0; top:96px; font-size:1.7rem; line-height:1; }
 .etusivu td.pisteet::after { content:"/100"; font-size:.8rem; font-weight:600; margin-left:1px; }
 .kortti { display:flex; gap:12px; align-items:flex-start; }
@@ -607,6 +608,8 @@ SKRIPTI = """
     document.querySelectorAll("li[data-haku]").forEach(li => { li.hidden = !osuu(li.dataset.haku); if (!li.hidden) m++; });
     const ilman = document.getElementById("lukumaara-ilman");
     if (ilman) ilman.textContent = m + " " + (m === 1 ? T.paikka : T.paikkaa);
+    const ilmanOsio = document.getElementById("ilman");   // suosikeissa vain suosikit, hakiessa vain osumat
+    if (ilmanOsio) ilmanOsio.hidden = vainSuosikit || m === 0;
     const suosikkimaara = document.getElementById("suosikkimaara");
     if (suosikkimaara) suosikkimaara.textContent = suosikit.size;
   }
@@ -825,7 +828,7 @@ SKRIPTI = """
   const avain = n => n.trim().toLocaleLowerCase("fi");
   const haku = Object.fromEntries(Object.keys(kunnat).map(n => [avain(n), n]));
   function valitse(arvo, muista) {
-    if (!arvo.trim()) { kirjoita(SIJ, false); nayta(null, "", null); return; }
+    if (!arvo.trim()) { kirjoita(SIJ, false); kentta.value = "Oulu"; nayta(null, "", null); return; }   // oletus: Oulu
     const nimi = haku[avain(arvo)];
     if (!nimi) { tila.textContent = T.tuntematon(arvo.trim()); tila.hidden = false; return; }
     const [lev, pit] = kunnat[nimi];
@@ -1326,12 +1329,12 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     TARKISTA = {k: f'<span class="olot p-keski">{v}</span>' for k, v in
                 (("fi", "Vesitiedot tarkistettava"), ("en", "Check the water yourself"))}
     if ilman:
-        ilman_html = (f"<h2>{k_('Ei vesikaaviota – tarkista itse')}</h2>"
+        ilman_html = (f"<section id=\"ilman\"><h2>{k_('Ei vesikaaviota – tarkista itse')}</h2>"
                       f'<p class="lukumaara" id="lukumaara-ilman">{_lukumaara(len(ilman), k_)}</p><ul class="kortit">' + "".join(
             f'<li data-haku="{e(t.paikka.nimi)}">'
             f'{_kortti(t.paikka, tilanne.kuvat.get(t.paikka.nimi), kieli, merkki=TARKISTA[kieli], suosikki=False)}'
             f'<p class="pieni">{e(t.paikka.kuvaus)}</p></li>'
-            for t in ilman) + "</ul>")
+            for t in ilman) + "</ul></section>")
     varoitukset = ""
     if tilanne.varoitukset:
         varoitukset = (f'<h2>{k_("Huomautukset")}</h2><ul class="pieni">'
@@ -1351,7 +1354,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <style>{TYYLI}</style>
 </head>
 <body><main class="etusivu">
-<h1>{k_("Melontapaikat")}</h1>
+<h1>{k_("Melontakohteet")}</h1>
 <div class="varoitusrivi">{_turvaosio(tilanne, kieli)}<button type="button" class="info" id="info"
 aria-controls="merkinnat" aria-expanded="false" title="{k_("Merkinnät ja kuvakkeet")}">ⓘ</button></div>
 {_selitykset(kieli)}
@@ -1359,9 +1362,9 @@ aria-controls="merkinnat" aria-expanded="false" title="{k_("Merkinnät ja kuvakk
 <details class="surffipaneeli" id="paneeli-surffi"><summary>{k_("🏄 Surffi")}</summary>
 <div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div></details>
 <details class="valinnat" id="paneeli-sijainti"><summary>{k_("📍 Sijainti ja lähtöaika")}</summary>
-<p><button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button></p>
+<p><button type="button" id="sijainti">{k_("📍 Jaa sijaintisi")}</button></p>
 <p><label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
-placeholder="{k_("esim. Rovaniemi")}"></label></p>
+value="Oulu" placeholder="{k_("esim. Rovaniemi")}"></label></p>
 <p><label class="paikkakunta">{k_("lähtöaika")} <input id="lahtoaika" type="datetime-local" step="900" data-paivia="{LAHTO_PAIVIA}"></label></p>
 </details>
 {_halytysosio(k_)}
@@ -1374,8 +1377,8 @@ placeholder="{k_("esim. Rovaniemi")}"></label></p>
 <button type="button" data-avaa="paneeli-ehdota"><span class="lamppu">💡</span>{k_("Ehdota")}</button>
 {vaihto}
 </nav>
-<div class="haku"><label>🔍 <input id="haku" type="search" autocomplete="off" placeholder="{k_("Hae paikkaa…")}"
-aria-label="{k_("Hae paikkaa…")}"></label>
+<div class="haku"><label>🔍 <input id="haku" type="search" autocomplete="off" placeholder="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"
+aria-label="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"></label>
 <select id="jarjestys" aria-label="{k_("Järjestys")}"><option value="pisteet">{k_("Pisteiden mukaan")}</option>
 <option value="etaisyys">{k_("Etäisyyden mukaan")}</option></select></div>
 <nav class="kategoriat">{suodattimet}</nav>

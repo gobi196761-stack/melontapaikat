@@ -915,3 +915,10 @@ def test_paikkasivu_vesitilanne_ylimpana(monkeypatch, tilanne):
     assert '<section class="paikan-tilanne"><h2>Vesitilanne</h2>' in runko and 'class="olot' in runko
     assert runko.index('class="paikan-tilanne"') < runko.index("<h2>Lähteet</h2>")
     assert "upload.wikimedia" not in runko and "<figure" not in runko and nimi in runko
+
+
+def test_piilotetut_kortit_eivat_nay(palvelin):
+    """Korttien display-tyyli ei saa ohittaa hidden-attribuuttia (haku ja suosikit piilottavat rivejä)."""
+    runko = pyynto("/")[2]
+    assert ".etusivu tbody tr[hidden] { display:none; }" in runko.replace(".etusivu td.sija, .etusivu td.ennuste, ", "")
+    assert "ilmanOsio.hidden = vainSuosikit" in runko
