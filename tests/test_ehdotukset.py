@@ -141,7 +141,9 @@ def test_uusi_kohde_esikatselu_ilmoitus_ja_hyvaksynta(ymparisto):
                                                "teksti": "Kitkajoki (Käylä – Juuma)", "url": osoite})]
     # julkaistu: etusivun luukussa
     assert f'href="/ehdotus/{tunniste}">Kitkajoki (Käylä – Juuma)</a>' in app._ehdotusluukku("fi")
-    assert "hyväksytty ja julkaistu" in pyynto(osoite)[2]
+    julkaistu = pyynto(osoite)[2]   # julkaistu kohde paikkasivun rakenteella
+    assert "<h2>Kohteet ja niiden rajat</h2>" in julkaistu and "← Kaikki paikat" in julkaistu
+    assert "Käyttäjän ehdottama kohde" in julkaistu and "hyväksytty ja julkaistu" not in julkaistu
     sivu = pyynto(osoite, evaste=evaste)[2]   # käsitellyllä ei enää hyväksyntä- ja hylkäysnappeja
     assert "Hyväksy ja julkaise" not in sivu and 'value="hylkaa"' not in sivu
 

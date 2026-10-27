@@ -27,6 +27,9 @@ KIINTEAT: dict[str, str] = {   # paikan nimi -> Commons-tiedosto
     "Koiteli (Kiiminkijoki)": "File:Koitelinkoski Kiiminki 2006 05 20.JPG",
 }
 EI_KUVAA: set[str] = set()
+OMAT: dict[str, str] = {   # sovelluksen tekijän omat kuvat (omat_kuvat/, reitti /omat-kuvat/<tiedosto>)
+    "Hawa'Ii (Iijoki, Maalismaa)": "maalismaa.jpg",
+}
 
 VESISANAT = ("koski", "joki", "köngäs", "kongas", "fors", "älv", "river", "rapid", "virta", "melon", "kajak",
              "kayak", "canoe", "suvanto", "vesi", "putous", "waterfall", "ström", "niva", "kuohu")
