@@ -379,8 +379,36 @@ main.etusivu { padding-top:12px; }
 .valinnat p { margin:8px 0 0; }
 .valinnat button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; background:none;
                    color:var(--teksti); font:inherit; font-size:.9rem; cursor:pointer; }
-.pikkukuva img { float:right; width:80px; height:60px; object-fit:cover; border-radius:6px; margin:0 0 6px 10px;
-                 background:var(--pinta); }
+/* etusivun kortit: taulukon rivi korttina (selaimen skripti käyttää yhä rivejä ja pistesolua) */
+.etusivu table, .etusivu tbody { display:block; }
+.etusivu thead { display:block; }
+.etusivu thead tr { display:block; }
+.etusivu thead th { display:none; border:0; padding:0; }
+.etusivu thead th:nth-child(2) { display:block; color:transparent; font-size:0; }
+.etusivu thead th:nth-child(2) .lukumaara { font-size:.8rem; color:var(--heikko); }
+.etusivu tbody tr { display:block; position:relative; border-bottom:1px solid var(--viiva); padding:14px 0; }
+.etusivu tbody td { display:block; border:0; padding:0; }
+.etusivu td.sija, .etusivu td.ennuste { display:none; }
+.etusivu td.pisteet { position:absolute; right:0; top:96px; font-size:1.7rem; line-height:1; }
+.etusivu td.pisteet::after { content:"/100"; font-size:.8rem; font-weight:600; margin-left:1px; }
+.kortti { display:flex; gap:12px; align-items:flex-start; }
+.kortti-kuva { flex:none; }
+.kortti-kuva img { width:112px; height:112px; object-fit:cover; border-radius:14px; display:block;
+                   background:var(--pinta); }
+.kortti-tiedot { flex:1; min-width:0; min-height:112px; padding-right:4px; }
+.kortti .nimi { display:flex; justify-content:space-between; align-items:flex-start; gap:6px; font-size:1.05rem; }
+.kortti .nimi a { color:var(--teksti); text-decoration:none; }
+.olot { display:inline-block; margin:6px 0 4px; padding:2px 10px; border-radius:999px; font-size:.82rem;
+        font-weight:600; background:var(--pinta); }
+.olot.p-hyva { background:color-mix(in srgb, var(--hyva) 14%, transparent); }
+.olot.p-keski { background:color-mix(in srgb, var(--keski) 16%, transparent); }
+.olot.p-huono { background:color-mix(in srgb, var(--huono) 14%, transparent); }
+.kortti-tiedot .pieni { padding-right:72px; }
+details.tiedot { margin-top:8px; }
+details.tiedot > summary { font-size:.88rem; }
+ul.kortit { list-style:none; padding:0; }
+ul.kortit > li { border-bottom:1px solid var(--viiva); padding:14px 0; margin:0; }
+ul.kortit .kortti-tiedot .pieni { padding-right:0; }
 .paikkakuva { margin:12px 0; }
 .paikkakuva img { width:100%; max-width:720px; aspect-ratio:4/3; object-fit:cover; border-radius:8px; display:block;
                   background:var(--pinta); }
@@ -495,7 +523,7 @@ SKRIPTI = """
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
   const T = document.documentElement.lang === "en" ? {
     lisaa: "Add to favourites", poista: "Remove from favourites", km: "", paikka: "spot", paikkaa: "spots",
-    kieli: "en-GB", perilla: "on arrival", paivaTila: "Water levels and ratings from the forecast for", ukkonen: "thunderstorm forecast", foreca: "Foreca 15-day forecast (yr.no covers only 9 days)", lahto: "from", oma: "your location",
+    kieli: "en-GB", olot: ["Poor conditions", "Fair conditions", "Good conditions", "Excellent conditions"], perilla: "on arrival", paivaTila: "Water levels and ratings from the forecast for", ukkonen: "thunderstorm forecast", foreca: "Foreca 15-day forecast (yr.no covers only 9 days)", lahto: "from", oma: "your location",
     tila: "Driving distances from your location.", lasketaan: "Calculating driving distances…",
     eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
     eiTukea: "Your browser does not support location.", haetaan: "Getting location…",
@@ -511,7 +539,7 @@ SKRIPTI = """
     iphone: "On iPhone, first add this page to the home screen (Share → Add to Home Screen) and open it from there.",
   } : {
     lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "", paikka: "paikka", paikkaa: "paikkaa",
-    kieli: "fi-FI", perilla: "perillä klo", paivaTila: "Vesitilanne ja arviot ennusteen mukaan:", ukkonen: "ukkosta ennustettu", foreca: "Forecan 15 vrk ennuste (yr.no ennustaa vain 9 päivää)", lahto: "lähtö", oma: "oma sijainti",
+    kieli: "fi-FI", olot: ["Heikot olot", "Kohtalaiset olot", "Hyvät olot", "Erinomaiset olot"], perilla: "perillä klo", paivaTila: "Vesitilanne ja arviot ennusteen mukaan:", ukkonen: "ukkosta ennustettu", foreca: "Forecan 15 vrk ennuste (yr.no ennustaa vain 9 päivää)", lahto: "lähtö", oma: "oma sijainti",
     tila: "Ajomatkat omasta sijainnistasi.", lasketaan: "Lasketaan ajomatkoja…",
     eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
     eiTukea: "Selain ei tue sijaintia.", haetaan: "Haetaan sijaintia…",
@@ -655,6 +683,11 @@ SKRIPTI = """
       r.querySelectorAll(".paiva").forEach(d => d.hidden = Number(d.dataset.paiva) !== nn);
       const solu = r.querySelector("td.pisteet");
       if (solu && p[nn] != null) { solu.textContent = p[nn]; solu.className = "pisteet " + luokka(p[nn]); }
+      const olot = r.querySelector(".olot");
+      if (olot && p[nn] != null) {
+        olot.textContent = T.olot[p[nn] >= 80 ? 3 : p[nn] >= 60 ? 2 : p[nn] >= 30 ? 1 : 0];
+        olot.className = "olot " + luokka(p[nn]);
+      }
       r.dataset.nyt = p[nn] ?? -1;
     }
     rivit.sort((a, b) => (Math.round(b.dataset.nyt / 5) - Math.round(a.dataset.nyt / 5)) || (a.dataset.km - b.dataset.km));
@@ -1110,26 +1143,43 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
                   f'{k_("🚗 Reitti")}</a>')
     # nimen alle: reittilinkki · perillä klo · km / kesto; seuraavalle riville lämpötilat
     saapuminen, lampo = _lampotilat(t, saa, ajo_min, k_, kieli, nyt or time.time())
-    matka = " · ".join(x for x in (reitti, saapuminen, km) if x)
-    matka = f'\n<div class="pieni matka">{matka}</div>' if matka else ""
     lampo = f'\n<div class="pieni lampotilat">{lampo}</div>' if lampo else ""
+    matka = " · ".join(x for x in (reitti, saapuminen) if x)
+    matka = f'\n<div class="pieni matka">{matka}</div>' if matka else ""
     return f"""<tr data-paikka="{e(p.nimi)}"{sijainti} data-pisteet='{pisteet_json}' data-km="{p.km_oulusta or 0}">
 <td class="sija">{sija}.</td>
-<td>{_pikkukuva(p, kuva, kieli)}<div class="nimi"><a href="{e(paikan_osoite(p, kieli))}">{e(p.nimi)}</a>
-<button type="button" class="suosikki" aria-pressed="false" title="{k_('Lisää suosikkeihin')}">♡</button>
-<span class="tyyppi">{e(k_(p.tyyppi))}</span></div>{matka}{lampo}
-{versiot}</td>
+<td>{_kortti(p, kuva, kieli, km, _olot(t.pisteet, kieli))}
+<details class="tiedot"><summary>{k_("Näytä tiedot")}</summary>{matka}{lampo}
+{versiot}</details></td>
 <td class="pisteet {_pisteluokka(t.pisteet)}">{t.pisteet:.0f}</td>
 <td class="ennuste piilo">{ennuste}</td>
 </tr>"""
 
 
-def _pikkukuva(paikka, kuva: dict | None, kieli: str) -> str:
-    """Listan pikkukuva (linkki paikkasivulle, jossa tekijä ja lisenssi)."""
-    if not kuva:
+OLOT = {"fi": ("Heikot olot", "Kohtalaiset olot", "Hyvät olot", "Erinomaiset olot"),
+        "en": ("Poor conditions", "Fair conditions", "Good conditions", "Excellent conditions")}
+
+
+def _olot(pisteet: float | None, kieli: str) -> str:
+    """Kortin tilamerkki: samat rajat kuin hälytyksissä (80 / 60 / 30 pistettä)."""
+    if pisteet is None:
         return ""
-    return (f'<a class="pikkukuva" href="{e(paikan_osoite(paikka, kieli))}" tabindex="-1" aria-hidden="true">'
-            f'<img src="{e(kuva["pieni"])}" alt="" loading="lazy" width="80" height="60"></a>')
+    taso = 3 if pisteet >= 80 else 2 if pisteet >= 60 else 1 if pisteet >= 30 else 0
+    return f'<span class="olot {_pisteluokka(pisteet)}">{OLOT["en" if kieli == "en" else "fi"][taso]}</span>'
+
+
+def _kortti(paikka, kuva: dict | None, kieli: str, km: str = "", merkki: str = "", suosikki: bool = True) -> str:
+    """Kohteen kortti: iso kuva (paikan oma tai sovelluksen kuva), nimi, suosikki, tilamerkki, tyyppi ja matka."""
+    k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
+    osoite = paikan_osoite(paikka, kieli)
+    kuva_url = kuva["pieni"] if kuva else sovellus.kuvake_osoite(512)
+    tiedot = " · ".join(x for x in (e(k_(paikka.tyyppi)).capitalize(), km) if x)
+    return (f'<div class="kortti"><a class="kortti-kuva" href="{e(osoite)}" tabindex="-1" aria-hidden="true">'
+            f'<img src="{e(kuva_url)}" alt="" loading="lazy" width="112" height="112"></a>'
+            f'<div class="kortti-tiedot"><div class="nimi"><a href="{e(osoite)}">{e(paikka.nimi)}</a>'
+            + (f'<button type="button" class="suosikki" aria-pressed="false" title="{k_("Lisää suosikkeihin")}">♡</button>'
+               if suosikki else "") + '</div>'
+            f'{merkki}<div class="pieni">{tiedot}</div></div></div>')
 
 
 def kuvaosio(nimi: str, kieli: str) -> str:
@@ -1194,11 +1244,14 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
                     for i, t in enumerate(arvioidut, 1))
     ilman = [t for t in tulokset if t.pisteet is None]
     ilman_html = ""
+    TARKISTA = {k: f'<span class="olot p-keski">{v}</span>' for k, v in
+                (("fi", "Vesitiedot tarkistettava"), ("en", "Check the water yourself"))}
     if ilman:
         ilman_html = (f"<h2>{k_('Ei vesikaaviota – tarkista itse')}</h2>"
-                      f'<p class="lukumaara" id="lukumaara-ilman">{_lukumaara(len(ilman), k_)}</p><ul>' + "".join(
-            f'<li data-haku="{e(t.paikka.nimi)}"><a href="{e(paikan_osoite(t.paikka, kieli))}">{e(t.paikka.nimi)}</a>: '
-            f'{e(t.paikka.kuvaus)}</li>'
+                      f'<p class="lukumaara" id="lukumaara-ilman">{_lukumaara(len(ilman), k_)}</p><ul class="kortit">' + "".join(
+            f'<li data-haku="{e(t.paikka.nimi)}">'
+            f'{_kortti(t.paikka, tilanne.kuvat.get(t.paikka.nimi), kieli, merkki=TARKISTA[kieli], suosikki=False)}'
+            f'<p class="pieni">{e(t.paikka.kuvaus)}</p></li>'
             for t in ilman) + "</ul>")
     varoitukset = ""
     if tilanne.varoitukset:
@@ -1233,9 +1286,9 @@ placeholder="{k_("esim. Rovaniemi")}"></label></p>
 {_halytysosio(k_)}
 {_ehdotusluukku(kieli)}
 </div>
-<nav>{suodattimet}</nav>
 <label class="haku">🔍 <input id="haku" type="search" autocomplete="off" placeholder="{k_("Hae paikkaa…")}"
 aria-label="{k_("Hae paikkaa…")}"></label>
+<nav>{suodattimet}</nav>
 <datalist id="kunnat">{KUNTALISTA}</datalist>
 <script type="application/json" id="paikkakunnat">{KUNNAT_JSON}</script>
 <p id="sijainti-tila" class="pieni" hidden></p>
