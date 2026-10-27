@@ -107,8 +107,8 @@ def test_ruotsi_omalla_valilehdella(palvelin):
         assert not nimet(tyyppi) & ruotsi
     assert "Vikaköngäs (Raudanjoki)" in nimet(None) and "Vikaköngäs (Raudanjoki)" in nimet("peli")
     runko = pyynto("/", "tyyppi=ruotsi")[2]
-    assert '<a href="/?tyyppi=ruotsi" class=valittu>Ruotsi <span class="maara">' in runko
-    assert runko.index(">Retket <") < runko.index(">Ruotsi <")
+    assert '<option value="/?tyyppi=ruotsi" selected data-nimi="Ruotsi">Ruotsi (' in runko
+    assert runko.index(">Retket (") < runko.index(">Ruotsi (")
     assert "Veden lämpötila" not in runko   # Suomen aseman lämpötila ei kuulu Ruotsi-välilehdelle
 
 
@@ -346,7 +346,7 @@ def test_kaikilla_paikoilla_sijainti():
 
 def test_suosikit_ja_sijainti_sivulla(palvelin):
     runko = pyynto("/")[2]
-    assert '<a href="/?tyyppi=suosikit">♥ Suosikit <span class="maara" id="suosikkimaara"></span></a>' in runko
+    assert '<option value="/?tyyppi=suosikit" id="suosikkimaara" data-nimi="♥ Suosikit">♥ Suosikit</option>' in runko
     assert 'data-paikka="Kipinä (Iijoki)" data-sijainti="65.2838,26.5408"' in runko
     assert runko.count('class="suosikki"') == runko.count("<tr data-paikka=")
     assert '<span class="km">~60 km Oulusta</span>' in runko
@@ -365,7 +365,7 @@ def test_englanninkielinen_sivu(palvelin):
     en = pyynto("/", "kieli=en")[2]
     assert '<html lang="en">' in en and "<title>Paddling conditions</title>" in en
     assert 'href="/" hreflang="fi"' in en and "Suomeksi" in en
-    assert '<a href="/?tyyppi=peli&amp;kieli=en">Play spots <span class="maara">' in en
+    assert '<option value="/?tyyppi=peli&amp;kieli=en" data-nimi="Play spots">Play spots (' in en
     assert "Symbols and icons" in en and "km from Oulu" in en and '<div class="pieni">Play spot · ' in en
     assert "at its best" in en or "works (" in en or "too little water" in en
     assert "Eivät toimi nyt" not in en and "Not working now" in en
@@ -639,7 +639,7 @@ def test_paivakohtaiset_arviot(palvelin, tilanne):
     assert '<div class="paiva" data-paiva="0">' in rivi and '<div class="paiva" data-paiva="1" hidden>' in rivi
     paiva1 = rivi.split('data-paiva="1" hidden>')[1].split("</div>")[0]
     assert "(ennuste +1 pv)" in paiva1 and "(ennuste +1 pv)" not in rivi.split('data-paiva="1"')[0]
-    assert 'data-paiva0="2026-10-18"' in runko and 'id="paiva-tila"' in runko
+    assert 'data-paiva0="2026-10-18"' in runko and 'id="paiva-tila"' not in runko   # ei tilariviä
     assert "(forecast +1 d)" in pyynto("/", "kieli=en")[2]
 
 
@@ -874,9 +874,11 @@ def test_lisakaaviot_pois(aineisto, monkeypatch):
 def test_nappien_lukumaarat(palvelin):
     runko = pyynto("/")[2]
     retket = sum(1 for p in PAIKAT if p.maa == "FI" and p.tyyppi == "retki")
-    assert f'Retket <span class="maara">{retket}</span></a>' in runko
-    assert f'Ruotsi <span class="maara">{sum(1 for p in PAIKAT if p.maa == "SE")}</span>' in runko
-    assert f'Muut kohteet <span class="maara">{len(muut_kohteet.KOHTEET)}</span>' in runko
+    assert f'>Retket ({retket})</option>' in runko
+    assert f'>Ruotsi ({sum(1 for p in PAIKAT if p.maa == "SE")})</option>' in runko
+    assert f'>Muut kohteet ({len(muut_kohteet.KOHTEET)})</option>' in runko
+    # kategoriavalikko hakukentän perässä, järjestysvalinta niiden alla
+    assert runko.index('id="haku"') < runko.index('id="kategoria"') < runko.index('id="jarjestys"')
     assert 'id="suosikkimaara"' in runko
 
 
@@ -892,13 +894,14 @@ def test_turvavaroitukset_avattavana_osiona(monkeypatch, tilanne):
     fi = pyynto("/")[2]
     # kiinni oletuksena, otsikot (punaiset) näkyvissä, koko teksti avattuna; merkintöjen yläpuolella
     assert '<details class="turva"><summary><span class="turva-otsikko">🥶 Kylmä vesi' in fi
-    assert '<span class="turva-otsikko">💨 Maatuuli ja matala vesi</span></summary>' in fi
+    assert '<span class="turva-otsikko">🥶 Kylmä vesi: kuivapuku</span></summary>' in fi   # vain ensimmäinen
+    assert '<span class="turva-otsikko">💨' not in fi and "<h3>💨 Maatuuli ja matala vesi</h3>" in fi
     assert "itätuulta 6 m/s" in fi and "Mustasalmi" in fi
     assert fi.index('<details class="turva">') < fi.index('<details class="selitykset" id="merkinnat">') \
         < fi.index('<details class="ehdota" id="paneeli-ehdota">')
     assert 'id="turva"' not in fi and "turva-tausta" not in fi   # ei ponnahdusikkunaa
     en = pyynto("/", "kieli=en")[2]
-    assert "Cold water: a dry suit is the only right choice" in en and "Offshore wind on the Oulu coast" in en
+    assert "Cold water: dry suit" in en and "Offshore wind on the Oulu coast" in en
     monkeypatch.setattr(app, "hae_tilanne", lambda: app.Tilanne(**{**tilanne.__dict__, "turva": {}}))
     ilman = pyynto("/")[2]
     assert ('<details class="turva">' in ilman) == any(
@@ -912,7 +915,10 @@ def test_paikkasivu_vesitilanne_ylimpana(monkeypatch, tilanne):
     nimi = tilanne.tulokset[0].paikka.nimi
     osoite = app.paikan_osoite(tilanne.tulokset[0].paikka)
     runko = pyynto(osoite)[2]
-    assert '<section class="paikan-tilanne"><h2>Vesitilanne</h2>' in runko and 'class="olot' in runko
+    assert '<section class="paikan-tilanne" data-paiva0="' in runko and "<h2>Vesitilanne</h2>" in runko
+    assert 'class="olot' in runko and f'<div class="tilanne-rivi" data-paikka="{nimi}"' in runko
+    # sama skripti kuin etusivulla: lähtöaika, sää perillä ja kaaviolinkkien reissu pysyvät samassa ajassa
+    assert 'id="lahtoaika"' in runko and "melonta-lahtoaika" in runko
     assert runko.index('class="paikan-tilanne"') < runko.index("<h2>Lähteet</h2>")
     assert "upload.wikimedia" not in runko and "<figure" not in runko and nimi in runko
 
@@ -935,3 +941,11 @@ def test_omat_kuvat_ja_alapalkki(palvelin):
     palkki = runko.split('<nav class="alapalkki"')[1].split("</nav>")[0]
     assert 'aria-label="Surffi"' in palkki and "</span>Surffi" not in palkki
     assert "text-align:center" in runko
+
+
+
+def test_etusivun_tilarivit_poissa(palvelin):
+    """Etusivulla ei näytetä tilarivejä (ajomatkojen lähtöpaikka, lähtöpäivän ennuste) eikä taulukon otsikkoa."""
+    runko = pyynto("/")[2]
+    assert ".etusivu thead { display:none; }" in runko and 'id="paiva-tila"' not in runko
+    assert "tila.textContent = teksti" not in runko   # onnistunut ajomatkahaku ei kirjoita tilariviä

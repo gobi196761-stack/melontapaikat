@@ -127,8 +127,7 @@ def viestit(turva: dict, joet: list[float], kieli: str, ajankohta) -> list[tuple
         lampo = ", ".join(osat)
         if min(kaikki) < KUIVAPUKU_ALLE:
             tulos.append((
-                "🥶 Cold water: a dry suit is the only right choice" if en else
-                "🥶 Kylmä vesi: kuivapuku on ainoa oikea ratkaisu",
+                "🥶 Cold water: dry suit" if en else "🥶 Kylmä vesi: kuivapuku",
                 (f"Water temperature: {lampo}. In water this cold you lose the ability to swim and help yourself "
                  "within minutes. Especially if you are heading out on a trip or to sea: wear a dry suit with "
                  "warm layers underneath, and dress for the water temperature, not the air temperature." if en else
