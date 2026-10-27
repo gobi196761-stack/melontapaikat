@@ -589,7 +589,7 @@ def test_kaanna_nappi(ymparisto, monkeypatch):
         "taydennys": {**ehdotukset.tarkista_taydennys(TAYDENNYS)[0], "tila": "valmis"}})
     _, ylla, _ = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))
     evaste = ylla["Set-Cookie"].split(";")[0]
-    assert "🌐 Käännä englanniksi" in pyynto(f"/ehdotus/{tunniste}", evaste=evaste)[2]
+    assert "🌐 Käännä englanniksi" in pyynto(f"/ehdotus/{tunniste}", "y=1", evaste=evaste)[2]
     assert "🌐 Käännä englanniksi" not in pyynto(f"/ehdotus/{tunniste}")[2]
     kaynnistetyt = []
     monkeypatch.setenv("GITHUB_TAYDENNYS_TOKEN", "tunnus")
@@ -599,14 +599,14 @@ def test_kaanna_nappi(ymparisto, monkeypatch):
     ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste)
     assert kaynnistetyt == [(tunniste, True)] and ehdotus["tila"] == "hyvaksytty"
     assert ehdotus["taydennys"]["tila"] == "valmis" and ehdotus["taydennys"]["kaannos"] == "kaynnissa"
-    sivu = pyynto(f"/ehdotus/{tunniste}", evaste=evaste)[2]
+    sivu = pyynto(f"/ehdotus/{tunniste}", "y=1", evaste=evaste)[2]
     assert "Käännös englanniksi on käynnissä." in sivu and "🌐 Käännä englanniksi" not in sivu
     # käynnistys epäonnistuu: syy näkyy ylläpitäjälle ja nappi palaa
     monkeypatch.setattr(ehdotukset, "kaynnista_taydennys", lambda t, token, kaannos=False: (False, "tunnus puuttuu"))
     ehdotus["taydennys"].pop("kaannos")
     kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
     pyynto(f"/ehdotus/{tunniste}/kasittele", metodi="POST", runko=lomake(toiminto="kaanna"), evaste=evaste)
-    sivu = pyynto(f"/ehdotus/{tunniste}", evaste=evaste)[2]
+    sivu = pyynto(f"/ehdotus/{tunniste}", "y=1", evaste=evaste)[2]
     assert "Käännös epäonnistui: tunnus puuttuu" in sivu and "🌐 Käännä englanniksi" in sivu
 
 
@@ -618,3 +618,19 @@ def test_yllapidon_rajat_julkaistulle_kohteelle():
     paikka, _ = ehdotukset.paikaksi(ehdotus, PAIKAT)
     kohde = paikka.kohteet[0]
     assert kohde.toimii == (7.0, None) and kohde.paras == (15.0, 30.0) and "26.4.2025" in kohde.huom
+
+
+
+def test_julkaistu_kohde_valimuistiin(ymparisto):
+    """Julkaistu kohde välimuistiin kuten paikkasivut; ylläpitäjän näkymä (?y=1) ei."""
+    kanta, _ = ymparisto
+    tunniste = "G" * 22
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, {
+        "laji": "uusi", "nimi": "Aventojoki", "tyyppi": "retki", "tila": "hyvaksytty", "kohteet": [], "linkit": [],
+        "taydennys": {**ehdotukset.tarkista_taydennys(TAYDENNYS)[0], "tila": "valmis"}})
+    _, otsakkeet, sivu = pyynto(f"/ehdotus/{tunniste}")
+    assert otsakkeet["Cache-Control"].startswith("public") and 'id="vesitilanne-tulossa"' in sivu
+    _, ylla, _ = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))
+    evaste = ylla["Set-Cookie"].split(";")[0]
+    assert pyynto(f"/ehdotus/{tunniste}", "y=1", evaste=evaste)[1]["Cache-Control"] == "no-store"
+    assert f'href="/ehdotus/{tunniste}?y=1"' in pyynto("/yllapito", evaste=evaste)[2]
