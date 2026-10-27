@@ -373,10 +373,10 @@ main.etusivu { padding-top:12px; padding-bottom:96px; }
 .etusivu h1 { font-size:1.35rem; margin:0 0 8px; line-height:1.3; text-align:center; }
 .varoitusrivi { display:flex; gap:8px; align-items:flex-start; margin:0 0 6px; }
 .varoitusrivi .turva { flex:1; margin:0; }
-.otsikkorivi { display:flex; justify-content:center; align-items:center; gap:10px; margin:0 0 8px; }
+.otsikkorivi { position:relative; display:flex; justify-content:center; align-items:center; margin:0 0 8px;
+               min-height:2rem; padding:0 44px; }
 .otsikkorivi h1 { margin:0; }
-.varoitusrivi .kieli, .otsikkorivi .kieli { flex:none; margin:0; padding:6px; border-radius:50%; }
-.varoitusrivi .kieli { margin-left:auto; }
+.otsikkorivi .kieli { position:absolute; right:0; top:50%; transform:translateY(-50%); margin:0; padding:6px; }
 .alapalkki .info > span { color:var(--linkki); font-size:1.45rem; }
 .etusivu .selitykset:not([open]) { display:none; }
 .alapaneelit > details:not([open]) { display:none; }
@@ -403,7 +403,7 @@ main.etusivu { padding-top:12px; padding-bottom:96px; }
 .etusivu .haku select { flex:none; max-width:46%; }
 .etusivu .haku nav { margin:0; flex:none; max-width:50%; }
 .etusivu .haku nav select { max-width:100%; }
-.etusivu .jarjestysrivi { margin:0 0 10px; }
+.etusivu .jarjestysrivi { margin:0 0 10px; display:flex; justify-content:flex-end; }
 .etusivu .haku select, .etusivu .jarjestysrivi select { padding:6px 10px; border:1px solid var(--viiva); border-radius:999px; font:inherit; font-size:.88rem;
   background:var(--tausta); color:var(--teksti); }
 .etusivu nav { margin:10px 0 10px; gap:6px; }
@@ -1401,8 +1401,8 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <style>{TYYLI}</style>
 </head>
 <body><main class="etusivu">
-{f'<h1>{k_("Melontakohteet")}</h1><div class="varoitusrivi">{turva}{vaihto}</div>' if turva else
- f'<div class="otsikkorivi"><h1>{k_("Melontakohteet")}</h1>{vaihto}</div>'}
+<div class="otsikkorivi"><h1>{k_("Melontakohteet")}</h1>{vaihto}</div>
+{f'<div class="varoitusrivi">{turva}</div>' if turva else ""}
 <div class="alapaneelit">
 {_selitykset(kieli)}
 <details class="surffipaneeli" id="paneeli-surffi"><summary>{k_("🏄 Surffi")}</summary>
