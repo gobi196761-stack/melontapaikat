@@ -50,6 +50,7 @@ import paikkasivut
 import paikkasivut_en
 import kaavio_svg
 import kielet
+import kuvat
 import muut_kohteet
 import retket
 import sovellus
@@ -85,6 +86,7 @@ class Tilanne:
     ajo_km: dict[str, float] = field(default_factory=dict)    # paikan nimi -> ajomatka Oulusta (km)
     surffi: dict[str, list[str]] = field(default_factory=dict)  # {"nyt": [spotti], "ennuste": [spotti]}
     turva: dict = field(default_factory=dict)   # merivesi, vedenkorkeus ja maatuuli Oulussa (turvallisuus.py)
+    kuvat: dict = field(default_factory=dict)   # paikan nimi -> Commons-kuva (kuvat.py)
 
 
 _lukko = threading.Lock()
@@ -108,9 +110,13 @@ def hae_tilanne() -> Tilanne:
         status, oulusta = ajomatkat(OULU, hakija)
         if not status.startswith("200"):
             oulusta = {}
+        try:
+            paikkojen_kuvat = kuvat.paivita(osm.Hakija(aikaraja=8), _kanta(), paikat)
+        except Exception:   # noqa: BLE001 – kuvat eivät saa kaataa sivua
+            paikkojen_kuvat = {}
         tilanne = Tilanne(nyt, tulokset, varoitukset, len(lukemat), saaennusteet(hakija),
                           oulusta.get("min", {}), oulusta.get("km", {}), surffitilanne(hakija),
-                          turvallisuus.hae(hakija))
+                          turvallisuus.hae(hakija), {n: k for n, k in paikkojen_kuvat.items() if k.get("kuva")})
         if lukemat:   # epäonnistunutta hakua ei jätetä muistiin
             _tilanne = (time.monotonic(), tilanne)
             _tilanteen_paikat = {p.nimi for p in paikat}
@@ -362,11 +368,29 @@ body { margin:0; background:var(--tausta); color:var(--teksti);
        font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
 main { max-width:960px; margin:0 auto; padding:24px 16px 48px; }
 h1 { font-size:1.45rem; margin:0 0 4px; }
+main.etusivu { padding-top:12px; }
+.etusivu h1 { font-size:1.15rem; margin:0 0 2px; line-height:1.3; }
+.etusivu nav { margin:10px 0 10px; gap:6px; }
+.tyokalut { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; align-items:flex-start; }
+.tyokalut > details { margin:0; padding:4px 12px; border-radius:999px; background:var(--pinta); }
+.tyokalut > details[open] { flex-basis:100%; border-radius:8px; padding:8px 12px; }
+.tyokalut > details > summary { font-size:.88rem; color:var(--teksti); margin:0; list-style:none; }
+.tyokalut > details > summary::-webkit-details-marker { display:none; }
+.valinnat p { margin:8px 0 0; }
+.valinnat button { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px; background:none;
+                   color:var(--teksti); font:inherit; font-size:.9rem; cursor:pointer; }
+.pikkukuva img { float:right; width:80px; height:60px; object-fit:cover; border-radius:6px; margin:0 0 6px 10px;
+                 background:var(--pinta); }
+.paikkakuva { margin:12px 0; }
+.paikkakuva img { width:100%; max-width:720px; aspect-ratio:4/3; object-fit:cover; border-radius:8px; display:block;
+                  background:var(--pinta); }
+.paikkakuva figcaption { color:var(--heikko); font-size:.8rem; margin-top:4px; overflow-wrap:anywhere; }
 .meta, .pieni { color:var(--heikko); font-size:.88rem; }
 nav { margin:14px 0 18px; display:flex; gap:8px; flex-wrap:wrap; }
 nav > a, .surffi { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px;
                    color:var(--teksti); text-decoration:none; font-size:.9rem; }
-.surffirivi { margin:6px 0 8px; }
+.surffirivi { margin:4px 0 6px; }
+.surffirivi .surffi { border-radius:12px; font-size:.85rem; padding:3px 10px; }
 .surffi { display:inline-block; }
 .surffi a { color:inherit; }
 .surffi .surffi-paa { text-decoration:none; }
@@ -401,6 +425,7 @@ details summary { cursor:pointer; color:var(--heikko); font-size:.88rem; margin-
             color:var(--heikko); line-height:1; vertical-align:-1px; }
 .suosikki[aria-pressed="true"] { color:var(--huono); }
 .otsake { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.etusivu .otsake { align-items:baseline; }
 .kieli { display:inline-flex; align-items:center; gap:6px; font-size:.85rem; color:var(--heikko);
          text-decoration:none; margin-top:4px; white-space:nowrap; }
 .kieli svg { border:1px solid var(--viiva); border-radius:2px; display:block; }
@@ -425,7 +450,7 @@ li[hidden] { display:none; }
 .lahteet li { overflow-wrap:anywhere; }
 .matka, .lampotilat { margin:1px 0; }
 .kajakit { white-space:nowrap; }
-.turva { background:var(--pinta); border-radius:8px; padding:8px 12px; margin:12px 0; }
+.turva { background:var(--pinta); border-radius:8px; padding:6px 12px; margin:6px 0; }
 .turva summary { color:var(--huono); font-weight:600; font-size:.92rem; }
 .turva-otsikko { display:inline; }
 .turva-otsikko + .turva-otsikko::before { content:" · "; color:var(--heikko); font-weight:400; }
@@ -1030,7 +1055,7 @@ def _lampotilat(t, saa: dict | None, ajo_min: float | None, k_, kieli: str, nyt:
 
 
 def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_min: float | None = None,
-                 nyt: float | None = None, ajo_km: float | None = None) -> str:
+                 nyt: float | None = None, ajo_km: float | None = None, kuva: dict | None = None) -> str:
     p = t.paikka
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
     def mittarit(paiva: int) -> str:
@@ -1090,13 +1115,32 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
     lampo = f'\n<div class="pieni lampotilat">{lampo}</div>' if lampo else ""
     return f"""<tr data-paikka="{e(p.nimi)}"{sijainti} data-pisteet='{pisteet_json}' data-km="{p.km_oulusta or 0}">
 <td class="sija">{sija}.</td>
-<td><div class="nimi"><a href="{e(paikan_osoite(p, kieli))}">{e(p.nimi)}</a>
+<td>{_pikkukuva(p, kuva, kieli)}<div class="nimi"><a href="{e(paikan_osoite(p, kieli))}">{e(p.nimi)}</a>
 <button type="button" class="suosikki" aria-pressed="false" title="{k_('Lisää suosikkeihin')}">♡</button>
 <span class="tyyppi">{e(k_(p.tyyppi))}</span></div>{matka}{lampo}
 {versiot}</td>
 <td class="pisteet {_pisteluokka(t.pisteet)}">{t.pisteet:.0f}</td>
 <td class="ennuste piilo">{ennuste}</td>
 </tr>"""
+
+
+def _pikkukuva(paikka, kuva: dict | None, kieli: str) -> str:
+    """Listan pikkukuva (linkki paikkasivulle, jossa tekijä ja lisenssi)."""
+    if not kuva:
+        return ""
+    return (f'<a class="pikkukuva" href="{e(paikan_osoite(paikka, kieli))}" tabindex="-1" aria-hidden="true">'
+            f'<img src="{e(kuva["pieni"])}" alt="" loading="lazy" width="80" height="60"></a>')
+
+
+def kuvaosio(nimi: str, kieli: str) -> str:
+    """Paikkasivun kuva ja sen tekijä, lisenssi ja lähde (Wikimedia Commons)."""
+    kuva = kuvat.kuva(nimi, _kanta())
+    if not kuva:
+        return ""
+    selite = "Photo" if kieli == "en" else "Kuva"
+    return (f'<figure class="paikkakuva"><img src="{e(kuva["kuva"])}" alt="{e(nimi)}" loading="lazy">'
+            f'<figcaption>{selite}: {e(kuva["tekija"])} · {e(kuva["lisenssi"])} · '
+            f'<a href="{e(kuva["sivu"])}" target="_blank" rel="noopener">Wikimedia Commons</a></figcaption></figure>')
 
 
 def _lukumaara(n: int, k_) -> str:
@@ -1146,7 +1190,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
               f'lang="{toinen}">{LIPUT[toinen]}{"Suomeksi" if toinen == "fi" else "In English"}</a>')
     arvioidut = [t for t in tulokset if t.pisteet is not None]
     rivit = "".join(_paikan_rivi(i, t, kieli, tilanne.saa.get(t.paikka.nimi), tilanne.ajo_min.get(t.paikka.nimi),
-                                 ajo_km=tilanne.ajo_km.get(t.paikka.nimi))
+                                 ajo_km=tilanne.ajo_km.get(t.paikka.nimi), kuva=tilanne.kuvat.get(t.paikka.nimi))
                     for i, t in enumerate(arvioidut, 1))
     ilman = [t for t in tulokset if t.pisteet is None]
     ilman_html = ""
@@ -1174,17 +1218,22 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <meta name="apple-mobile-web-app-title" content="{k_("Melonta")}">
 <style>{TYYLI}</style>
 </head>
-<body><main>
+<body><main class="etusivu">
 <div class="otsake"><h1>{k_("Melontapaikkojen tilanne")} {tilanne.paivitetty:%d.%m.%Y}</h1>{vaihto}</div>
 <div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div>
 {_turvaosio(tilanne, kieli)}
+<div class="tyokalut">
 {_selitykset(kieli)}
-{_ehdotusluukku(kieli)}
+<details class="valinnat"><summary>{k_("📍 Sijainti ja lähtöaika")}</summary>
+<p><button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button></p>
+<p><label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
+placeholder="{k_("esim. Rovaniemi")}"></label></p>
+<p><label class="paikkakunta">{k_("lähtöaika")} <input id="lahtoaika" type="datetime-local" step="900" data-paivia="{LAHTO_PAIVIA}"></label></p>
+</details>
 {_halytysosio(k_)}
-<nav>{suodattimet}<button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button>
-<label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
-placeholder="{k_("esim. Rovaniemi")}"></label>
-<label class="paikkakunta">{k_("lähtöaika")} <input id="lahtoaika" type="datetime-local" step="900" data-paivia="{LAHTO_PAIVIA}"></label></nav>
+{_ehdotusluukku(kieli)}
+</div>
+<nav>{suodattimet}</nav>
 <label class="haku">🔍 <input id="haku" type="search" autocomplete="off" placeholder="{k_("Hae paikkaa…")}"
 aria-label="{k_("Hae paikkaa…")}"></label>
 <datalist id="kunnat">{KUNTALISTA}</datalist>
@@ -1198,6 +1247,7 @@ aria-label="{k_("Hae paikkaa…")}"></label>
 </table>
 {ilman_html}
 {varoitukset}
+{f'<p class="pieni">{k_("Kuvat: Wikimedia Commons (vapaat lisenssit); tekijä ja lisenssi paikan sivulla.")}</p>' if tilanne.kuvat else ""}
 </main>
 <script>{SKRIPTI}</script>
 </body>
@@ -1852,6 +1902,7 @@ def paikkasivu(paikka, kieli: str = "fi") -> str:
 <div class="otsake"><a class="takaisin" href="{e(etusivu)}">{k_("← Kaikki paikat")}</a>{vaihto}</div>
 <h1>{e(paikka.nimi)}</h1>
 <div class="meta">{tiedot_html}</div>
+{kuvaosio(paikka.nimi, kieli)}
 {"".join(osat)}
 {paikat_html}
 {retkilinkit}
@@ -1943,8 +1994,6 @@ def kaikki_paikat() -> tuple:
         paikka, _ = ehdotukset.paikaksi(ehdotus, PAIKAT)
         if paikka is None:
             continue
-        if not ehdotukset.pisteytettava(ehdotus) and _muut_osumat(tunniste, ehdotus):
-            continue   # reitti on jo Muissa kohteissa eikä ehdotus riitä pisteytykseen: vain oma sivu
         nimi = paikka.nimi if paikka.nimi not in nimet else f"{paikka.nimi} (käyttäjän ehdotus)"
         nimet.add(nimi)
         pisteet = ehdotukset.ehdotuksen_sijainnit(ehdotus)
@@ -2488,16 +2537,17 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
     hallinta = ""
     if yllapitaja:
         taydenna = t["taydenna_uudelleen"] if taydennys.get("tila") == "valmis" else t["taydenna_nappi"]
-        hallinta = (f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele" style="margin-top:16px">'
-                    f'<b>{e(t["yllapito"])}:</b> '
-                    f'<button class="nappi" name="toiminto" value="hyvaksy">{e(t["hyvaksy"])}</button>'
-                    f'<button class="nappi toissijainen" name="toiminto" value="hylkaa">{e(t["hylkaa"])}</button>'
-                    + (f'<button class="nappi toissijainen" name="toiminto" value="taydenna">{e(taydenna)}</button>'
-                       if tila == "odottaa" and taydennys.get("tila") != "kaynnissa" else "")
-                    + (f'<button class="nappi toissijainen" name="toiminto" value="kaanna">{e(t["kaanna_nappi"])}</button>'
-                       if taydennys.get("tila") == "valmis" and not taydennys.get("en")
-                       and taydennys.get("kaannos") != "kaynnissa" else "")
-                    + f' <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
+        napit = ""
+        if tila == "odottaa":   # käsitellylle ei hyväksyntää eikä hylkäystä
+            napit = (f'<button class="nappi" name="toiminto" value="hyvaksy">{e(t["hyvaksy"])}</button>'
+                     f'<button class="nappi toissijainen" name="toiminto" value="hylkaa">{e(t["hylkaa"])}</button>'
+                     + (f'<button class="nappi toissijainen" name="toiminto" value="taydenna">{e(taydenna)}</button>'
+                        if taydennys.get("tila") != "kaynnissa" else ""))
+        if taydennys.get("tila") == "valmis" and not taydennys.get("en") and taydennys.get("kaannos") != "kaynnissa":
+            napit += f'<button class="nappi toissijainen" name="toiminto" value="kaanna">{e(t["kaanna_nappi"])}</button>'
+        if napit:
+            hallinta = (f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele" style="margin-top:16px">'
+                        f'<b>{e(t["yllapito"])}:</b> {napit} <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
     yksityiset = ""
     if yllapitaja and ehdotus.get("yksityiset_linkit"):   # vain ylläpitäjälle, ei linkkeinä
         yksityiset = (f'<h2>{e(t["yksityiset_otsikko"])}</h2><ul class="lahteet">'
@@ -2528,7 +2578,8 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
             for k in kaksoset) + f"</ul>{muunnot}</div>")
     if ehdotus.get("alkuperainen_nimi"):
         kaksois_html += f'<p class="pieni">{e(t["muunnettu"].format(nimi=ehdotus["alkuperainen_nimi"]))}</p>'
-    runko = (f"<h1>{e(otsikko)}</h1>{meta}{alku}{kaksois_html}{taydennys_tila}{hallinta}{ilmoitus}"
+    kuva_html = kuvaosio(otsikko, kieli) if ehdotus.get("laji") == "uusi" and tila == "hyvaksytty" else ""
+    runko = (f"<h1>{e(otsikko)}</h1>{meta}{kuva_html}{alku}{kaksois_html}{taydennys_tila}{hallinta}{ilmoitus}"
              f"{_ehdotuksen_sisalto(tunniste, ehdotus, kieli, hakija)}{yksityiset}")
     return _sivupohja(otsikko, runko, kieli, _osoite(kieli=kieli))
 
