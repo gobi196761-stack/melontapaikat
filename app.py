@@ -1943,8 +1943,6 @@ def kaikki_paikat() -> tuple:
         paikka, _ = ehdotukset.paikaksi(ehdotus, PAIKAT)
         if paikka is None:
             continue
-        if not ehdotukset.pisteytettava(ehdotus) and _muut_osumat(tunniste, ehdotus):
-            continue   # reitti on jo Muissa kohteissa eikä ehdotus riitä pisteytykseen: vain oma sivu
         nimi = paikka.nimi if paikka.nimi not in nimet else f"{paikka.nimi} (käyttäjän ehdotus)"
         nimet.add(nimi)
         pisteet = ehdotukset.ehdotuksen_sijainnit(ehdotus)
@@ -2488,16 +2486,17 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
     hallinta = ""
     if yllapitaja:
         taydenna = t["taydenna_uudelleen"] if taydennys.get("tila") == "valmis" else t["taydenna_nappi"]
-        hallinta = (f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele" style="margin-top:16px">'
-                    f'<b>{e(t["yllapito"])}:</b> '
-                    f'<button class="nappi" name="toiminto" value="hyvaksy">{e(t["hyvaksy"])}</button>'
-                    f'<button class="nappi toissijainen" name="toiminto" value="hylkaa">{e(t["hylkaa"])}</button>'
-                    + (f'<button class="nappi toissijainen" name="toiminto" value="taydenna">{e(taydenna)}</button>'
-                       if tila == "odottaa" and taydennys.get("tila") != "kaynnissa" else "")
-                    + (f'<button class="nappi toissijainen" name="toiminto" value="kaanna">{e(t["kaanna_nappi"])}</button>'
-                       if taydennys.get("tila") == "valmis" and not taydennys.get("en")
-                       and taydennys.get("kaannos") != "kaynnissa" else "")
-                    + f' <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
+        napit = ""
+        if tila == "odottaa":   # käsitellylle ei hyväksyntää eikä hylkäystä
+            napit = (f'<button class="nappi" name="toiminto" value="hyvaksy">{e(t["hyvaksy"])}</button>'
+                     f'<button class="nappi toissijainen" name="toiminto" value="hylkaa">{e(t["hylkaa"])}</button>'
+                     + (f'<button class="nappi toissijainen" name="toiminto" value="taydenna">{e(taydenna)}</button>'
+                        if taydennys.get("tila") != "kaynnissa" else ""))
+        if taydennys.get("tila") == "valmis" and not taydennys.get("en") and taydennys.get("kaannos") != "kaynnissa":
+            napit += f'<button class="nappi toissijainen" name="toiminto" value="kaanna">{e(t["kaanna_nappi"])}</button>'
+        if napit:
+            hallinta = (f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele" style="margin-top:16px">'
+                        f'<b>{e(t["yllapito"])}:</b> {napit} <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
     yksityiset = ""
     if yllapitaja and ehdotus.get("yksityiset_linkit"):   # vain ylläpitäjälle, ei linkkeinä
         yksityiset = (f'<h2>{e(t["yksityiset_otsikko"])}</h2><ul class="lahteet">'
