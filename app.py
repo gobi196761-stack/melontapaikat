@@ -415,7 +415,8 @@ main.etusivu { padding-top:12px; padding-bottom:96px; }
 .etusivu thead th:nth-child(2) .lukumaara { font-size:.8rem; color:var(--heikko); }
 .etusivu tbody tr { display:block; position:relative; border-bottom:1px solid var(--viiva); padding:14px 0; }
 .etusivu tbody td { display:block; border:0; padding:0; }
-.etusivu td.sija, .etusivu td.ennuste { display:none; }
+.etusivu td.sija, .etusivu td.ennuste, .etusivu tbody tr[hidden] { display:none; }
+#ilman[hidden] { display:none; }
 .etusivu td.pisteet { position:absolute; right:0; top:96px; font-size:1.7rem; line-height:1; }
 .etusivu td.pisteet::after { content:"/100"; font-size:.8rem; font-weight:600; margin-left:1px; }
 .kortti { display:flex; gap:12px; align-items:flex-start; }
@@ -607,6 +608,8 @@ SKRIPTI = """
     document.querySelectorAll("li[data-haku]").forEach(li => { li.hidden = !osuu(li.dataset.haku); if (!li.hidden) m++; });
     const ilman = document.getElementById("lukumaara-ilman");
     if (ilman) ilman.textContent = m + " " + (m === 1 ? T.paikka : T.paikkaa);
+    const ilmanOsio = document.getElementById("ilman");   // suosikeissa vain suosikit, hakiessa vain osumat
+    if (ilmanOsio) ilmanOsio.hidden = vainSuosikit || m === 0;
     const suosikkimaara = document.getElementById("suosikkimaara");
     if (suosikkimaara) suosikkimaara.textContent = suosikit.size;
   }
@@ -1326,12 +1329,12 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     TARKISTA = {k: f'<span class="olot p-keski">{v}</span>' for k, v in
                 (("fi", "Vesitiedot tarkistettava"), ("en", "Check the water yourself"))}
     if ilman:
-        ilman_html = (f"<h2>{k_('Ei vesikaaviota – tarkista itse')}</h2>"
+        ilman_html = (f"<section id=\"ilman\"><h2>{k_('Ei vesikaaviota – tarkista itse')}</h2>"
                       f'<p class="lukumaara" id="lukumaara-ilman">{_lukumaara(len(ilman), k_)}</p><ul class="kortit">' + "".join(
             f'<li data-haku="{e(t.paikka.nimi)}">'
             f'{_kortti(t.paikka, tilanne.kuvat.get(t.paikka.nimi), kieli, merkki=TARKISTA[kieli], suosikki=False)}'
             f'<p class="pieni">{e(t.paikka.kuvaus)}</p></li>'
-            for t in ilman) + "</ul>")
+            for t in ilman) + "</ul></section>")
     varoitukset = ""
     if tilanne.varoitukset:
         varoitukset = (f'<h2>{k_("Huomautukset")}</h2><ul class="pieni">'
