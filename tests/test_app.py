@@ -361,7 +361,7 @@ def test_suosikit_ja_sijainti_sivulla(palvelin):
 
 def test_englanninkielinen_sivu(palvelin):
     fi = pyynto("/")[2]
-    assert '<html lang="fi">' in fi and 'href="/?kieli=en" hreflang="en"' in fi and "English</a>" in fi
+    assert '<html lang="fi">' in fi and 'href="/?kieli=en" hreflang="en"' in fi and 'aria-label="In English"' in fi
     en = pyynto("/", "kieli=en")[2]
     assert '<html lang="en">' in en and "<title>Paddling conditions</title>" in en
     assert 'href="/" hreflang="fi"' in en and "Suomeksi" in en
@@ -922,3 +922,16 @@ def test_piilotetut_kortit_eivat_nay(palvelin):
     runko = pyynto("/")[2]
     assert ".etusivu tbody tr[hidden] { display:none; }" in runko.replace(".etusivu td.sija, .etusivu td.ennuste, ", "")
     assert "ilmanOsio.hidden = vainSuosikit" in runko
+
+
+def test_omat_kuvat_ja_alapalkki(palvelin):
+    """Sovelluksen tekijän oma kuva tarjoillaan sovelluksesta; alapalkissa pelkät kuvakkeet."""
+    vastaus = {}
+    runko = b"".join(app.app({"PATH_INFO": "/omat-kuvat/maalismaa.jpg", "QUERY_STRING": "", "REQUEST_METHOD": "GET",
+                              "wsgi.input": io.BytesIO()}, lambda s, o: vastaus.update(s=s, o=dict(o))))
+    assert vastaus["s"] == "200 OK" and vastaus["o"]["Content-Type"] == "image/jpeg" and runko[:2] == b"\xff\xd8"
+    assert pyynto("/omat-kuvat/../app.py")[0] == "404 Not Found"
+    runko = pyynto("/")[2]
+    palkki = runko.split('<nav class="alapalkki"')[1].split("</nav>")[0]
+    assert 'aria-label="Surffi"' in palkki and "</span>Surffi" not in palkki
+    assert "text-align:center" in runko

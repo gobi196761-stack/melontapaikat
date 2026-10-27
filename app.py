@@ -36,6 +36,7 @@ import os
 import threading
 import time
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from urllib.parse import parse_qs, quote, urlencode
 
 import arviointi
@@ -369,7 +370,7 @@ body { margin:0; background:var(--tausta); color:var(--teksti);
 main { max-width:960px; margin:0 auto; padding:24px 16px 48px; }
 h1 { font-size:1.45rem; margin:0 0 4px; }
 main.etusivu { padding-top:12px; padding-bottom:96px; }
-.etusivu h1 { font-size:1.35rem; margin:0 0 8px; line-height:1.3; }
+.etusivu h1 { font-size:1.35rem; margin:0 0 8px; line-height:1.3; text-align:center; }
 .varoitusrivi { display:flex; gap:8px; align-items:flex-start; margin:0 0 6px; }
 .varoitusrivi .turva { flex:1; margin:0; }
 .info { flex:none; margin-left:auto; width:34px; height:34px; border-radius:50%; border:1px solid var(--viiva);
@@ -1246,7 +1247,8 @@ def _kortti(paikka, kuva: dict | None, kieli: str, km: str = "", merkki: str = "
     """Kohteen kortti: iso kuva (paikan oma tai sovelluksen kuva), nimi, suosikki, tilamerkki, tyyppi ja matka."""
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
     osoite = paikan_osoite(paikka, kieli)
-    kuva_url = kuva["pieni"] if kuva else sovellus.kuvake_osoite(512)
+    oma = kuvat.OMAT.get(paikka.nimi)
+    kuva_url = f"/omat-kuvat/{oma}" if oma else kuva["pieni"] if kuva else sovellus.kuvake_osoite(512)
     tiedot = " · ".join(x for x in (e(k_(paikka.tyyppi)).capitalize(), km) if x)
     return (f'<div class="kortti"><a class="kortti-kuva" href="{e(osoite)}" tabindex="-1" aria-hidden="true">'
             f'<img src="{e(kuva_url)}" alt="" loading="lazy" width="112" height="112"></a>'
@@ -1263,9 +1265,12 @@ def kuvasivu(kieli: str) -> str:
     rivit = "".join(
         f'<li><b>{e(nimi)}</b>: {e(k["tekija"])} · {e(k["lisenssi"])} · '
         f'<a href="{e(k["sivu"])}" target="_blank" rel="noopener">Wikimedia Commons</a></li>'
-        for nimi, k in sorted(tallessa.items()) if k.get("kuva"))
-    oma = ("Spots without a photo of their own show the app's own photo." if en else
-           "Paikoilla, joille ei löytynyt omaa kuvaa, näkyy sovelluksen oma kuva.")
+        for nimi, k in sorted(tallessa.items()) if k.get("kuva") and nimi not in kuvat.OMAT)
+    omat = ", ".join(sorted(kuvat.OMAT))
+    oma = ((f"Photos of the app's author: {omat}. " if omat else "") + "Spots without a photo of their own "
+           "show the app's own photo." if en else
+           (f"Sovelluksen tekijän kuvat: {omat}. " if omat else "") + "Paikoilla, joille ei löytynyt omaa "
+           "kuvaa, näkyy sovelluksen oma kuva.")
     return f"""<!doctype html>
 <html lang="{kieli}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{"Photos" if en else "Kuvat"}</title><style>{TYYLI}</style></head>
@@ -1319,7 +1324,8 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
         f'<a href="/muut">{k_("Muut kohteet")} <span class="maara">{len(muut_kohteet.KOHTEET)}</span></a>')
     toinen = "fi" if kieli == "en" else "en"
     vaihto = (f'<a class="kieli" href="{e(_osoite(tyyppi=valittu, kieli=toinen))}" hreflang="{toinen}" '
-              f'lang="{toinen}"><span>{LIPUT[toinen]}</span>{"Suomeksi" if toinen == "fi" else "English"}</a>')
+              f'lang="{toinen}" title="{"Suomeksi" if toinen == "fi" else "In English"}" '
+              f'aria-label="{"Suomeksi" if toinen == "fi" else "In English"}"><span>{LIPUT[toinen]}</span></a>')
     arvioidut = [t for t in tulokset if t.pisteet is not None]
     rivit = "".join(_paikan_rivi(i, t, kieli, tilanne.saa.get(t.paikka.nimi), tilanne.ajo_min.get(t.paikka.nimi),
                                  ajo_km=tilanne.ajo_km.get(t.paikka.nimi), kuva=tilanne.kuvat.get(t.paikka.nimi))
@@ -1371,10 +1377,10 @@ value="Oulu" placeholder="{k_("esim. Rovaniemi")}"></label></p>
 {_ehdotusluukku(kieli)}
 </div>
 <nav class="alapalkki" aria-label="{k_("Valikot")}">
-<button type="button" data-avaa="paneeli-surffi"{' class="ok"' if tilanne.surffi.get("nyt") else ""}><span>🏄</span>{k_("Surffi")}</button>
-<button type="button" data-avaa="paneeli-sijainti"><span>📍</span>{k_("Sijainti")}</button>
-<button type="button" data-avaa="halytys"><span>🔔</span>{k_("Hälytys")}</button>
-<button type="button" data-avaa="paneeli-ehdota"><span class="lamppu">💡</span>{k_("Ehdota")}</button>
+<button type="button" data-avaa="paneeli-surffi"{' class="ok"' if tilanne.surffi.get("nyt") else ""} aria-label="{k_("Surffi")}" title="{k_("Surffi")}"><span>🏄</span></button>
+<button type="button" data-avaa="paneeli-sijainti" aria-label="{k_("Sijainti")}" title="{k_("Sijainti")}"><span>📍</span></button>
+<button type="button" data-avaa="halytys" aria-label="{k_("Hälytys")}" title="{k_("Hälytys")}"><span>🔔</span></button>
+<button type="button" data-avaa="paneeli-ehdota" aria-label="{k_("Ehdota")}" title="{k_("Ehdota")}"><span class="lamppu">💡</span></button>
 {vaihto}
 </nav>
 <div class="haku"><label>🔍 <input id="haku" type="search" autocomplete="off" placeholder="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"
@@ -1953,17 +1959,57 @@ def paikan_vesitilanne(nimi: str, kieli: str, tilanne: Tilanne | None) -> str:
     return f'<section class="paikan-tilanne"><h2>{k_("Vesitilanne")}</h2>{sisalto}</section>'
 
 
-def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None) -> str:
+def _ehdotuksen_kuvaus(tunniste: str, ehdotus: dict, kieli: str):
+    """Hyväksytyn uuden kohteen tekstit paikkasivun muotoon: (kuvaus, lähtö ja loppu, lähteet, huomiot
+    kohteittain, loppuhuomautus). Englanniksi täydennyksen käännökset, kun ne on tehty."""
+    en = kieli == "en"
+    tayd = ehdotukset.valmis_taydennys(ehdotus)
+    kaannos = (tayd.get("en") or {}) if en else {}
+    teksti = kaannos.get("teksti") or tayd.get("teksti") or ""
+    ehdottajan = kaannos.get("ehdottajan_teksti") or ehdotus.get("teksti") or ""
+    osiot = ()
+    if not teksti:
+        teksti = ehdottajan
+    elif ehdottajan.strip():
+        osiot = (("Suggester's notes" if en else "Ehdottajan huomiot", ehdottajan),)
+    perustelu = kaannos.get("mittari_perustelu") or tayd.get("mittari_perustelu")
+    if perustelu:
+        osiot += (("Gauge" if en else "Mittari", perustelu),)
+    lahto_loppu = []
+    for avain, rooli in (("lahto", "Put-in" if en else "Lähtö"), ("loppu", "Take-out" if en else "Loppu")):
+        if tayd.get(avain):
+            piste = tayd.get(f"{avain}_sijainti")
+            lahto_loppu.append((rooli, kaannos.get(avain) or tayd[avain], tuple(piste) if piste else None))
+    lahteet = [(l["nimi"], l.get("url") or None) for l in tayd.get("lahteet", [])]
+    lahteet += [(l["url"], l["url"]) for l in ehdotus.get("linkit") or []
+                if l["url"] not in {u for _, u in lahteet}]
+    huomiot = ({k["nimi"]: k["huom_en"] for k in ehdotukset.kaikki_kohteet(ehdotus) if k.get("huom_en")} if en else {})
+    huomiot.update(kaannos.get("huom") or {})
+    ehdottaja = ehdotus.get("ehdottaja")
+    loppu = (("Suggested by a user" + (f" ({ehdottaja})" if ehdottaja else "") + "; the description is compiled "
+              "from the sources in our own words and the limits are estimates. Always check the conditions on site.")
+             if en else
+             ("Käyttäjän ehdottama kohde" + (f" ({ehdottaja})" if ehdottaja else "") + "; kuvaus on koottu "
+              "lähteistä omin sanoin ja rajat ovat arvioita. Tarkista olosuhteet aina paikan päällä."))
+    return paikkasivut.Kuvaus(teksti, osiot, ()), lahto_loppu, lahteet, huomiot, loppu
+
+
+def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None, ehdotus: dict | None = None,
+               lisa: str = "") -> str:
     """Paikan koostesivu: lähteistä koottu kuvaus, kohteet ja niiden rajat (paikat.py) sekä lähteet.
-    Englanniksi (kieli="en") kuvaukset, lähtö- ja loppupaikat ja huomiot tulevat paikkasivut_en.py:stä."""
+    Englanniksi (kieli="en") kuvaukset, lähtö- ja loppupaikat ja huomiot tulevat paikkasivut_en.py:stä.
+    Hyväksytty käyttäjän ehdottama kohde (ehdotus) käyttää samaa rakennetta; lisa = ylläpidon osio."""
     en = kieli == "en"
     k_ = lambda teksti: PAIKKASIVU_EN.get(teksti, teksti) if en else teksti   # noqa: E731
     kuvaus = paikkasivut.KUVAUKSET.get(paikka.nimi)
     if en:
         kuvaus = paikkasivut_en.KUVAUKSET.get(paikka.nimi, kuvaus)
+    ehdotuksen = _ehdotuksen_kuvaus(paikka.url.removeprefix("/ehdotus/"), ehdotus, kieli) if ehdotus else None
+    if ehdotuksen:
+        kuvaus = ehdotuksen[0]
 
     def kappaleet(teksti: str) -> str:
-        return "".join(f"<p>{e(kpl)}</p>" for kpl in teksti.split("\n\n"))
+        return "".join(f"<p>{e(kpl)}</p>" for kpl in re.split(r"\n\s*\n", teksti) if kpl.strip())
 
     osat = [kappaleet(kuvaus.johdanto if kuvaus else paikka.kuvaus)]
     for otsikko, teksti in (kuvaus.osiot if kuvaus else ()):
@@ -1974,10 +2020,11 @@ def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None) -> str
                           if any(u == paikan_osoite(paikka) for u, _ in r["paikat"]))
     retkilinkit = f"<h2>{k_('Retkiehdotus')}</h2><ul>{retkilinkit}</ul>" if retkilinkit else ""
     paikat_html = ""
-    if paikka.nimi in paikkasivut.LAHTO_LOPPU:
-        kaannokset = paikkasivut_en.LAHTO_LOPPU.get(paikka.nimi) if en else None
+    lahto_loppu = ehdotuksen[1] if ehdotuksen else paikkasivut.LAHTO_LOPPU.get(paikka.nimi)
+    if lahto_loppu:
+        kaannokset = paikkasivut_en.LAHTO_LOPPU.get(paikka.nimi) if en and not ehdotuksen else None
         rivit_ = []
-        for i, (rooli, teksti, piste) in enumerate(paikkasivut.LAHTO_LOPPU[paikka.nimi]):
+        for i, (rooli, teksti, piste) in enumerate(lahto_loppu):
             if kaannokset:
                 rooli, teksti = kaannokset[i]
             linkit = ""
@@ -2005,9 +2052,11 @@ def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None) -> str
 
     etusivu = _osoite(kieli=kieli)
     if paikka.kohteet:
-        huomiot = iter(paikkasivut_en.HUOMIOT.get(paikka.nimi, ())) if en else None
+        huomiot = iter(paikkasivut_en.HUOMIOT.get(paikka.nimi, ())) if en and not ehdotuksen else None
         rivit = []
         for kohde in paikka.kohteet:
+            if ehdotuksen and ehdotuksen[3].get(kohde.nimi):   # käännetty huomio
+                kohde = replace(kohde, huom=ehdotuksen[3][kohde.nimi])
             mittari = paikka.mittarit[kohde.mittari]
             suure, yksikko = _mittarin_suure(mittari)
             toimii = _rajat(kohde.toimii, yksikko, kohde.muuttuja, kieli)
@@ -2033,7 +2082,9 @@ def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None) -> str
                       "tarkista olosuhteet itse.") + "</p>")
 
     lahteet = list(paikkasivut.KUVAUKSET[paikka.nimi].lahteet if paikka.nimi in paikkasivut.KUVAUKSET else ())
-    if paikka.url not in {url for _, url in lahteet}:
+    if ehdotuksen:
+        lahteet = ehdotuksen[2]
+    elif paikka.url not in {url for _, url in lahteet}:
         lahteet.insert(0, (k_("Paikan pääsivu"), paikka.url))
     def lahde(otsikko: str, url: str | None) -> str:
         if not url:
@@ -2048,7 +2099,9 @@ def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None) -> str
              "vesitiedot ovat kuvatun päivän vuorokausiarvoja SYKE:n hydrologiarajapinnasta (Ruotsin paikat: "
              "SMHI:n korjattu päiväarkisto); vedenkorkeudet on muunnettu samalle asteikolle kuin sovelluksen "
              "kaavioissa. Tornionjoen virtaama Matkakosken kohdalla on Karungin asemalta.")
-    kuvaus_meta = (kuvaus.johdanto.split(". ")[0] + ".") if en and kuvaus else paikka.kuvaus
+    if ehdotuksen:
+        loppu = ehdotuksen[4]
+    kuvaus_meta = (kuvaus.johdanto.split(". ")[0] + ".") if (en or ehdotuksen) and kuvaus else paikka.kuvaus
     toinen = "fi" if en else "en"
     vaihto = (f'<a class="kieli" href="{e(paikan_osoite(paikka, toinen))}" hreflang="{toinen}" '
               f'lang="{toinen}">{LIPUT[toinen]}{"Suomeksi" if toinen == "fi" else "In English"}</a>')
@@ -2076,9 +2129,11 @@ def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None) -> str
 {retkilinkit}
 {kohteet}
 {_kayttajien_lisaykset(paikka, kieli)}
+{_muut_linkit(_muut_osumat(paikka.url.removeprefix("/ehdotus/"), ehdotus), kieli) if ehdotus else ""}
 <h2>{k_("Lähteet")}</h2>
 <ul class="lahteet">{lahteet_html}</ul>
-<p class="pieni">{loppu}</p>
+<p class="pieni">{e(loppu) if ehdotuksen else loppu}</p>
+{lisa}
 </main>
 </body>
 </html>"""
@@ -2643,6 +2698,30 @@ def _ehdotuksen_sisalto(tunniste: str, ehdotus: dict, kieli: str, hakija: osm.Ha
     return "".join(osat)
 
 
+def _julkaistun_yllapito(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool) -> str:
+    """Julkaistun kohteen sivun loppuun ylläpitäjälle: käännösnappi ja yksityiset linkit."""
+    if not yllapitaja:
+        return ""
+    t = ehdotukset.tekstit(kieli)
+    taydennys = ehdotus.get("taydennys") or {}
+    osat = []
+    if taydennys.get("kaannos") == "kaynnissa":
+        osat.append(f'<p class="huom">{e(t["kaannos_kaynnissa"])}</p>')
+    elif taydennys.get("kaannos") == "virhe":
+        osat.append(f'<p class="virhe">{e(t["kaannos_virhe"])}: {e(taydennys.get("kaannos_virhe") or "")}</p>')
+    if taydennys.get("tila") == "valmis" and not taydennys.get("en") and taydennys.get("kaannos") != "kaynnissa":
+        osat.append(f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele"><b>{e(t["yllapito"])}:</b> '
+                    f'<button class="nappi toissijainen" name="toiminto" value="kaanna">{e(t["kaanna_nappi"])}</button>'
+                    f' <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
+    tayd = ehdotukset.valmis_taydennys(ehdotus)
+    if tayd.get("huomiot"):   # täydennyksen huomiot ylläpitäjälle
+        osat.append(f'<p class="huom"><b>{e(t["huomioita"])}:</b> {e(tayd["huomiot"])}</p>')
+    if ehdotus.get("yksityiset_linkit"):
+        osat.append(f'<h2>{e(t["yksityiset_otsikko"])}</h2><ul class="lahteet">'
+                    + "".join(f"<li><code>{e(u)}</code></li>" for u in ehdotus["yksityiset_linkit"]) + "</ul>")
+    return f'<style>{EHDOTUS_TYYLI}</style>' + "".join(osat) if osat else ""
+
+
 def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = False,
                 hakija: osm.Hakija | None = None) -> str:
     """Ehdotuksen esikatselu tai julkaistu sivu /ehdotus/<tunniste>."""
@@ -3058,6 +3137,12 @@ def ehdotus_api(polku: str, environ, metodi: str):
                    if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None)
         if not ehdotus or (ehdotus.get("tila") == "hylatty" and not yllapitaja):
             return "404 Not Found", html_tyyppi, "Ehdotusta ei löydy.\n".encode("utf-8")
+        paikka = (next((p for p in kaikki_paikat() if p.url == f"/ehdotus/{tunniste}"), None)
+                  if ehdotus.get("tila") == "hyvaksytty" and ehdotus.get("laji") == "uusi" else None)
+        if paikka is not None:   # julkaistu kohde: sama rakenne kuin muilla paikkasivuilla
+            return "200 OK", html_tyyppi, paikkasivu(paikka, kieli, _paikkasivun_tilanne(), ehdotus,
+                                                     _julkaistun_yllapito(tunniste, ehdotus, kieli, yllapitaja)
+                                                     ).encode("utf-8")
         return "200 OK", html_tyyppi, ehdotussivu(tunniste, ehdotus, kieli, yllapitaja).encode("utf-8")
     m = re.fullmatch(r"/api/ehdotus/([A-Za-z0-9_-]+)/(taydenna|taydennys-valmis)", polku)
     if m and metodi == "POST":
@@ -3133,6 +3218,9 @@ def app(environ, start_response):
     if polku == "/manifest.webmanifest":
         return vastaa("200 OK", "application/manifest+json; charset=utf-8",
                       sovellus.manifest(kielet.kieli(kysely)), "public, max-age=86400")
+    if polku.startswith("/omat-kuvat/") and polku.removeprefix("/omat-kuvat/") in kuvat.OMAT.values():
+        tiedosto = Path(__file__).with_name("omat_kuvat") / polku.removeprefix("/omat-kuvat/")
+        return vastaa("200 OK", "image/jpeg", tiedosto.read_bytes(), "public, max-age=604800")
     if polku.startswith("/kuvake-") and polku.endswith(".png"):
         koko = polku.removeprefix("/kuvake-").removesuffix(".png")
         if koko.isdigit() and int(koko) in sovellus.KOOT:
