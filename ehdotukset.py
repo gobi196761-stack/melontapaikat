@@ -300,12 +300,33 @@ def nimi(ehdotus: dict) -> str:
     return urlparse(linkit[0]["url"]).hostname or "?" if linkit else "?"
 
 
+# Ylläpitäjän rajat julkaistuille kohteille (ehdotuksen nimi -> kohteet), kun ehdottaja kertoo
+# melontapäivän jälkikäteen: päivän virtaama SYKE:n mittarilta ja kesän alivirtaamat.
+YLLAPIDON_KOHTEET: dict[str, list[dict]] = {
+    "Kiiminkijoki: Kivarinjärvi-Kalliuskoski": [{
+        "nimi": "Kivarinjärvi – Kalliuskoski (n. 10 km)",
+        "rajat": {"virtaama": {"toimii": [7.0, None], "paras": [15.0, 30.0]}},
+        "huom": "Melottu 26.4.2025 Iso Puutiojärven luusuan 15,6 m³/s:lla, vettä riittävästi. Keskikesällä "
+                "(15.6.–15.8.2019–2025) virtaama on tavallisesti 1–5 m³/s (mediaani noin 2,5), jolloin reitti "
+                "on laskukelvoton. Alaraja 7 m³/s on arvio; tulvahuipulla (35–40 m³/s) Kalliuskoski on III- ja "
+                "lopussa on stoppareita.",
+        "huom_en": "Paddled on 26 April 2025 at 15.6 m³/s at the Iso Puutiojärvi outlet, with enough water. In "
+                   "midsummer (15 June–15 August 2019–2025) the flow is usually 1–5 m³/s (median about 2.5), when "
+                   "the run is not paddleable. The lower limit of 7 m³/s is an estimate; at the flood peak "
+                   "(35–40 m³/s) Kalliuskoski is III- with stoppers at the end.",
+    }],
+}
+
+
 def kaikki_kohteet(ehdotus: dict) -> list[dict]:
-    """Ehdottajan kohteet ja täydennyksen lisäämät (merkitty "arvio": True); ehdottajan kohde voittaa."""
+    """Ehdottajan kohteet, täydennyksen ja ylläpitäjän lisäämät (merkitty "arvio": True); ehdottajan
+    kohde voittaa."""
     omat = [dict(k) for k in ehdotus.get("kohteet", [])]
     nimet = {k["nimi"] for k in omat}
-    return omat + [{**k, "arvio": True} for k in valmis_taydennys(ehdotus).get("kohteet", [])
-                   if k.get("nimi") not in nimet]
+    lisatyt = list(valmis_taydennys(ehdotus).get("kohteet", []))
+    if ehdotus.get("laji") == "uusi":
+        lisatyt += YLLAPIDON_KOHTEET.get(nimi(ehdotus), [])
+    return omat + [{**k, "arvio": True} for k in lisatyt if k.get("nimi") not in nimet]
 
 
 def paikaksi(ehdotus: dict, paikat: tuple[Paikka, ...]) -> tuple[Paikka | None, set[str]]:

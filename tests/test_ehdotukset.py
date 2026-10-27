@@ -608,3 +608,13 @@ def test_kaanna_nappi(ymparisto, monkeypatch):
     pyynto(f"/ehdotus/{tunniste}/kasittele", metodi="POST", runko=lomake(toiminto="kaanna"), evaste=evaste)
     sivu = pyynto(f"/ehdotus/{tunniste}", evaste=evaste)[2]
     assert "Käännös epäonnistui: tunnus puuttuu" in sivu and "🌐 Käännä englanniksi" in sivu
+
+
+def test_yllapidon_rajat_julkaistulle_kohteelle():
+    """Ylläpitäjän rajat tekevät pisteyttämättömästä julkaistusta kohteesta pisteytettävän."""
+    ehdotus = {"laji": "uusi", "nimi": "Kiiminkijoki: Kivarinjärvi-Kalliuskoski", "tila": "hyvaksytty",
+               "kohteet": [], "linkit": [], "mittari_virtaama": "60/q6000110y/qinlyhyt.png"}
+    assert ehdotukset.pisteytettava(ehdotus)
+    paikka, _ = ehdotukset.paikaksi(ehdotus, PAIKAT)
+    kohde = paikka.kohteet[0]
+    assert kohde.toimii == (7.0, None) and kohde.paras == (15.0, 30.0) and "26.4.2025" in kohde.huom

@@ -1983,7 +1983,8 @@ def _ehdotuksen_kuvaus(tunniste: str, ehdotus: dict, kieli: str):
     lahteet = [(l["nimi"], l.get("url") or None) for l in tayd.get("lahteet", [])]
     lahteet += [(l["url"], l["url"]) for l in ehdotus.get("linkit") or []
                 if l["url"] not in {u for _, u in lahteet}]
-    huomiot = kaannos.get("huom") or {}
+    huomiot = ({k["nimi"]: k["huom_en"] for k in ehdotukset.kaikki_kohteet(ehdotus) if k.get("huom_en")} if en else {})
+    huomiot.update(kaannos.get("huom") or {})
     ehdottaja = ehdotus.get("ehdottaja")
     loppu = (("Suggested by a user" + (f" ({ehdottaja})" if ehdottaja else "") + "; the description is compiled "
               "from the sources in our own words and the limits are estimates. Always check the conditions on site.")
