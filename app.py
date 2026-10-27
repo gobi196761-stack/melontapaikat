@@ -1181,8 +1181,10 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
                 nakyvat.append(l.url)
                 teksti = melonta.kuvaa_lukema(l) if paiva == 0 else melonta.kuvaa_ennuste(l, paiva)
                 asema = melonta.lukeman_asema(l)
-                if teksti and teksti.startswith(asema):   # linkissä aseman nimen sijaan "Vesitilanne:"
-                    teksti = f"{TUNTEMATON_ASEMA}:" + teksti[len(asema):].removeprefix(":")
+                if teksti and teksti.startswith(asema):   # linkissä aseman nimen sijaan suure: "Virtaama: 55 m³/s …"
+                    suure = melonta.SUURE.get(l.suure, l.suure)
+                    loppu = teksti[len(asema):].lstrip(": ").removeprefix(suure).lstrip()
+                    teksti = f"{suure.capitalize()}: {loppu}"
                 if teksti:
                     href = kaavion_osoite(p, avain, l, kieli) or l.url
                     rivit.append(f'<li><a href="{e(href)}">{e(k_(teksti))}</a></li>')
@@ -1404,8 +1406,8 @@ value="Oulu" placeholder="{k_("esim. Rovaniemi")}"></label></p>
 <div class="haku"><label>🔍 <input id="haku" type="search" autocomplete="off" placeholder="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"
 aria-label="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"></label>
 <nav class="kategoriat">{suodattimet}</nav></div>
-<div class="jarjestysrivi"><select id="jarjestys" aria-label="{k_("Järjestys")}"><option value="pisteet">{k_("Pisteiden mukaan")}</option>
-<option value="etaisyys">{k_("Etäisyyden mukaan")}</option></select></div>
+<div class="jarjestysrivi"><select id="jarjestys" aria-label="{k_("Järjestys")}"><option value="pisteet">{k_("Listaus pisteiden mukaan")}</option>
+<option value="etaisyys">{k_("Listaus etäisyyden mukaan")}</option></select></div>
 <datalist id="kunnat">{KUNTALISTA}</datalist>
 <script type="application/json" id="paikkakunnat">{KUNNAT_JSON}</script>
 <p id="sijainti-tila" class="pieni" hidden></p>
