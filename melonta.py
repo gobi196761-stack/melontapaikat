@@ -32,7 +32,7 @@ import arviointi
 import osm_sivut as osm
 import smhi_data
 import syke_data
-from paikat import PAIKAT, VALILEHDET, Paikka, aseman_nimi, nakyy
+from paikat import PAIKAT, TUNTEMATON_ASEMA, VALILEHDET, Paikka, aseman_nimi, nakyy
 from syke_kaavio import KaavioLukija, Kaaviolukema, KaavioVirhe
 
 HAKEMISTO = "https://www.osm.fi/melontapaikat/"
@@ -223,7 +223,9 @@ def _luku(v: float | None, yksikko: str) -> str:
 
 
 def lukeman_asema(l: Kaaviolukema) -> str:
-    return aseman_nimi(osm.kaavio_avain(l.url) or smhi_data.kaavio_avain(l.url) or "")
+    """Aseman nimi lukeman alkuun; nimettömälle asemalle 'Vesitilanne:'."""
+    nimi = aseman_nimi(osm.kaavio_avain(l.url) or smhi_data.kaavio_avain(l.url) or "")
+    return nimi + ":" if nimi == TUNTEMATON_ASEMA else nimi
 
 
 def kuvaa_lukema(l: Kaaviolukema, ennustepaiva: int = 3) -> str:

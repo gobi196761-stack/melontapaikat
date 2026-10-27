@@ -60,7 +60,7 @@ import syke_data
 import syke_kaavio
 import turvallisuus
 from arviointi import muotoile
-from paikat import PAIKAT, SIJAINNIT, aseman_nimi, kohteen_kajakit, nakyy
+from paikat import PAIKAT, SIJAINNIT, TUNTEMATON_ASEMA, aseman_nimi, kohteen_kajakit, nakyy
 from paikkakunnat import PAIKKAKUNNAT, RUOTSI
 
 VALIMUISTI_S = 60 * 60   # SYKE:n data päivittyy kerran päivässä; pidempi aika säästää suoritinaikaa
@@ -1183,6 +1183,9 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
             if l and l.url not in nakyvat:
                 nakyvat.append(l.url)
                 teksti = melonta.kuvaa_lukema(l) if paiva == 0 else melonta.kuvaa_ennuste(l, paiva)
+                asema = melonta.lukeman_asema(l)
+                if teksti and teksti.startswith(asema):   # linkissä aseman nimen sijaan "Vesitilanne:"
+                    teksti = f"{TUNTEMATON_ASEMA}:" + teksti[len(asema):].removeprefix(":")
                 if teksti:
                     href = kaavion_osoite(p, avain, l, kieli) or l.url
                     rivit.append(f'<li><a href="{e(href)}">{e(k_(teksti))}</a></li>')
@@ -1240,9 +1243,7 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
     return f"""<tr data-paikka="{e(p.nimi)}"{sijainti} data-pisteet='{pisteet_json}' data-km="{p.km_oulusta or 0}"\
  data-oulusta="{oulusta if oulusta is not None else 99999:.0f}">
 <td class="sija">{sija}.</td>
-<td>{_kortti(p, kuva, kieli, km, _olot(t.pisteet, kieli))}
-<details class="tiedot"><summary>{k_("Näytä tiedot")}</summary>{matka}{lampo}
-{versiot}</details></td>
+<td>{_kortti(p, kuva, kieli, km, _olot(t.pisteet, kieli))}</td>
 <td class="pisteet {_pisteluokka(t.pisteet)}">{t.pisteet:.0f}</td>
 <td class="ennuste piilo">{ennuste}</td>
 </tr>"""
@@ -1715,7 +1716,7 @@ def smhi_kaavio_svg(kaavio: str, hakija: osm.Hakija | None = None, nyt: dt.datet
     ennuste = _hae_json(hakija, smhi_data.ennuste_url(piste))
     if not havainto and not ennuste:
         return None
-    otsikko = f"{paikka.nimi} – {kielet.kaanna('mittari', kieli)} {aseman_nimi(kaavio)}"
+    otsikko = _kaavion_otsikko(paikka, kaavio, kieli)
     return kaavio_svg.smhi_svg(havainto, ennuste, otsikko, nyt or suomen_aika(), _alueet(paikka, avain), kieli)
 
 
@@ -1733,7 +1734,7 @@ def syke_kaavio_svg(polku: str, hakija: osm.Hakija | None = None, paikan_nimi: s
         return None
     paikka, avain, mittari = loydetty
     hakija = hakija or osm.Hakija(aikaraja=20)
-    otsikko = f"{paikka.nimi} – {kielet.kaanna('mittari', kieli)} {aseman_nimi(mittari.kaavio)}"
+    otsikko = _kaavion_otsikko(paikka, mittari.kaavio, kieli)
     asema = _arvioasema(mittari.kaavio)
     if asema:
         return _arvio_kaavio(paikka, avain, mittari, asema, hakija, otsikko, kieli)
@@ -1874,6 +1875,14 @@ def arvio_kaavio_svg(asema: str, hakija: osm.Hakija | None = None) -> str | None
 PAIKKASIVUT = {paikkasivut.tunniste(p.nimi): p for p in PAIKAT}
 LAHDETYYPIT = {"sivu": "lähteen kuvaus", "meloja": "paikallinen meloja", "arvio": "arvio"}
 SUUREET = {"vedenkorkeus": "vedenkorkeus", "virtaama": "virtaama", "lampotila": "lämpötila"}
+
+
+def _kaavion_otsikko(paikka, kaavio: str, kieli: str) -> str:
+    """'Paikka – mittari Asema'; nimettömälle asemalle 'Paikka – Vesitilanne'."""
+    asema = aseman_nimi(kaavio)
+    if asema == TUNTEMATON_ASEMA:
+        return f"{paikka.nimi} – {kielet.kaanna(asema, kieli)}"
+    return f"{paikka.nimi} – {kielet.kaanna('mittari', kieli)} {asema}"
 
 
 def paikan_osoite(paikka, kieli: str = "fi") -> str:
@@ -2884,7 +2893,7 @@ def ehdotuksen_kaavio(tunniste: str, kieli: str, hakija: osm.Hakija | None = Non
     if mittari.smhi:
         return None
     hakija = hakija or osm.Hakija(aikaraja=20)
-    otsikko = f"{paikka.nimi} – {kielet.kaanna('mittari', kieli)} {aseman_nimi(mittari.kaavio)}"
+    otsikko = _kaavion_otsikko(paikka, mittari.kaavio, kieli)
     return _mittarin_svg(paikka, avain, mittari, hakija, otsikko, kieli)
 
 

@@ -188,10 +188,14 @@ ASEMAT = {
 }
 
 
+TUNTEMATON_ASEMA = "Vesitilanne"   # asema, jolle ei ole nimeä (esim. käyttäjän ehdottaman kohteen mittari)
+
+
 def aseman_nimi(kaavio: str) -> str:
-    """'67/q6702110y/wlyhyt.png' -> 'Matkakoski', 'smhi/1387/31914' -> 'Gransel (Piteälven)'"""
+    """'67/q6702110y/wlyhyt.png' -> 'Matkakoski', 'smhi/1387/31914' -> 'Gransel (Piteälven)';
+    nimettömän aseman tunnuksen ('q6000110y') sijaan 'Vesitilanne'."""
     osat = kaavio.split("/")
-    return ASEMAT.get(osat[1], osat[1]) if len(osat) >= 2 else kaavio
+    return ASEMAT.get(osat[1], TUNTEMATON_ASEMA) if len(osat) >= 2 else kaavio
 
 PAIKAT: tuple[Paikka, ...] = (
     # ------------------------------------------------------------------
