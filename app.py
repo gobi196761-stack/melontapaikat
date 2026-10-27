@@ -449,6 +449,8 @@ main.etusivu { padding-top:12px; padding-bottom:96px; }
   text-decoration:none; padding:2px 0; margin:0; cursor:pointer; }
 .alapalkki > * > span { font-size:1.35rem; line-height:1.2; position:relative; display:flex; align-items:center; height:1.7rem; }
 .alapalkki [aria-expanded="true"] { color:var(--linkki); }
+.nasta { vertical-align:-0.15em; }
+.alapalkki .nasta { width:1.35rem; height:1.35rem; }
 .alapalkki [class^="surffi-"] > span::after { content:""; position:absolute; top:0; right:-6px; width:9px; height:9px;
   border-radius:50%; border:1.5px solid var(--tausta); background:var(--heikko); }
 .alapalkki .surffi-nyt > span::after { background:var(--hyva); }
@@ -1062,6 +1064,10 @@ SELITYKSET = {
            ("🌡", "air and water on arrival; the air link opens the local weather, red when a thunderstorm is forecast"),
            ("☀️ ⛅ ☁️ 🌧️ ⛈️", "sunny, partly cloudy, cloudy, rain, thunderstorm")],
 }
+# Sijainnin kuvake: Google Mapsin tyylinen punainen pisaranasta
+NASTA = ('<svg class="nasta" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true">'
+         '<path d="M12 1.5C7.9 1.5 4.6 4.8 4.6 8.9c0 5.6 7.4 13.6 7.4 13.6s7.4-8 7.4-13.6c0-4.1-3.3-7.4-7.4-7.4z" '
+         'fill="#EA4335" stroke="#B31412" stroke-width=".8"/><circle cx="12" cy="8.9" r="2.7" fill="#B31412"/></svg>')
 PALKKI = {   # alapalkin kuvakkeet: surffi, sijainti, hälytys, ehdota, merkinnät, kieli, otsikko
     "fi": ("Surffi: Merelle Surffaamaan -spotit ja niiden sää", "sijainti ja lähtöaika: etäisyydet ja perillä-ajat",
            "hälytys puhelimeen, kun valitsemasi kohde toimii", "ehdota uutta kohdetta tai täydennä vanhaa",
@@ -1089,7 +1095,7 @@ def _selitykset(kieli: str) -> str:
     valot = "".join(f'<span class="merkkivalo" style="background:{v}"></span> {e(t)} '
                     for v, t in zip(("var(--hyva)", "#e3b008", "var(--heikko)"), PALKKI_VALOT[kieli]))
     palkki = (f'<li><b>🏄</b> {e(PALKKI[kieli][0])}: {valot}</li>'
-              + "".join(f"<li><b>{m}</b> {e(t)}</li>" for m, t in zip(("📍", "🔔", "💡", "ⓘ"), PALKKI[kieli][1:]))
+              + "".join(f"<li><b>{m}</b> {e(t)}</li>" for m, t in zip((NASTA, "🔔", "💡", "ⓘ"), PALKKI[kieli][1:]))
               + f'<li><b>{LIPUT["en" if kieli == "fi" else "fi"]}</b> {e(PALKKI[kieli][5])}</li>')
     kajakit = "".join(f'<li>{_kajakki_svg(tyyppi, k_, selite=True)} {e(k_(KAJAKKI_KUVAKKEET[tyyppi][0]))}</li>'
                       for tyyppi in KAJAKKI_KUVAKKEET)
@@ -1463,8 +1469,8 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 {_selitykset(kieli)}
 <details class="surffipaneeli" id="paneeli-surffi"><summary>{k_("🏄 Surffi")}</summary>
 <div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div></details>
-<details class="valinnat" id="paneeli-sijainti"><summary>{k_("📍 Sijainti ja lähtöaika")}</summary>
-<p><button type="button" id="sijainti">{k_("📍 Jaa sijaintisi")}</button></p>
+<details class="valinnat" id="paneeli-sijainti"><summary>{NASTA} {k_("Sijainti ja lähtöaika")}</summary>
+<p><button type="button" id="sijainti">{NASTA} {k_("Jaa sijaintisi")}</button></p>
 <p><label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
 value="Oulu" placeholder="{k_("esim. Rovaniemi")}"></label></p>
 <p><label class="paikkakunta">{k_("lähtöaika")} <input id="lahtoaika" type="datetime-local" step="900" data-paivia="{LAHTO_PAIVIA}"></label></p>
@@ -1474,7 +1480,7 @@ value="Oulu" placeholder="{k_("esim. Rovaniemi")}"></label></p>
 </div>
 <nav class="alapalkki" aria-label="{k_("Valikot")}">
 {_surffinappi(tilanne.surffi, k_)}
-<button type="button" data-avaa="paneeli-sijainti" aria-label="{k_("Sijainti")}" title="{k_("Sijainti")}"><span>📍</span></button>
+<button type="button" data-avaa="paneeli-sijainti" aria-label="{k_("Sijainti")}" title="{k_("Sijainti")}"><span>{NASTA}</span></button>
 <button type="button" data-avaa="halytys" aria-label="{k_("Hälytys")}" title="{k_("Hälytys")}"><span>🔔</span></button>
 <button type="button" data-avaa="paneeli-ehdota" aria-label="{k_("Ehdota")}" title="{k_("Ehdota")}"><span class="lamppu">💡</span></button>
 <button type="button" data-avaa="merkinnat" class="info" aria-label="{k_("Merkinnät ja kuvakkeet")}" title="{k_("Merkinnät ja kuvakkeet")}"><span>ⓘ</span></button>
@@ -2189,7 +2195,8 @@ def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None, ehdotu
         reitti = "https://www.google.com/maps/dir/?" + urlencode(
             {"api": 1, "destination": f"{lev},{pit}", "travelmode": "driving"})
         tiedot.append(f'<a href="{e(kartta)}" target="_blank" rel="noopener">{k_("🗺 Kartta")}</a>')
-        tiedot.append(f'<a href="{e(reitti)}" target="_blank" rel="noopener">{kielet.kaanna("🚗 Reitti", kieli)}</a>')
+        if not paikka.kohteet:   # pisteytettävällä paikalla reitti on vesitilanteessa (perillä-aikoineen)
+            tiedot.append(f'<a href="{e(reitti)}" target="_blank" rel="noopener">{kielet.kaanna("🚗 Reitti", kieli)}</a>')
     tiedot_html = " · ".join(t if t.startswith("<a ") else e(t) for t in tiedot)
 
     etusivu = _osoite(kieli=kieli)

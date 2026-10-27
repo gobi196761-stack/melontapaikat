@@ -981,7 +981,7 @@ def test_surffin_merkkivalo_ja_selitykset():
     assert 'class="surffi-ennuste"' in app._surffinappi({"nyt": [], "ennuste": ["yppari"]}, k_)
     assert 'class="surffi-ei"' in app._surffinappi({}, k_)
     selitykset = app._selitykset("fi")
-    for teksti in ("Alapalkin kuvakkeet", "surffattavaa nyt", "ennusteessa", "ei surffattavaa", "<b>📍</b>",
+    for teksti in ("Alapalkin kuvakkeet", "surffattavaa nyt", "ennusteessa", "ei surffattavaa", "<b><svg class=\"nasta\"",
                    "<b>🔔</b>", "<b>💡</b>", "<b>ⓘ</b>", "In English"):
         assert teksti in selitykset, teksti
     assert "Bottom bar icons" in app._selitykset("en")
@@ -1025,3 +1025,11 @@ def test_tilanne_tallessa_ja_paikkasivu_ilman_laskentaa(monkeypatch, tilanne):
     status, otsakkeet, runko = pyynto("/api/vesitilanne", "paikka=" + quote(paikat[0].nimi))
     assert status == "200 OK" and '<section class="paikan-tilanne"' in runko and "<script>" in runko
     assert pyynto("/api/vesitilanne", "paikka=Tuntematon")[0] == "404 Not Found"
+
+
+def test_paikkasivulla_yksi_reitti(monkeypatch, tilanne):
+    """Pisteytettävän paikan sivulla reitti vain vesitilanteessa, ei otsikon alla."""
+    t = next(x for x in tilanne.tulokset if x.pisteet is not None and x.paikka.sijainti)
+    sivu = app.paikkasivu(t.paikka, "fi", tilanne)
+    meta = sivu.split('<div class="meta">')[1].split("</div>")[0]
+    assert "🗺 Kartta" in meta and "Reitti" not in meta and sivu.count("🚗 Reitti") == 1
