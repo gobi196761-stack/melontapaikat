@@ -42,7 +42,7 @@ SANAT = {
     "Retket": "River runs",
     "Ruotsi": "Sweden",
     "♥ Suosikit": "♥ Favourites",
-    "📍 Etäisyydet omasta sijainnista": "📍 Distances from my location",
+    "📍 Jaa sijaintisi": "📍 Share your location",
     "tai paikkakunta": "or municipality",
     "esim. Rovaniemi": "e.g. Rovaniemi",
     "🚗 Reitti": "🚗 Route",

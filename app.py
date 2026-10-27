@@ -828,7 +828,7 @@ SKRIPTI = """
   const avain = n => n.trim().toLocaleLowerCase("fi");
   const haku = Object.fromEntries(Object.keys(kunnat).map(n => [avain(n), n]));
   function valitse(arvo, muista) {
-    if (!arvo.trim()) { kirjoita(SIJ, false); nayta(null, "", null); return; }
+    if (!arvo.trim()) { kirjoita(SIJ, false); kentta.value = "Oulu"; nayta(null, "", null); return; }   // oletus: Oulu
     const nimi = haku[avain(arvo)];
     if (!nimi) { tila.textContent = T.tuntematon(arvo.trim()); tila.hidden = false; return; }
     const [lev, pit] = kunnat[nimi];
@@ -1362,9 +1362,9 @@ aria-controls="merkinnat" aria-expanded="false" title="{k_("Merkinnät ja kuvakk
 <details class="surffipaneeli" id="paneeli-surffi"><summary>{k_("🏄 Surffi")}</summary>
 <div class="surffirivi">{surffilinkki(tilanne.surffi, k_, kieli)}</div></details>
 <details class="valinnat" id="paneeli-sijainti"><summary>{k_("📍 Sijainti ja lähtöaika")}</summary>
-<p><button type="button" id="sijainti">{k_("📍 Etäisyydet omasta sijainnista")}</button></p>
+<p><button type="button" id="sijainti">{k_("📍 Jaa sijaintisi")}</button></p>
 <p><label class="paikkakunta">{k_("tai paikkakunta")} <input id="paikkakunta" list="kunnat" autocomplete="off"
-placeholder="{k_("esim. Rovaniemi")}"></label></p>
+value="Oulu" placeholder="{k_("esim. Rovaniemi")}"></label></p>
 <p><label class="paikkakunta">{k_("lähtöaika")} <input id="lahtoaika" type="datetime-local" step="900" data-paivia="{LAHTO_PAIVIA}"></label></p>
 </details>
 {_halytysosio(k_)}
