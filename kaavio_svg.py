@@ -211,6 +211,18 @@ _REISSU_JS = """(function () {
   });
   alue.addEventListener("click", function (e) { aseta(kohta(e)); tallennaLahto(valittu); });
   aseta(D.t0);
+  // lähtöaika muutettu muualla (etusivu, paikkasivu, toinen kaavio): osoitin perillä-ajan kohdalle
+  function lahdosta(arvo) {
+    var t = arvo ? new Date(arvo).getTime() : NaN;
+    if (D.matka != null && !isNaN(t)) aseta(Math.max(Date.now(), t) + D.matka * 60000);
+  }
+  window.addEventListener("storage", function (e) {
+    if (e.key !== "melonta-lahtoaika" || veto) return;
+    try { lahdosta(JSON.parse(e.newValue).arvo); } catch (x) {}
+  });
+  window.addEventListener("pageshow", function (e) {   // takaisin-napilla välimuistista
+    if (e.persisted) try { lahdosta(sessionStorage.getItem("melonta-lahtoaika")); } catch (x) {}
+  });
 })();"""
 
 

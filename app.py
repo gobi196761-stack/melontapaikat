@@ -409,7 +409,7 @@ main.etusivu { padding-top:12px; padding-bottom:96px; }
                    color:var(--teksti); font:inherit; font-size:.9rem; cursor:pointer; }
 /* etusivun kortit: taulukon rivi korttina (selaimen skripti käyttää yhä rivejä ja pistesolua) */
 .etusivu table, .etusivu tbody { display:block; }
-.etusivu thead { display:block; }
+.etusivu thead { display:none; }
 .etusivu thead tr { display:block; }
 .etusivu thead th { display:none; border:0; padding:0; }
 .etusivu thead th:nth-child(2) { display:block; color:transparent; font-size:0; }
@@ -441,7 +441,7 @@ ul.kortit .kortti-tiedot .pieni { padding-right:0; }
 .paikan-tilanne { background:var(--pinta); border-radius:10px; padding:4px 14px 12px; margin:12px 0 18px; }
 .paikan-tilanne h2 { margin-top:10px; }
 .tilanne-pisteet { font-weight:700; font-size:1.5rem; margin-left:6px; vertical-align:middle; }
-.tilanne-pisteet small { font-size:.8rem; }
+.tilanne-pisteet::after { content:"/100"; font-size:.8rem; }
 .meta, .pieni { color:var(--heikko); font-size:.88rem; }
 nav { margin:14px 0 18px; display:flex; gap:8px; flex-wrap:wrap; }
 nav > a, .surffi { padding:4px 10px; border:1px solid var(--viiva); border-radius:999px;
@@ -585,7 +585,7 @@ SKRIPTI = """
   };
   const lue = (k, oletus) => { try { return JSON.parse(localStorage.getItem(k)) ?? oletus; } catch { return oletus; } };
   const kirjoita = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
-  const rivit = [...document.querySelectorAll("tr[data-paikka]")];
+  const rivit = [...document.querySelectorAll("tr[data-paikka], .tilanne-rivi[data-paikka]")];   // etusivu / paikkasivu
   const taulukko = document.querySelector("table[data-valilehti]");
   const vainSuosikit = taulukko && taulukko.dataset.valilehti === "suosikit";
   let suosikit = new Set(lue(AVAIN, []));
@@ -594,12 +594,15 @@ SKRIPTI = """
     let n = 0;
     for (const r of rivit) {
       const on = suosikit.has(r.dataset.paikka);
-      const nappi = r.querySelector(".suosikki");
-      nappi.textContent = on ? "♥" : "♡";
-      nappi.setAttribute("aria-pressed", on);
-      nappi.title = on ? T.poista : T.lisaa;
+      const nappi = r.querySelector(".suosikki"), sija = r.querySelector(".sija");
+      if (nappi) {
+        nappi.textContent = on ? "♥" : "♡";
+        nappi.setAttribute("aria-pressed", on);
+        nappi.title = on ? T.poista : T.lisaa;
+      }
+      if (!taulukko) continue;   // paikkasivu: ei suodatusta
       r.hidden = (vainSuosikit && !on) || !osuu(r.dataset.paikka);
-      if (!r.hidden) r.querySelector(".sija").textContent = ++n + ".";
+      if (!r.hidden && sija) sija.textContent = ++n + ".";
     }
     const lukumaara = document.getElementById("lukumaara");
     if (lukumaara) lukumaara.textContent = n + " " + (n === 1 ? T.paikka : T.paikkaa);
@@ -622,7 +625,7 @@ SKRIPTI = """
   }
   if (hakukentta) hakukentta.addEventListener("input", () => paivita());
   for (const r of rivit) {
-    r.querySelector(".suosikki").addEventListener("click", () => {
+    r.querySelector(".suosikki")?.addEventListener("click", () => {
       const nimi = r.dataset.paikka;
       suosikit.has(nimi) ? suosikit.delete(nimi) : suosikit.add(nimi);
       kirjoita(AVAIN, [...suosikit]);
@@ -646,6 +649,10 @@ SKRIPTI = """
     // asetettu lähtöaika säilyy välilehteä vaihdettaessa (sessionStorage), jos se on vielä tulevaisuudessa
     let tallessa = null;
     try { tallessa = sessionStorage.getItem("melonta-lahtoaika"); } catch {}
+    if (!tallessa) {   // uusi välilehti: toisessa välilehdessä tai kaaviossa viimeksi (6 h sisällä) valittu
+      const yhteinen = lue("melonta-lahtoaika", null);
+      if (yhteinen && Date.now() - yhteinen.aika < 6 * 3600 * 1000) tallessa = yhteinen.arvo;
+    }
     if (tallessa && new Date(tallessa) > nyt && new Date(tallessa) <= viimeinen) lahtoKentta.value = tallessa;
   }
   const lahto = () => {
@@ -701,7 +708,6 @@ SKRIPTI = """
 
   // Lähtöpäivä muu kuin tänään: vesitilanne, kohteiden arviot ja pisteet sen päivän ennusteesta,
   // paikat sen mukaiseen järjestykseen (sama sääntö kuin palvelimella: pisteet 5:n tarkkuudella, lähempi ensin)
-  const paivaTila = document.getElementById("paiva-tila");
   // Järjestys: pisteet (5:n tarkkuudella, lähempi ensin) tai etäisyys (oma sijainti / paikkakunta / Oulu)
   const jarjestysV = document.getElementById("jarjestys");
   function jarjesta() {
@@ -710,7 +716,7 @@ SKRIPTI = """
     const km = r => Number(r.dataset.etaisyys ?? r.dataset.oulusta);
     rivit.sort((a, b) => etaisyys ? (km(a) - km(b)) || (pist(b) - pist(a))
       : (Math.round(pist(b) / 5) - Math.round(pist(a) / 5)) || (km(a) - km(b)));
-    const runko = rivit[0] && rivit[0].parentElement;
+    const runko = taulukko && rivit[0] && rivit[0].parentElement;
     if (runko) rivit.forEach(r => runko.appendChild(r));
     paivita();
   }
@@ -721,16 +727,20 @@ SKRIPTI = """
   }
   const luokka = p => p >= 60 ? "p-hyva" : p >= 30 ? "p-keski" : "p-huono";
   function naytaPaiva() {
-    if (!taulukko || !lahtoKentta) return;
-    const alku = new Date(taulukko.dataset.paiva0 + "T00:00");
+    const pohja = document.querySelector("[data-paiva0]");
+    if (!pohja || !lahtoKentta) return;
+    const alku = new Date(pohja.dataset.paiva0 + "T00:00");
     const lahtoPv = lahtoKentta.value ? new Date(lahtoKentta.value.slice(0, 10) + "T00:00") : alku;
     const n = Math.max(0, Math.round((lahtoPv - alku) / 86400000));
     for (const r of rivit) {
       // lyhyempi ennuste (esim. SMHI 10 pv): sen viimeinen päivä ennen lähtöpäivää
       const p = JSON.parse(r.dataset.pisteet || "{}"), nn = Math.max(0, ...Object.keys(p).map(Number).filter(k => k <= n));
       r.querySelectorAll(".paiva").forEach(d => d.hidden = Number(d.dataset.paiva) !== nn);
-      const solu = r.querySelector("td.pisteet");
-      if (solu && p[nn] != null) { solu.textContent = p[nn]; solu.className = "pisteet " + luokka(p[nn]); }
+      const solu = r.querySelector("td.pisteet, .tilanne-pisteet");
+      if (solu && p[nn] != null) {
+        solu.textContent = p[nn];
+        solu.className = (solu.tagName === "TD" ? "pisteet " : "tilanne-pisteet ") + luokka(p[nn]);
+      }
       const olot = r.querySelector(".olot");
       if (olot && p[nn] != null) {
         olot.textContent = T.olot[p[nn] >= 80 ? 3 : p[nn] >= 60 ? 2 : p[nn] >= 30 ? 1 : 0];
@@ -739,8 +749,6 @@ SKRIPTI = """
       r.dataset.nyt = p[nn] ?? -1;
     }
     jarjesta();
-    paivaTila.textContent = n ? T.paivaTila + " " + lahtoPv.toLocaleDateString(T.kieli, {weekday: "short", day: "numeric", month: "numeric"}) : "";
-    paivaTila.hidden = !n;
   }
   saaOulusta();   // sivu voi olla välimuistista: saapumisaika tämän hetken mukaan
   if (lahtoKentta) {
@@ -751,6 +759,8 @@ SKRIPTI = """
       } else {
         try { sessionStorage.setItem("melonta-lahtoaika", lahtoKentta.value); } catch {}
       }
+      // muut välilehdet (etusivu, paikkasivut, kaaviot) samaan aikaan
+      kirjoita("melonta-lahtoaika", {arvo: lahtoKentta.value, aika: Date.now()});
       paivitaSaat(); naytaPaiva();
     });
     naytaPaiva();   // tallessa ollut lähtöpäivä: sen päivän arviot heti
@@ -792,8 +802,7 @@ SKRIPTI = """
         reitti.href = url.toString();
       }
     }
-    tila.textContent = oma ? T.lasketaan : "";
-    tila.hidden = !oma;
+    if (tila) { tila.textContent = ""; tila.hidden = true; }   // onnistuessa ei tilariviä, vain virheet
     if (!oma) { saaOulusta(); if (jarjestysV && jarjestysV.value === "etaisyys") jarjesta(); return; }
     const oma2 = oma.map(v => v.toFixed(2)), tama = ++kysely;
     fetch("/api/ajomatkat?v=2&lahto=" + oma2.join(","))   // v: vastauksen muoto (ajoajat mukana)
@@ -810,17 +819,16 @@ SKRIPTI = """
         if (jarjestysV && jarjestysV.value === "etaisyys") jarjesta();
         ajoajat = d.min || null;
         paivitaSaat();
-        tila.textContent = teksti;
       })
-      .catch(() => { if (tama === kysely) tila.textContent = T.eiAjo; });
+      .catch(() => { if (tama === kysely && tila) { tila.textContent = T.eiAjo; tila.hidden = false; } });
   }
   function hae() {
-    if (!navigator.geolocation) { tila.textContent = T.eiTukea; tila.hidden = false; return; }
-    tila.textContent = T.haetaan; tila.hidden = false;
+    if (!navigator.geolocation) { if (tila) { tila.textContent = T.eiTukea; tila.hidden = false; } return; }
+    if (tila) { tila.textContent = T.haetaan; tila.hidden = false; }
     navigator.geolocation.getCurrentPosition(
       p => { kirjoita(SIJ, true); kentta && (kentta.value = "");
              nayta([p.coords.latitude, p.coords.longitude], T.tila, null, T.oma); },
-      v => { kirjoita(SIJ, false); tila.textContent = T.eiSaatu(v.message); },
+      v => { kirjoita(SIJ, false); if (tila) tila.textContent = T.eiSaatu(v.message); },
       { maximumAge: 10 * 60 * 1000, timeout: 15000 });
   }
   // Paikkakunta sijainnin sijaan: koordinaatit sivulla (paikkakunnat.py), ei lähde mihinkään
@@ -833,7 +841,7 @@ SKRIPTI = """
     const nimi = haku[avain(arvo)];
     if (!nimi) { tila.textContent = T.tuntematon(arvo.trim()); tila.hidden = false; return; }
     const [lev, pit] = kunnat[nimi];
-    if (muista) kirjoita(SIJ, {paikkakunta: nimi});
+    if (muista) kirjoita(SIJ, {paikkakunta: nimi, koord: [lev, pit]});
     kentta.value = nimi;
     nayta([lev, pit], T.paikkakunnalta(nimi), lev + "," + pit, nimi);
   }
@@ -842,6 +850,10 @@ SKRIPTI = """
   if (nappi) nappi.addEventListener("click", hae);
   const muistettu = lue(SIJ, false);
   if (muistettu && muistettu.paikkakunta && kentta) valitse(muistettu.paikkakunta, false);
+  else if (muistettu && muistettu.koord) {   // paikkasivu: sama lähtöpaikka kuin etusivulla
+    const [lev, pit] = muistettu.koord;
+    nayta([lev, pit], "", lev + "," + pit, muistettu.paikkakunta);
+  }
   else if (muistettu === true) hae();   // lupa annettu aiemmin: päivitä suoraan
   // ⓘ avaa merkinnät ja kuvakkeet; alapalkin kuvakkeet avaavat paneelin (yksi kerrallaan)
   const info = document.getElementById("info"), merkinnat = document.getElementById("merkinnat");
@@ -1215,10 +1227,11 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
     lampo = f'\n<div class="pieni lampotilat">{lampo}</div>' if lampo else ""
     matka = " · ".join(x for x in (reitti, saapuminen) if x)
     matka = f'\n<div class="pieni matka">{matka}</div>' if matka else ""
-    if vain_tiedot:
-        return (f'<p>{_olot(t.pisteet, kieli)} <span class="tilanne-pisteet {_pisteluokka(t.pisteet)}">'
-                f'{t.pisteet:.0f}<small>/100</small></span></p>'
-                + (f'<div class="pieni">{km}</div>' if km else "") + f'{matka}{lampo}\n{versiot}')
+    if vain_tiedot:   # paikkasivu: sama sisältö ja samat data-attribuutit selaimen skriptille
+        return (f'<div class="tilanne-rivi" data-paikka="{e(p.nimi)}"{sijainti} data-pisteet=\'{pisteet_json}\'>'
+                f'<p>{_olot(t.pisteet, kieli)} <span class="tilanne-pisteet {_pisteluokka(t.pisteet)}">'
+                f'{t.pisteet:.0f}</span></p>'
+                + (f'<div class="pieni">{km}</div>' if km else "") + f'{matka}{lampo}\n{versiot}</div>')
     oulusta = ajo_km if ajo_km is not None else p.km_oulusta
     return f"""<tr data-paikka="{e(p.nimi)}"{sijainti} data-pisteet='{pisteet_json}' data-km="{p.km_oulusta or 0}"\
  data-oulusta="{oulusta if oulusta is not None else 99999:.0f}">
@@ -1392,7 +1405,6 @@ aria-label="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"></label
 <script type="application/json" id="paikkakunnat">{KUNNAT_JSON}</script>
 <p id="sijainti-tila" class="pieni" hidden></p>
 <p id="ei-suosikkeja" hidden>{EI_SUOSIKKEJA[kieli]}</p>
-<p id="paiva-tila" class="pieni" hidden></p>
 <table data-valilehti="{e(valittu)}" data-paiva0="{tilanne.paivitetty:%Y-%m-%d}">
 <thead><tr><th></th><th>{k_("Paikka")}<div class="lukumaara" id="lukumaara">{_lukumaara(len(arvioidut), k_)}</div></th><th>{k_("Pisteet")}</th><th class="piilo">{k_("+1 … +14 pv")}</th></tr></thead>
 <tbody>{rivit}</tbody>
@@ -1956,7 +1968,11 @@ def paikan_vesitilanne(nimi: str, kieli: str, tilanne: Tilanne | None) -> str:
     else:
         sisalto = _paikan_rivi(0, t, kieli, tilanne.saa.get(nimi), tilanne.ajo_min.get(nimi),
                                ajo_km=tilanne.ajo_km.get(nimi), vain_tiedot=True)
-    return f'<section class="paikan-tilanne"><h2>{k_("Vesitilanne")}</h2>{sisalto}</section>'
+    lahtoaika = (f'<p><label class="paikkakunta">{k_("lähtöaika")} <input id="lahtoaika" type="datetime-local" '
+                 f'step="900" data-paivia="{LAHTO_PAIVIA}"></label></p>' if t.pisteet is not None else "")
+    return (f'<section class="paikan-tilanne" data-paiva0="{tilanne.paivitetty:%Y-%m-%d}">'
+            f'<h2>{k_("Vesitilanne")}</h2>{lahtoaika}{sisalto}<p id="sijainti-tila" class="pieni" hidden></p></section>'
+            f'<script>{SKRIPTI}</script>')
 
 
 def _ehdotuksen_kuvaus(tunniste: str, ehdotus: dict, kieli: str):

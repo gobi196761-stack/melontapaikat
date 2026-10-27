@@ -639,7 +639,7 @@ def test_paivakohtaiset_arviot(palvelin, tilanne):
     assert '<div class="paiva" data-paiva="0">' in rivi and '<div class="paiva" data-paiva="1" hidden>' in rivi
     paiva1 = rivi.split('data-paiva="1" hidden>')[1].split("</div>")[0]
     assert "(ennuste +1 pv)" in paiva1 and "(ennuste +1 pv)" not in rivi.split('data-paiva="1"')[0]
-    assert 'data-paiva0="2026-10-18"' in runko and 'id="paiva-tila"' in runko
+    assert 'data-paiva0="2026-10-18"' in runko and 'id="paiva-tila"' not in runko   # ei tilariviä
     assert "(forecast +1 d)" in pyynto("/", "kieli=en")[2]
 
 
@@ -912,7 +912,10 @@ def test_paikkasivu_vesitilanne_ylimpana(monkeypatch, tilanne):
     nimi = tilanne.tulokset[0].paikka.nimi
     osoite = app.paikan_osoite(tilanne.tulokset[0].paikka)
     runko = pyynto(osoite)[2]
-    assert '<section class="paikan-tilanne"><h2>Vesitilanne</h2>' in runko and 'class="olot' in runko
+    assert '<section class="paikan-tilanne" data-paiva0="' in runko and "<h2>Vesitilanne</h2>" in runko
+    assert 'class="olot' in runko and f'<div class="tilanne-rivi" data-paikka="{nimi}"' in runko
+    # sama skripti kuin etusivulla: lähtöaika, sää perillä ja kaaviolinkkien reissu pysyvät samassa ajassa
+    assert 'id="lahtoaika"' in runko and "melonta-lahtoaika" in runko
     assert runko.index('class="paikan-tilanne"') < runko.index("<h2>Lähteet</h2>")
     assert "upload.wikimedia" not in runko and "<figure" not in runko and nimi in runko
 
@@ -935,3 +938,11 @@ def test_omat_kuvat_ja_alapalkki(palvelin):
     palkki = runko.split('<nav class="alapalkki"')[1].split("</nav>")[0]
     assert 'aria-label="Surffi"' in palkki and "</span>Surffi" not in palkki
     assert "text-align:center" in runko
+
+
+
+def test_etusivun_tilarivit_poissa(palvelin):
+    """Etusivulla ei näytetä tilarivejä (ajomatkojen lähtöpaikka, lähtöpäivän ennuste) eikä taulukon otsikkoa."""
+    runko = pyynto("/")[2]
+    assert ".etusivu thead { display:none; }" in runko and 'id="paiva-tila"' not in runko
+    assert "tila.textContent = teksti" not in runko   # onnistunut ajomatkahaku ei kirjoita tilariviä
