@@ -24,6 +24,9 @@ SANAT = {
     "Melontapaikkojen tilanne": "Paddling spots",
     "osm.fi:n paikkakuvaukset + SYKE:n ja SMHI:n vesistöennusteet": "spot descriptions from osm.fi + SYKE and SMHI hydrological forecasts",
     "päivitetty klo": "updated",
+    "📍 Sijainti ja lähtöaika": "📍 Location and departure time",
+    "Kuvat: Wikimedia Commons (vapaat lisenssit); tekijä ja lisenssi paikan sivulla.":
+        "Photos: Wikimedia Commons (free licences); author and licence on the spot's page.",
     "Kaikki": "All",
     "Pelipaikat": "Play spots",
     "Retket": "River runs",
