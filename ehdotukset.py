@@ -300,6 +300,11 @@ def nimi(ehdotus: dict) -> str:
     return urlparse(linkit[0]["url"]).hostname or "?" if linkit else "?"
 
 
+# Ylläpitäjän korvaamat julkaistut kohteet: vanha tunniste -> uusi (vanha piilotetaan, osoite ohjaa uuteen)
+KORVATUT: dict[str, str] = {
+    "xtf8Q1wKk9Gi1TZiQTLFtw": "HGpostBehXWrMgCxqacgTQ",   # Kiiminkijoki: Kivarinjärvi-Kalliuskoski
+}
+
 # Ylläpitäjän rajat julkaistuille kohteille (ehdotuksen nimi -> kohteet), kun ehdottaja kertoo
 # melontapäivän jälkikäteen: päivän virtaama SYKE:n mittarilta ja kesän alivirtaamat.
 YLLAPIDON_KOHTEET: dict[str, list[dict]] = {
