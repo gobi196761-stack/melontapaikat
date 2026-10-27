@@ -43,6 +43,11 @@ def tilanne(aineisto):
     return app.Tilanne(PAIVA, tulokset, varoitukset, len(lukemat))
 
 
+def paikkasivut(tilanne, kieli="fi"):
+    """Paikkasivujen vesitilanne-osiot: kohteiden arviot, mittarit, reitti ja sää (etusivun kortissa vain tiivistelmä)."""
+    return "".join(app.paikkasivu(t.paikka, kieli, tilanne) for t in tilanne.tulokset)
+
+
 def pyynto(polku, kysely="", metodi="GET"):
     vastaus = {}
 
@@ -60,13 +65,13 @@ def palvelin(monkeypatch, tilanne):
     monkeypatch.setattr(app, "hae_tilanne", lambda: tilanne)
 
 
-def test_sivu(palvelin):
+def test_sivu(palvelin, tilanne):
     status, otsakkeet, runko = pyynto("/")
     assert status == "200 OK"
     assert otsakkeet["Content-Type"].startswith("text/html")
     assert "s-maxage=" in otsakkeet["Cache-Control"]
     assert runko.index("Matkakoski") < runko.index("Kipinä (Iijoki)") < runko.index("Niskakoski")
-    assert "Oikean silta-aukon surffiaalto" in runko
+    assert "Oikean silta-aukon surffiaalto" in paikkasivut(tilanne) and "Näytä tiedot" not in runko
     # alussa merkintöjen ja kuvakkeiden selitykset (Kipinän veden lämpötila -laatikko poistettu)
     assert '<details class="selitykset" id="merkinnat"><summary>Merkinnät ja kuvakkeet</summary>' in runko   # suljettu oletuksena
     assert 'id="haku"' in runko
@@ -359,7 +364,7 @@ def test_suosikit_ja_sijainti_sivulla(palvelin):
     assert "Veden lämpötila" not in suosikit
 
 
-def test_englanninkielinen_sivu(palvelin):
+def test_englanninkielinen_sivu(palvelin, tilanne):
     fi = pyynto("/")[2]
     assert '<html lang="fi">' in fi and 'href="/?kieli=en" hreflang="en"' in fi and 'aria-label="In English"' in fi
     en = pyynto("/", "kieli=en")[2]
@@ -367,8 +372,9 @@ def test_englanninkielinen_sivu(palvelin):
     assert 'href="/" hreflang="fi"' in en and "Suomeksi" in en
     assert '<option value="/?tyyppi=peli&amp;kieli=en" data-nimi="Play spots">Play spots (' in en
     assert "Symbols and icons" in en and "km from Oulu" in en and '<div class="pieni">Play spot · ' in en
-    assert "at its best" in en or "works (" in en or "too little water" in en
-    assert "Eivät toimi nyt" not in en and "Not working now" in en
+    en_tiedot = paikkasivut(tilanne, "en")
+    assert "at its best" in en_tiedot or "works (" in en_tiedot or "too little water" in en_tiedot
+    assert "Eivät toimi nyt" not in en_tiedot and "Not working now" in en_tiedot
     # suomenkielisiä arvioinnin lauseita ei jää näkyviin
     for fi_teksti in ("parhaimmillaan", "liian vähän vettä", "liikaa vettä", "Oulusta", " pv: "):
         assert fi_teksti not in en.split("<script>")[0], fi_teksti
@@ -455,7 +461,7 @@ def test_arkistoidut_arviot(monkeypatch):
     assert app.arkistoidut_arviot("61/q6101750y") == {}
 
 
-def test_paikkakunta_ja_reittilinkit(palvelin):
+def test_paikkakunta_ja_reittilinkit(palvelin, tilanne):
     from paikkakunnat import PAIKKAKUNNAT
     assert len(PAIKKAKUNNAT) == 308 + 14
     assert PAIKKAKUNNAT["Oulu"] == pytest.approx((65.01, 25.47), abs=0.05)
@@ -464,10 +470,11 @@ def test_paikkakunta_ja_reittilinkit(palvelin):
     assert 'id="paikkakunta" list="kunnat"' in runko and '<option value="Rovaniemi">' in runko
     kunnat = json.loads(runko.split('<script type="application/json" id="paikkakunnat">')[1].split("</script>")[0])
     assert kunnat["Rovaniemi"] == list(PAIKKAKUNNAT["Rovaniemi"])
+    tiedot = paikkasivut(tilanne)
     assert ('href="https://www.google.com/maps/dir/?api=1&amp;destination=65.2838%2C26.5408&amp;travelmode=driving"'
-            in runko) and "🚗 Reitti" in runko
+            in tiedot) and "🚗 Reitti" in tiedot
     en = pyynto("/", "kieli=en")[2]
-    assert "or municipality" in en and "🚗 Route" in en and "e.g. Rovaniemi" in en
+    assert "or municipality" in en and "🚗 Route" in paikkasivut(tilanne, "en") and "e.g. Rovaniemi" in en
 
 
 def test_ajomatkat(monkeypatch):
@@ -523,23 +530,24 @@ def test_saa_perilla_ja_veden_lampotila(monkeypatch, palvelin, tilanne):
     next(iter(t.lukemat.values())).veden_lampotila = 4.64
     tilanne.saa, tilanne.ajo_min = {t.paikka.nimi: saa[paikat[0].nimi]}, {t.paikka.nimi: 0}
     runko = pyynto("/")[2]
-    assert '<span class="saa-aika">perillä klo ' in runko and '<span class="saa-ilma">0 °C</span>' in runko
-    assert '<span class="saa-ikoni">⛅</span> · vesi 4.6 °C' in runko and 'data-ajo="0"' in runko
-    en = pyynto("/", "kieli=en")[2]
+    sivu = app.paikkasivu(t.paikka, "fi", tilanne)   # sää ja reitti paikkasivun vesitilanteessa
+    assert '<span class="saa-aika">perillä klo ' in sivu and '<span class="saa-ilma">0 °C</span>' in sivu
+    assert '<span class="saa-ikoni">⛅</span> · vesi 4.6 °C' in sivu and 'data-ajo="0"' in sivu
+    en = app.paikkasivu(t.paikka, "en", tilanne)
     assert "on arrival" in en and ">air</a> <span" in en and "water 4.6 °C" in en
     # reittilinkki kohdelinkin alla, sää sen perässä; "ilma" vie paikan tuntiennusteeseen
     lev, pit = t.paikka.sijainti
     # kortti: iso kuva, nimi ♡, tilamerkki, tyyppi · km / kesto; avattavassa reitti · perillä klo ja lämpötilat
     assert '♡</button></div><span class="olot p-' in runko and '<div class="pieni">Peli · <span class="km">' in runko
-    assert '<details class="tiedot"><summary>Näytä tiedot</summary>' in runko
+    assert "Näytä tiedot" not in runko
     assert (f'<div class="pieni matka"><a class="reitti" href="https://www.google.com/maps/dir/?api=1&amp;'
             f'destination={lev}%2C{pit}&amp;travelmode=driving" target="_blank" rel="noopener">🚗 Reitti</a> · '
-            f'<span class="saa-aika">perillä klo ') in runko
+            f'<span class="saa-aika">perillä klo ') in sivu
     assert '<div class="pieni">Peli · <span class="km">~180 km Oulusta</span></div>' in runko
-    assert '</span></div>\n<div class="pieni lampotilat"><span class="saa"' in runko
+    assert '</span></div>\n<div class="pieni lampotilat"><span class="saa"' in sivu
     assert "ajomatka" not in runko.split("<script>")[0] and "\" ajomatka\"" not in runko
     assert (f'<a class="ilma-linkki" href="https://www.yr.no/en/forecast/hourly-table/{lev},{pit}" '
-            f'data-foreca="https://www.foreca.fi/Finland/Ylitornio/15vrk" target="_blank" rel="noopener">ilma</a>') in runko
+            f'data-foreca="https://www.foreca.fi/Finland/Ylitornio/15vrk" target="_blank" rel="noopener">ilma</a>') in sivu
     tilanne.saa, tilanne.ajo_min = {}, {}
 
 
@@ -619,7 +627,7 @@ def test_ukkonen(palvelin, tilanne):
     monkey = app.time.time
     try:
         app.time.time = lambda: nyt + 3600   # saapuminen klo nyt+1.5 h -> ukkonen 2.5 h päästä
-        runko = pyynto("/")[2]
+        runko = app.paikkasivu(t.paikka, "fi", tilanne)
     finally:
         app.time.time = monkey
     assert '<a class="ilma-linkki ukkonen" title="ukkosta ennustettu" href="https://www.yr.no/' in runko
@@ -632,15 +640,17 @@ def test_paivakohtaiset_arviot(palvelin, tilanne):
     t = next(x for x in tilanne.tulokset if x.ennuste)
     assert set(t.ennusteen_kohteet) == set(t.ennuste)
     runko = pyynto("/")[2]
-    rivi = runko[runko.index(f'<tr data-paikka="{t.paikka.nimi}"'):]
-    rivi = rivi[:rivi.index("</tr>")]
+    rivi = app.paikkasivu(t.paikka, "fi", tilanne)   # päivien versiot paikkasivun vesitilanteessa
+    rivi = rivi[rivi.index(f'<div class="tilanne-rivi" data-paikka="{t.paikka.nimi}"'):]
+    rivi = rivi[:rivi.index("</section>")]
+    assert "data-pisteet='" in runko[runko.index(f'<tr data-paikka="{t.paikka.nimi}"'):]   # etusivulla pisteet
     pisteet = json.loads(rivi.split("data-pisteet='")[1].split("'")[0])
     assert pisteet["0"] == round(t.pisteet) and pisteet["1"] == round(t.ennuste[1])
     assert '<div class="paiva" data-paiva="0">' in rivi and '<div class="paiva" data-paiva="1" hidden>' in rivi
     paiva1 = rivi.split('data-paiva="1" hidden>')[1].split("</div>")[0]
     assert "(ennuste +1 pv)" in paiva1 and "(ennuste +1 pv)" not in rivi.split('data-paiva="1"')[0]
     assert 'data-paiva0="2026-10-18"' in runko and 'id="paiva-tila"' not in runko   # ei tilariviä
-    assert "(forecast +1 d)" in pyynto("/", "kieli=en")[2]
+    assert "(forecast +1 d)" in app.paikkasivu(t.paikka, "en", tilanne)
 
 
 def test_reissun_pystyviiva(ajot):
@@ -752,7 +762,7 @@ def test_mittarin_tuntikaavio(ajot, monkeypatch, vaaka):
     assert "päivän keskiarvo-ennuste 108.58" in kuva   # 108.60 − 0.002 · 11.5 (lasku jatkuu)
 
 
-def test_kajakkikuvakkeet(palvelin):
+def test_kajakkikuvakkeet(palvelin, tilanne):
     from paikat import KAJAKKITYYPIT
     assert set(app.KAJAKKI_KUVAKKEET) == set(KAJAKKITYYPIT)
     for p in PAIKAT:
@@ -770,11 +780,11 @@ def test_kajakkikuvakkeet(palvelin):
     assert oletus[("Kattilakoski (Tornionjoki)", "Kakkosaalto")] == ("slice",)
     from paikat import ISOT_SURFFIT
     assert ISOT_SURFFIT <= {k.nimi for p in PAIKAT for k in p.kohteet}   # nimet ajan tasalla
-    runko = pyynto("/")[2]
+    runko = paikkasivut(tilanne)
     # Kipinän oikean silta-aukon surffiaalto: freestyle-kuvake nimen perässä
     assert ('<b>Oikean silta-aukon surffiaalto</b> <span class="kajakit"><svg class="kajakki" viewBox="0 -8 40 32" '
             'style="color:#e03131" role="img" aria-label="freestyle-kajakki"><title>freestyle-kajakki</title>') in runko
-    assert 'aria-label="freestyle kayak"' in pyynto("/", "kieli=en")[2]
+    assert 'aria-label="freestyle kayak"' in paikkasivut(tilanne, "en")
 
 
 def test_halytysosio(palvelin, monkeypatch):
@@ -949,3 +959,11 @@ def test_etusivun_tilarivit_poissa(palvelin):
     runko = pyynto("/")[2]
     assert ".etusivu thead { display:none; }" in runko and 'id="paiva-tila"' not in runko
     assert "tila.textContent = teksti" not in runko   # onnistunut ajomatkahaku ei kirjoita tilariviä
+
+
+def test_nimeton_asema_vesitilanteena():
+    """Nimettömän aseman tunnuksen (esim. käyttäjän ehdottaman kohteen mittari) tilalla 'Vesitilanne'."""
+    assert app.aseman_nimi("60/q6000110y/qinlyhyt.png") == "Vesitilanne"
+    paikka = next(p for p in PAIKAT if p.mittarit)
+    assert app._kaavion_otsikko(paikka, "60/q6000110y/qinlyhyt.png", "fi") == f"{paikka.nimi} – Vesitilanne"
+    assert app._kaavion_otsikko(paikka, "60/q6000110y/qinlyhyt.png", "en") == f"{paikka.nimi} – Water situation"

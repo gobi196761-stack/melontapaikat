@@ -136,6 +136,7 @@ SANAT = {
 
 # Arvioinnin ja mittarikuvauksen lauseet (järjestys merkitsee)
 KORVAUKSET = [
+    (r"^Vesitilanne\b", "Water situation"),
     (r"^parhaimmillaan$", "at its best"),
     (r"^toimii \((.+) alle parhaan\)$", r"works (\1 below best)"),
     (r"^toimii \((.+) yli parhaan\)$", r"works (\1 above best)"),

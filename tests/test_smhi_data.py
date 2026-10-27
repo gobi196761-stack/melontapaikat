@@ -122,6 +122,7 @@ def test_ruotsin_paikat_sivulla(ruotsi):
     tilanne = app.Tilanne(dt.datetime(2026, 10, 19, 11, 0), tulokset, [], 2)
     sivu = app.sivu(tilanne, tulokset, {})
     assert "Trollforsarna (Piteälven)" in sivu and "Pahakurkkio (Kalixälven)" in sivu
+    sivu = "".join(app.paikkasivu(t.paikka, "fi", tilanne) for t in tulokset)   # mittarilukemat paikkasivulla
     assert "Gransel (Piteälven) virtaama 119 m³/s (havainto, SMHI)" in sivu
     # SMHI:n mittareista linkki vie itse piirrettyyn kaavioon, ei raakaan JSON-dataan
     assert '<a href="/kaavio/smhi/1387/31914?paikka=Trollforsarna+%28Pite%C3%A4lven%29">Gransel' in sivu
