@@ -150,7 +150,7 @@ ja Livojoen ajo.jsonista tallennetaan ennuste (`qinlask_ka`, `qinlask_5`,
 `qinlask_95`) seuraavalle 7 päivälle, havainnot (`qhav`) viimeiseltä 7 päivältä
 ja sovelluksen oma Hawa'Ii-arvio ennusteineen (`ennustearkisto.py`).
 
-Verkossa **Vercel Cron** kutsuu joka ilta klo 18 UTC (`vercel.json`) reittiä
+Verkossa **Vercel Cron** kutsuu joka ilta klo 19 UTC (`vercel.json`) reittiä
 `/api/arkistoi`, joka tallentaa päivän Firestoreen dokumentiksi
 `ennusteet/YYYY-MM-DD` (`firestore.py`, REST-rajapinta palvelutilin avaimella).
 Käyttöönotto:

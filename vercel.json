@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["arn1"],
-  "crons": [{ "path": "/api/arkistoi", "schedule": "0 18 * * *" },
+  "crons": [{ "path": "/api/arkistoi", "schedule": "0 19 * * *" },
             { "path": "/api/halyta", "schedule": "0 5 * * *" },
             { "path": "/api/kapsi?ajo=1", "schedule": "0 1 * * *" },
             { "path": "/api/kapsi?ajo=2", "schedule": "0 9 * * *" },
