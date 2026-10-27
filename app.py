@@ -1183,6 +1183,9 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
             if l and l.url not in nakyvat:
                 nakyvat.append(l.url)
                 teksti = melonta.kuvaa_lukema(l) if paiva == 0 else melonta.kuvaa_ennuste(l, paiva)
+                asema = melonta.lukeman_asema(l)
+                if teksti and teksti.startswith(asema):   # linkissä aseman nimen sijaan "Vesitilanne:"
+                    teksti = f"{TUNTEMATON_ASEMA}:" + teksti[len(asema):].removeprefix(":")
                 if teksti:
                     href = kaavion_osoite(p, avain, l, kieli) or l.url
                     rivit.append(f'<li><a href="{e(href)}">{e(k_(teksti))}</a></li>')
