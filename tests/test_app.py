@@ -1033,3 +1033,17 @@ def test_paikkasivulla_yksi_reitti(monkeypatch, tilanne):
     sivu = app.paikkasivu(t.paikka, "fi", tilanne)
     meta = sivu.split('<div class="meta">')[1].split("</div>")[0]
     assert "🗺 Kartta" in meta and "Reitti" not in meta and sivu.count("🚗 Reitti") == 1
+
+
+def test_kortin_tilamerkki_kohteiden_mukaan(palvelin, tilanne):
+    """Kortin tilamerkki paikan parhaan kohteen mukaan: ★ Parhaimmillaan, ✓ Toimii tai ✗ Ei toimi."""
+    from types import SimpleNamespace as K
+    assert app._paras_tila([K(tila="ei toimi"), K(tila="paras")]) == "paras"
+    assert app._paras_tila([K(tila="ei toimi"), K(tila="toimii")]) == "toimii"
+    assert app._paras_tila([K(tila="ei toimi")]) == "ei toimi"
+    runko = pyynto("/")[2]
+    t = next(x for x in tilanne.tulokset if x.pisteet is not None)
+    rivi = runko[runko.index(f'<tr data-paikka="{t.paikka.nimi}"'):]
+    odotettu = {"paras": "★ Parhaimmillaan", "toimii": "✓ Toimii", "ei toimi": "✗ Ei toimi"}[app._paras_tila(t.kohteet)]
+    assert f">{odotettu}</span>" in rivi[:rivi.index("</tr>")] and "data-tilat='" in rivi
+    assert "Erinomaiset olot" not in runko and "★ At its best" in pyynto("/", "kieli=en")[2]
