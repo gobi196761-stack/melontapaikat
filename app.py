@@ -619,7 +619,7 @@ SKRIPTI = """
   const AVAIN = "melonta-suosikit", SIJ = "melonta-sijainti";
   const T = document.documentElement.lang === "en" ? {
     lisaa: "Add to favourites", poista: "Remove from favourites", km: "", paikka: "spot", paikkaa: "spots",
-    kieli: "en-GB", olot: ["Poor conditions", "Fair conditions", "Good conditions", "Excellent conditions"], perilla: "on arrival", paivaTila: "Water levels and ratings from the forecast for", ukkonen: "thunderstorm forecast", foreca: "Foreca 15-day forecast (yr.no covers only 9 days)", lahto: "from", oma: "your location",
+    kieli: "en-GB", olot: {paras: "★ At its best", toimii: "✓ Works", "ei toimi": "✗ Does not work"}, perilla: "on arrival", paivaTila: "Water levels and ratings from the forecast for", ukkonen: "thunderstorm forecast", foreca: "Foreca 15-day forecast (yr.no covers only 9 days)", lahto: "from", oma: "your location",
     tila: "Driving distances from your location.", lasketaan: "Calculating driving distances…",
     eiAjo: "Driving distances are not available right now. Distances are from Oulu city centre.",
     eiTukea: "Your browser does not support location.", haetaan: "Getting location…",
@@ -635,7 +635,7 @@ SKRIPTI = """
     iphone: "On iPhone, first add this page to the home screen (Share → Add to Home Screen) and open it from there.",
   } : {
     lisaa: "Lisää suosikkeihin", poista: "Poista suosikeista", km: "", paikka: "paikka", paikkaa: "paikkaa",
-    kieli: "fi-FI", olot: ["Heikot olot", "Kohtalaiset olot", "Hyvät olot", "Erinomaiset olot"], perilla: "perillä klo", paivaTila: "Vesitilanne ja arviot ennusteen mukaan:", ukkonen: "ukkosta ennustettu", foreca: "Forecan 15 vrk ennuste (yr.no ennustaa vain 9 päivää)", lahto: "lähtö", oma: "oma sijainti",
+    kieli: "fi-FI", olot: {paras: "★ Parhaimmillaan", toimii: "✓ Toimii", "ei toimi": "✗ Ei toimi"}, perilla: "perillä klo", paivaTila: "Vesitilanne ja arviot ennusteen mukaan:", ukkonen: "ukkosta ennustettu", foreca: "Forecan 15 vrk ennuste (yr.no ennustaa vain 9 päivää)", lahto: "lähtö", oma: "oma sijainti",
     tila: "Ajomatkat omasta sijainnistasi.", lasketaan: "Lasketaan ajomatkoja…",
     eiAjo: "Ajomatkoja ei saatu juuri nyt. Etäisyydet ovat Oulun keskustasta.",
     eiTukea: "Selain ei tue sijaintia.", haetaan: "Haetaan sijaintia…",
@@ -808,10 +808,10 @@ SKRIPTI = """
         solu.textContent = p[nn];
         solu.className = (solu.tagName === "TD" ? "pisteet " : "tilanne-pisteet ") + luokka(p[nn]);
       }
-      const olot = r.querySelector(".olot");
-      if (olot && p[nn] != null) {
-        olot.textContent = T.olot[p[nn] >= 80 ? 3 : p[nn] >= 60 ? 2 : p[nn] >= 30 ? 1 : 0];
-        olot.className = "olot " + luokka(p[nn]);
+      const olot = r.querySelector(".olot"), tila = JSON.parse(r.dataset.tilat || "{}")[nn];
+      if (olot && tila) {   // paikan paras kohde lähtöpäivänä
+        olot.textContent = T.olot[tila];
+        olot.className = "olot " + {paras: "p-hyva", toimii: "p-keski", "ei toimi": "p-huono"}[tila];
       }
       r.dataset.nyt = p[nn] ?? -1;
     }
@@ -1297,6 +1297,8 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
                       f'<ul class="pieni">{mittarit(n)}</ul>\n{kohteet(lista, huom)}</div>'
                       for n, (lista, _, huom) in paivat.items())
     pisteet_json = json.dumps({n: round(pist) for n, (_, pist, _) in paivat.items()}, separators=(",", ":"))
+    tilat = {n: _paras_tila(lista) for n, (lista, _, _) in paivat.items()}   # kortin tilamerkki päivittäin
+    tilat_json = json.dumps(tilat, separators=(",", ":"))
     ennuste = " / ".join(f"{t.ennuste[n]:.0f}" for n in sorted(t.ennuste)) or "–"
     if ajo_km is not None and ajo_min is not None:   # reititetty ajomatka ja -aika Oulusta
         km = f'<span class="km">~{ajo_km:.0f} km / {_kesto(ajo_min)}, {k_("lähtö")} Oulu</span>'
@@ -1316,30 +1318,37 @@ def _paikan_rivi(sija: int, t, kieli: str = "fi", saa: dict | None = None, ajo_m
     matka = " · ".join(x for x in (reitti, saapuminen) if x)
     matka = f'\n<div class="pieni matka">{matka}</div>' if matka else ""
     if vain_tiedot:   # paikkasivu: sama sisältö ja samat data-attribuutit selaimen skriptille
-        return (f'<div class="tilanne-rivi" data-paikka="{e(p.nimi)}"{sijainti} data-pisteet=\'{pisteet_json}\'>'
-                f'<p>{_olot(t.pisteet, kieli)} <span class="tilanne-pisteet {_pisteluokka(t.pisteet)}">'
+        return (f'<div class="tilanne-rivi" data-paikka="{e(p.nimi)}"{sijainti} data-pisteet=\'{pisteet_json}\' '
+                f'data-tilat=\'{tilat_json}\'>'
+                f'<p>{_olot(tilat[0], kieli)} <span class="tilanne-pisteet {_pisteluokka(t.pisteet)}">'
                 f'{t.pisteet:.0f}</span></p>'
                 + (f'<div class="pieni">{km}</div>' if km else "") + f'{matka}{lampo}\n{versiot}</div>')
     oulusta = ajo_km if ajo_km is not None else p.km_oulusta
-    return f"""<tr data-paikka="{e(p.nimi)}"{sijainti} data-pisteet='{pisteet_json}' data-km="{p.km_oulusta or 0}"\
+    return f"""<tr data-paikka="{e(p.nimi)}"{sijainti} data-pisteet='{pisteet_json}' data-tilat='{tilat_json}' data-km="{p.km_oulusta or 0}"\
  data-oulusta="{oulusta if oulusta is not None else 99999:.0f}">
 <td class="sija">{sija}.</td>
-<td>{_kortti(p, kuva, kieli, km, _olot(t.pisteet, kieli))}</td>
+<td>{_kortti(p, kuva, kieli, km, _olot(tilat[0], kieli))}</td>
 <td class="pisteet {_pisteluokka(t.pisteet)}">{t.pisteet:.0f}</td>
 <td class="ennuste piilo">{ennuste}</td>
 </tr>"""
 
 
-OLOT = {"fi": ("Heikot olot", "Kohtalaiset olot", "Hyvät olot", "Erinomaiset olot"),
-        "en": ("Poor conditions", "Fair conditions", "Good conditions", "Excellent conditions")}
+OLOT = {"fi": {"paras": "★ Parhaimmillaan", "toimii": "✓ Toimii", "ei toimi": "✗ Ei toimi"},
+        "en": {"paras": "★ At its best", "toimii": "✓ Works", "ei toimi": "✗ Does not work"}}
+OLOT_LUOKKA = {"paras": "p-hyva", "toimii": "p-keski", "ei toimi": "p-huono"}
 
 
-def _olot(pisteet: float | None, kieli: str) -> str:
-    """Kortin tilamerkki: samat rajat kuin hälytyksissä (80 / 60 / 30 pistettä)."""
-    if pisteet is None:
+def _paras_tila(kohteet: list) -> str:
+    """Paikan paras kohde: 'paras' (★), 'toimii' (✓) tai 'ei toimi' (✗)."""
+    tilat = {k.tila for k in kohteet}
+    return "paras" if "paras" in tilat else "toimii" if "toimii" in tilat else "ei toimi"
+
+
+def _olot(tila: str | None, kieli: str) -> str:
+    """Kortin tilamerkki paikan parhaan kohteen mukaan: ★ Parhaimmillaan, ✓ Toimii tai ✗ Ei toimi."""
+    if tila is None:
         return ""
-    taso = 3 if pisteet >= 80 else 2 if pisteet >= 60 else 1 if pisteet >= 30 else 0
-    return f'<span class="olot {_pisteluokka(pisteet)}">{OLOT["en" if kieli == "en" else "fi"][taso]}</span>'
+    return f'<span class="olot {OLOT_LUOKKA[tila]}">{OLOT["en" if kieli == "en" else "fi"][tila]}</span>'
 
 
 def _kortti(paikka, kuva: dict | None, kieli: str, km: str = "", merkki: str = "", suosikki: bool = True) -> str:

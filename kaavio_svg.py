@@ -243,6 +243,10 @@ def _reissu_osoitin(sarja: dict[int, float], ala_ms: float, yla_ms: float, x0: f
               "matka": matka.get(), "pv": syke_data.ENNUSTE_PAIVIA, "lahto": "departure" if kieli == "en" else "lähtö"}
     ala = y0 + korkeus
     halo = 'stroke="#fff" stroke-width="3" paint-order="stroke"'
+    # oikealla puoliskolla tekstit osoittimen vasemmalle puolelle (kuten selaimen skripti siirtäessä)
+    oikea = px > x0 + leveys * 0.55
+    aika_x, arvo_x = (f'x="{px - 6:.1f}" text-anchor="end"', f'x="{px - 9:.1f}" text-anchor="end"') if oikea \
+        else (f'x="{px + 6:.1f}"', f'x="{px + 9:.1f}"')
     return [
         f'<rect id="{tunnus}-alue" x="{x0}" y="{y0}" width="{leveys}" height="{korkeus}" fill="transparent"/>',
         f"<g id=\"{tunnus}\" data-reissu='{e(json.dumps(tiedot, separators=(',', ':')))}'>",
@@ -256,9 +260,9 @@ def _reissu_osoitin(sarja: dict[int, float], ala_ms: float, yla_ms: float, x0: f
         f'style="cursor:ew-resize;touch-action:none"/>',
         f'<text class="r-nuoli" x="{px:.1f}" y="{ala + 4.5}" text-anchor="middle" fill="#fff" font-size="13" '
         f'font-weight="700" style="cursor:ew-resize;touch-action:none;user-select:none">↔</text>',
-        f'<text class="r-aika" x="{px + 6:.1f}" y="{ala - 17}" fill="#6a1b9a" font-weight="700" {halo} '
+        f'<text class="r-aika" {aika_x} y="{ala - 17}" fill="#6a1b9a" font-weight="700" {halo} '
         f'pointer-events="none">{e(_t("reissu"))}</text>',
-        f'<text class="r-arvo" x="{px + 9:.1f}" y="{y0 + 30}" fill="#6a1b9a" font-size="13" font-weight="700" {halo} '
+        f'<text class="r-arvo" {arvo_x} y="{y0 + 30}" fill="#6a1b9a" font-size="13" font-weight="700" {halo} '
         f'pointer-events="none"></text>',
         "</g>",
         f"<script><![CDATA[{_REISSU_JS % tunnus}]]></script>",
