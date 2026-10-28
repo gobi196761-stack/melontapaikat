@@ -290,8 +290,40 @@ def valmis_taydennys(ehdotus: dict) -> dict:
     return t if t.get("tila") == "valmis" else {}
 
 
+# Ylläpitäjän muutokset julkaistuihin kohteisiin (ehdottajan antama nimi -> uusi nimi, kohteiden nimet ja
+# kuvaus); tietokannan ehdotus pysyy ennallaan. Kuvaus kertoo tiedot sellaisinaan, ei "ehdottajan mukaan".
+YLLAPIDON_MUUTOKSET: dict[str, dict] = {
+    "Iijoki Kitulankoski": {
+        "nimi": "Kitulankoski (Iijoki)",
+        "kohteet": {"Iijoki Kitulankoski": "Kitulankoski"},
+        # Hawa'Ii-paikan entisen Kitula-kohteen havainnot (melojan antamat)
+        "huom": {"Kitulankoski": "607 m³/s keskiaallosta loppui pito, 645–649 m³/s matala"},
+        "huom_en": {"Kitulankoski": "at 607 m³/s the middle wave lost its grip, 645–649 m³/s shallow"},
+        "teksti": "Kitulankoski on pelipaikka Iijoessa Maalismaan voimalaitoksen kohdalla Yli-Iissä (Oulu). "
+                  "Autolla pääsee aivan lähelle, ja paikka sopii myös aloitteleville.\n\n"
+                  "Virtaamatieto tulee SYKE:n Maalismaan asemalta noin puolen kilometrin päästä. Paikka toimii "
+                  "noin 640–1400 m³/s virtaamalla.\n\n"
+                  "Virtaus riippuu tulvasta ja voimalaitoksen juoksutuksista; matalalla vedellä paikka ei toimi. "
+                  "Tarkista virtaama ennen lähtöä.",
+        "teksti_en": "Kitulankoski is a play spot on the Iijoki at the Maalismaa power plant in Yli-Ii (Oulu). "
+                     "You can drive right next to it, and it also suits beginners.\n\n"
+                     "The discharge comes from SYKE's Maalismaa station about half a kilometre away. The spot "
+                     "works at about 640–1400 m³/s.\n\n"
+                     "The flow depends on floods and on releases from the power plant; at low water the spot does "
+                     "not work. Check the discharge before you go.",
+    },
+}
+
+
+def yllapidon_muutos(ehdotus: dict) -> dict:
+    return YLLAPIDON_MUUTOKSET.get(ehdotus.get("nimi") or "", {}) if ehdotus.get("laji") == "uusi" else {}
+
+
 def nimi(ehdotus: dict) -> str:
-    """Ehdotuksen nimi: ehdottajan antama, täydennyksen löytämä tai ensimmäisen linkin palvelin."""
+    """Ehdotuksen nimi: ylläpitäjän korjaama, ehdottajan antama, täydennyksen löytämä tai ensimmäisen
+    linkin palvelin."""
+    if yllapidon_muutos(ehdotus).get("nimi"):
+        return yllapidon_muutos(ehdotus)["nimi"]
     if ehdotus.get("nimi"):
         return ehdotus["nimi"]
     if valmis_taydennys(ehdotus).get("nimi"):
@@ -326,9 +358,14 @@ YLLAPIDON_KOHTEET: dict[str, list[dict]] = {
 def kaikki_kohteet(ehdotus: dict) -> list[dict]:
     """Ehdottajan kohteet, täydennyksen ja ylläpitäjän lisäämät (merkitty "arvio": True); ehdottajan
     kohde voittaa."""
-    omat = [dict(k) for k in ehdotus.get("kohteet", [])]
+    muutos = yllapidon_muutos(ehdotus)
+    uudet_nimet, huom, huom_en = muutos.get("kohteet", {}), muutos.get("huom", {}), muutos.get("huom_en", {})
+    omat = [{**k, "nimi": uudet_nimet.get(k["nimi"], k["nimi"])} for k in ehdotus.get("kohteet", [])]
+    omat = [{**k, **({"huom": huom[k["nimi"]], "huom_en": huom_en.get(k["nimi"], "")} if k["nimi"] in huom else {})}
+            for k in omat]
     nimet = {k["nimi"] for k in omat}
-    lisatyt = list(valmis_taydennys(ehdotus).get("kohteet", []))
+    lisatyt = [{**k, "nimi": uudet_nimet.get(k.get("nimi"), k.get("nimi"))}
+               for k in valmis_taydennys(ehdotus).get("kohteet", [])]
     if ehdotus.get("laji") == "uusi":
         lisatyt += YLLAPIDON_KOHTEET.get(nimi(ehdotus), [])
     return omat + [{**k, "arvio": True} for k in lisatyt if k.get("nimi") not in nimet]

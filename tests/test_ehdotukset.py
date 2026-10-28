@@ -112,9 +112,11 @@ def test_uusi_kohde_esikatselu_ilmoitus_ja_hyvaksynta(ymparisto):
     # ylläpitäjälle push heti
     assert lahetetyt == [(TILAUS["endpoint"], {"otsikko": "Uusi ehdotus: Kitkajoki (Käylä – Juuma)",
                                                "teksti": "uusi kohde: 1 kohdetta, 1 linkkiä – Antti",
-                                               "url": osoite,
+                                               "url": f"{osoite}?y=1",
                                                "toiminnot": [{"action": "taydenna", "title": "🔍 Täydennä",
-                                                              "api": f"/api/ehdotus/{tunniste}/taydenna"}]})]
+                                                              "api": f"/api/ehdotus/{tunniste}/taydenna"},
+                                                             {"action": "yllapito", "title": "⚙️ Ylläpito",
+                                                              "url": f"{osoite}?y=1"}]})]
     status, _, sivu = pyynto(osoite)
     assert status == "200 OK" and "odottaa hyväksyntää" in sivu and "Käylä – Juuma" in sivu
     assert "toimii yli 20 m³/s, parhaimmillaan 30 m³/s – 60 m³/s" in sivu
@@ -573,12 +575,13 @@ def test_taydennys_englanniksi(ymparisto):
         "laji": "uusi", "nimi": "Aventojoki", "tyyppi": "retki", "tila": "hyvaksytty", "mittari": "",
         "teksti": "Vain kevättulvalla.", "kohteet": [], "linkit": [], "taydennys": {**t, "tila": "valmis"}})
     sivu = pyynto(f"/ehdotus/{tunniste}", kysely="kieli=en")[2]
-    for teksti in en["teksti"], en["lahto"], en["loppu"], en["mittari_perustelu"], en["ehdottajan_teksti"], \
-            "limits are estimates":
+    for teksti in en["teksti"], en["lahto"], en["loppu"], en["mittari_perustelu"], "limits are estimates":
         assert teksti in sivu
-    assert "Pieni tulvajoki." not in sivu and "Vain kevättulvalla." not in sivu
+    # julkaistulla sivulla ei ehdottajan tekstiä erikseen (täydennys yhdistää sen kuvaukseen)
+    assert "Pieni tulvajoki." not in sivu and "Vain kevättulvalla." not in sivu and en["ehdottajan_teksti"] not in sivu
     sivu = pyynto(f"/ehdotus/{tunniste}")[2]
-    assert "Pieni tulvajoki." in sivu and "Vain kevättulvalla." in sivu and en["teksti"] not in sivu
+    assert "Pieni tulvajoki." in sivu and "Vain kevättulvalla." not in sivu and en["teksti"] not in sivu
+    assert "Ehdottajan huomiot" not in sivu
 
 
 def test_kaanna_nappi(ymparisto, monkeypatch):
@@ -656,3 +659,24 @@ def test_korvattu_kohde_ja_ilmoitusten_seuranta(ymparisto, monkeypatch):
     kanta.kirjoita(ehdotukset.YLLAPITO, "laite", {"endpoint": TILAUS["endpoint"], "p256dh": "x", "auth": "y"})
     assert json.loads(pyynto("/api/yllapito/testi", metodi="POST", evaste=evaste)[2])["laitteita"] == 1
     assert "Ilmoitukset tilattu 1 laitteelle" in pyynto("/yllapito", evaste=evaste)[2]
+
+
+
+def test_yllapidon_muutokset_julkaistuun_kohteeseen(ymparisto):
+    """Ylläpitäjän muutos: nimi, kohteiden nimet ja kuvaus ilman "ehdottajan mukaan" -viittauksia."""
+    kanta, _ = ymparisto
+    tunniste = "K" * 22
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, {
+        "laji": "uusi", "nimi": "Iijoki Kitulankoski", "tyyppi": "peli", "tila": "hyvaksytty", "linkit": [],
+        "mittari_virtaama": "61/q6101750y/qinlyhyt.png", "teksti": "Auton saa lähelle.",
+        "kohteet": [{"nimi": "Iijoki Kitulankoski", "rajat": {"virtaama": {"toimii": [640, 1400], "paras": [640, 1400]}}}],
+        "taydennys": {"tila": "valmis", "teksti": "Ehdottajan mukaan autolla pääsee lähelle.", "kohteet": []}})
+    paikka = next(p for p in app.kaikki_paikat() if p.url == f"/ehdotus/{tunniste}")
+    assert paikka.nimi == "Kitulankoski (Iijoki)" and [k.nimi for k in paikka.kohteet] == ["Kitulankoski"]
+    sivu = pyynto(f"/ehdotus/{tunniste}")[2]
+    assert "<h1>Kitulankoski (Iijoki)</h1>" in sivu and "Maalismaan voimalaitoksen kohdalla" in sivu
+    assert "ehdottajan mukaan" not in sivu.lower() and "Ehdottajan huomiot" not in sivu
+    assert "Kitulankoski is a play spot" in pyynto(f"/ehdotus/{tunniste}", "kieli=en")[2]
+    assert "607 m³/s keskiaallosta loppui pito" in sivu   # entisen Hawa'Ii-kohteen havainnot mukana
+    hawaii = next(p for p in PAIKAT if p.nimi.startswith("Hawa'Ii"))
+    assert [k.nimi for k in hawaii.kohteet] == ["Murtuva aalto"]   # ei päällekkäistä Kitula-kohdetta

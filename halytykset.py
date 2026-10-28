@@ -364,10 +364,11 @@ self.addEventListener("push", e => {
 self.addEventListener("notificationclick", e => {
   e.notification.close();
   const data = e.notification.data || {};
-  // ilmoituksen nappi (esim. ehdotuksen "Täydennä"): rajapintakutsu ylläpitäjän evästeellä, sitten sivu auki
+  // ilmoituksen nappi: rajapintakutsu ylläpitäjän evästeellä (esim. "Täydennä") ja/tai oma sivu
+  // (esim. "Ylläpito"), sitten sivu auki
   const toiminto = (data.toiminnot || []).find(t => t.action === e.action);
   const kutsu = toiminto && toiminto.api
     ? fetch(toiminto.api, {method: "POST", credentials: "include"}).catch(() => null) : Promise.resolve();
-  e.waitUntil(kutsu.then(() => clients.openWindow(data.url || "/")));
+  e.waitUntil(kutsu.then(() => clients.openWindow((toiminto && toiminto.url) || data.url || "/")));
 });
 """

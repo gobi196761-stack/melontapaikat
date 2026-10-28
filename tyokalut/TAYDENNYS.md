@@ -59,7 +59,9 @@ välitä ympäristömuuttujia.
    ("vain tulvalla", "kesällä matala"). Rajat ovat aina arvioita – kerro peruste kohteen `huom`-kentässä
    (esim. "melottu 16.5.2010 Oulankajoen 440 m³/s:lla; rajat arvioita"). Älä keksi rajoja, joille ei
    ole perustetta: jos mitään vesitietoa ei löydy, jätä kohteet pois ja kerro se `huomiot`-kentässä.
-9. Kirjoita kuvaus **omin sanoin** (ei suoria lainauksia): mikä paikka on, reitti (lähtö, loppu, pituus,
+9. Kirjoita kuvaus **omin sanoin** (ei suoria lainauksia) ja kerro tiedot sellaisinaan: älä kirjoita
+   "ehdottajan mukaan" tai "ehdottaja pitää" – yhdistä ehdottajan tiedot kuvaukseen (ehdottajan tekstiä
+   ei näytetä julkaistulla sivulla erikseen): mikä paikka on, reitti (lähtö, loppu, pituus,
    kosket ja luokitus), vaarat, vesitilanne ja paras aika, mistä tiedot ovat. Kappaleet erotetaan
    tyhjällä rivillä.
 10. Älä mainitse henkilöiden nimiä (kirjoittajat, melojat, ehdottaja) äläkä henkilökohtaisia
