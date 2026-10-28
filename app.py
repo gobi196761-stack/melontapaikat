@@ -67,7 +67,9 @@ from paikat import PAIKAT, SIJAINNIT, TUNTEMATON_ASEMA, aseman_nimi, kohteen_kaj
 from paikkakunnat import PAIKKAKUNNAT, RUOTSI
 
 VALIMUISTI_S = 60 * 60   # SYKE:n data päivittyy kerran päivässä; pidempi aika säästää suoritinaikaa
-CACHE_CONTROL = "public, max-age=300, s-maxage=3600, stale-while-revalidate=3600, stale-if-error=86400"
+# CDN pitää sivun 10 min (tilanne on muistissa / Firestoressa, joten uusi sivu on halpa); uusi hyväksytty
+# kohde näkyy viimeistään noin 20 min päästä
+CACHE_CONTROL = "public, max-age=120, s-maxage=600, stale-while-revalidate=600, stale-if-error=3600"
 ODOTUS_CACHE = "public, max-age=0, s-maxage=30"   # paikkasivu ilman valmista vesitilannetta (haetaan jälkikäteen)
 
 
@@ -2126,13 +2128,12 @@ def _ehdotuksen_kuvaus(tunniste: str, ehdotus: dict, kieli: str):
     en = kieli == "en"
     tayd = ehdotukset.valmis_taydennys(ehdotus)
     kaannos = (tayd.get("en") or {}) if en else {}
-    teksti = kaannos.get("teksti") or tayd.get("teksti") or ""
-    ehdottajan = kaannos.get("ehdottajan_teksti") or ehdotus.get("teksti") or ""
+    muutos = ehdotukset.yllapidon_muutos(ehdotus)
+    teksti = (muutos.get("teksti_en") if en else muutos.get("teksti")) or kaannos.get("teksti") \
+        or tayd.get("teksti") or ""
+    # ehdottajan teksti vain, jos kuvausta ei ole (täydennys yhdistää sen tiedot kuvaukseen)
+    teksti = teksti or kaannos.get("ehdottajan_teksti") or ehdotus.get("teksti") or ""
     osiot = ()
-    if not teksti:
-        teksti = ehdottajan
-    elif ehdottajan.strip():
-        osiot = (("Suggester's notes" if en else "Ehdottajan huomiot", ehdottajan),)
     perustelu = kaannos.get("mittari_perustelu") or tayd.get("mittari_perustelu")
     if perustelu:
         osiot += (("Gauge" if en else "Mittari", perustelu),)
@@ -3092,9 +3093,10 @@ def tallenna_ehdotus(kentat: dict[str, list[str]], kieli: str, ip: str) -> tuple
             "teksti": f"{laji}: {len(ehdotus['kohteet'])} kohdetta, {len(ehdotus['linkit'])} linkkiä"
                       + (f" – {ehdotus['ehdottaja']}" if ehdotus.get("ehdottaja") else "")
                       + (f" ⚠️ mahdollisesti sama kuin {kaksoset[0]['nimi']}" if kaksoset else ""),
-            "url": f"/ehdotus/{tunniste}",
-            # ilmoituksen nappi (Android, työpöytä): service worker kutsuu rajapintaa ja avaa esikatselun
-            "toiminnot": [{"action": "taydenna", "title": "🔍 Täydennä", "api": f"/api/ehdotus/{tunniste}/taydenna"}]})
+            "url": f"/ehdotus/{tunniste}?y=1",
+            # ilmoituksen napit (Android, työpöytä): täydennys (service worker kutsuu rajapintaa) ja ylläpito
+            "toiminnot": [{"action": "taydenna", "title": "🔍 Täydennä", "api": f"/api/ehdotus/{tunniste}/taydenna"},
+                          {"action": "yllapito", "title": "⚙️ Ylläpito", "url": f"/ehdotus/{tunniste}?y=1"}]})
         kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
     except (firestore.FirestoreVirhe, OSError):
         pass   # ehdotus on tallessa, vaikka ilmoitus epäonnistuisi
@@ -3146,7 +3148,8 @@ def ilmoita_taydennyksesta(tunniste: str) -> bool:
                 f" ⚠️ Mahdollisesti sama kuin {k['nimi']} ({k['syy']})."
                 for k in [k for k in ehdotuksen_kaksoiskappaleet(tunniste, ehdotus)
                           if not k["osoite"].startswith("/muut/")][:1]),
-            "url": f"/ehdotus/{tunniste}?y=1"})
+            "url": f"/ehdotus/{tunniste}?y=1",
+            "toiminnot": [{"action": "yllapito", "title": "⚙️ Ylläpito", "url": f"/ehdotus/{tunniste}?y=1"}]})
         kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)   # ylläpitäjä näkee, menikö ilmoitus perille
         avainpari = halytykset.avaimet(kanta)
         if ehdotus.get("tilaus") and avainpari:
