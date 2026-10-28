@@ -280,10 +280,11 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
            arvio: float | None = None,
            aiemmat_arviot: dict[dt.date, float] | None = None,
            jalkikateen_arviot: dict[dt.date, float] | None = None,
+           jalkikateen_nimi: str = "laskettu jälkikäteen",
            paivan_arvo: tuple[float, str] | None = None,
            toinen_arvio: tuple[str, float] | None = None,
-           kolmas_arvio: tuple[str, float] | None = None,
-           neljas_arvio: tuple[str, float] | None = None,
+           kolmas_arvio: tuple[str, float, dt.date] | None = None,
+           neljas_arvio: tuple[str, float, dt.date] | None = None,
            tunnus: list[tuple[str, float, str]] | None = None,
            alueet: list[Alue] | None = None,
            kieli: str = "fi") -> str:
@@ -461,15 +462,16 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         ryhma.append(vinonelio(tx, ty, 7, "#6a1b9a", ontto=True))
         ryhma.append(f'<text x="{tx - 10:.1f}" y="{ty + 18:.1f}" text-anchor="end" fill="#6a1b9a" font-weight="600" '
                      f'stroke="#fff" stroke-width="3" paint-order="stroke">{luku(toinen_arvio[1])}</text>')
+    # kolmas ja neljäs arvio kuluvan Suomen päivän kohdalle (voi olla SYKE:n "tänään" jälkeinen päivä)
     if kolmas_arvio is not None:   # kolmas arvio: turkoosi ontto vinoneliö, arvo oikealle alas
-        ky = y(kolmas_arvio[1])
-        ryhma.append(vinonelio(tx, ky, 7, "#00897b", ontto=True))
-        ryhma.append(f'<text x="{tx + 10:.1f}" y="{ky + 18:.1f}" fill="#00897b" font-weight="600" '
+        kx, ky = x(kolmas_arvio[2]), y(kolmas_arvio[1])
+        ryhma.append(vinonelio(kx, ky, 7, "#00897b", ontto=True))
+        ryhma.append(f'<text x="{kx + 10:.1f}" y="{ky + 18:.1f}" fill="#00897b" font-weight="600" '
                      f'stroke="#fff" stroke-width="3" paint-order="stroke">{luku(kolmas_arvio[1])}</text>')
     if neljas_arvio is not None:   # neljäs arvio: sininen ontto vinoneliö, arvo vasemmalle ylös
-        ny4 = y(neljas_arvio[1])
-        ryhma.append(vinonelio(tx, ny4, 7, "#1e88e5", ontto=True))
-        ryhma.append(f'<text x="{tx - 10:.1f}" y="{ny4 - 9:.1f}" text-anchor="end" fill="#1e88e5" font-weight="600" '
+        nx4, ny4 = x(neljas_arvio[2]), y(neljas_arvio[1])
+        ryhma.append(vinonelio(nx4, ny4, 7, "#1e88e5", ontto=True))
+        ryhma.append(f'<text x="{nx4 - 10:.1f}" y="{ny4 - 9:.1f}" text-anchor="end" fill="#1e88e5" font-weight="600" '
                      f'stroke="#fff" stroke-width="3" paint-order="stroke">{luku(neljas_arvio[1])}</text>')
     if lukema is not None:   # tämän päivän lukema numerona, kuten Hawa'Iin arvio
         ryhma.append(vinonelio(tx, y(lukema), 7, "#ef6c00"))
@@ -539,7 +541,7 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
         selite.append(("onttovino", "#ef6c00", _t("arvio silloin (arkisto)") + keskivirhe(aiemmat_arviot)))
     jalkikateen = {p: v for p, v in jalkikateen_arviot.items() if p not in aiemmat_arviot}
     if jalkikateen:
-        selite.append(("onttovino_vaalea", "#f4b183", _t("laskettu jälkikäteen") + keskivirhe(jalkikateen)))
+        selite.append(("onttovino_vaalea", "#f4b183", _t(jalkikateen_nimi) + keskivirhe(jalkikateen)))
     if arvio is not None:
         selite.append(("vino", "#ef6c00", _t("arvio tänään")))
     if toinen_arvio is not None:
@@ -547,9 +549,11 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     elif paivan_arvo:
         selite.append(("vino", "#ef6c00", f"{_t('tänään')}: {luku(paivan_arvo[0])} ({_t(paivan_arvo[1])})"))
     if kolmas_arvio is not None:
-        selite.append(("onttovino", "#00897b", f"{_t('kolmas arvio tänään')} ({_t(kolmas_arvio[0])})"))
+        selite.append(("onttovino", "#00897b", f"{_t('kolmas arvio')} {kolmas_arvio[2].day}.{kolmas_arvio[2].month}. "
+                                                f"({_t(kolmas_arvio[0])})"))
     if neljas_arvio is not None:
-        selite.append(("onttovino", "#1e88e5", f"{_t('neljäs arvio tänään')} ({_t(neljas_arvio[0])})"))
+        selite.append(("onttovino", "#1e88e5", f"{_t('neljäs arvio')} {neljas_arvio[2].day}.{neljas_arvio[2].month}. "
+                                                f"({_t(neljas_arvio[0])})"))
     if ennuste_vali:
         selite.append(("alue", "#bcdcf7", _t("ennusteen 5–95 %")))
     if tausta:
@@ -705,10 +709,16 @@ def kuva_svg(sarjat, tanaan: dt.date, otsikko: str, yksikko: str, alueet: list[A
 
 def tunti_svg(otsikko: str, paiva: dt.date, tunnit: dict, vertailu: list[tuple[str, float, str]],
               kieli: str = "fi", yksikko: str = "m3/s", alaotsikko: str | None = None,
-              mitattu: str = "arvio mitatuista syötteistä") -> str:
+              mitattu: str = "arvio mitatuista syötteistä", alku: dt.datetime | None = None,
+              tavoite: str = "päivän keskiarvo-ennuste", ennuste_nimi: str = "ennuste päivän loppuun",
+              tunteja: int = 24, rinnakkainen: dict | None = None) -> str:
     """Päivän tuntikaavio arviomallin asemalle (syke_data.tuntiarviot): toisen arvion tuntiarvot
     syötteiden mittauksista (yhtenäinen), loppupäivän ennuste (katkoviiva) ja vaakaviivoina
-    päivän keskiarvo-ennuste sekä vertailuarvot (nimi, arvo, väri)."""
+    päivän keskiarvo-ennuste sekä vertailuarvot (nimi, arvo, väri).
+
+    `alku`: `tunteja` tunnin jakso alkaa tästä hetkestä (syke_data.neljas_arvio: tunnit = tunteja
+    alusta, arvo hetken kohdalla); muuten kalenteripäivä klo 0–24 ja arvo tunnin keskellä.
+    `rinnakkainen`: toinen käyrä samalla akselilla {"arviot", "ennuste", "nimi", "vari", "arvo", "arvo_nimi"}."""
     _t = lambda s: kielet.kaanna(s, kieli)   # noqa: E731
     metreja = yksikko == "m"
     luku = lambda v: _luku(v, metreja)   # noqa: E731
@@ -717,17 +727,21 @@ def tunti_svg(otsikko: str, paiva: dt.date, tunnit: dict, vertailu: list[tuple[s
     reuna = vasen if lev > 600 else 12
     otsikkorivit, yla = _otsikot(
         otsikko, f'{_t("Vedenkorkeus m" if metreja else "Virtaama m³/s")} · '
-                 f'{_t(alaotsikko or "toinen arvio tunneittain SYKE:n reaaliaikamittauksista")} {paiva.day}.{paiva.month}.',
+                 f'{_t(alaotsikko or "toinen arvio tunneittain SYKE:n reaaliaikamittauksista")}'
+                 + (f' {paiva.day}.{paiva.month}.' if alku is None else ''),
         reuna, lev - reuna - oikea)
     yla = max(yla + 2, 58)
     pl = lev - vasen - oikea
     kaikki = list(tunnit["arviot"].values()) + list(tunnit["ennuste"].values()) + [tunnit["keskiarvo"]] \
         + [v for _, v, _ in vertailu]
+    if rinnakkainen:
+        kaikki += list(rinnakkainen["arviot"].values()) + list(rinnakkainen["ennuste"].values())
     a_, y_ = min(kaikki), max(kaikki)
     vara = max((y_ - a_) * 0.15, 0.03 if metreja else 3.0)
     tikit = _asteikko(a_ - vara, y_ + vara)
     alin, ylin = min(tikit[0], a_ - vara), max(tikit[-1], y_ + vara)
-    x = lambda t: vasen + t / 24 * pl   # noqa: E731   (tunnin keskikohta: t + 0.5)
+    x = lambda t: vasen + t / tunteja * pl   # noqa: E731
+    kohta = 0.5 if alku is None else 0.0   # kalenteripäivä: tunnin keskikohta; jakso: hetken kohta
     y = lambda v: yla + (ylin - v) / (ylin - alin) * pk   # noqa: E731
     polku = lambda pis: " ".join(f"{'M' if i == 0 else 'L'}{px:.1f},{py:.1f}" for i, (px, py) in enumerate(pis))  # noqa: E731
     osat = list(otsikkorivit)
@@ -735,9 +749,10 @@ def tunti_svg(otsikko: str, paiva: dt.date, tunnit: dict, vertailu: list[tuple[s
         if alin <= t <= ylin:
             osat.append(f'<line x1="{vasen}" x2="{vasen + pl}" y1="{y(t):.1f}" y2="{y(t):.1f}" stroke="#e3e7eb"/>'
                         f'<text x="{vasen - 6}" y="{y(t) + 4:.1f}" text-anchor="end" fill="#5c6670">{luku(t)}</text>')
-    for h in range(0, 25, 3):
+    for h in range(0, tunteja + 1, 3 if tunteja <= 24 else 6):
+        nimi = f"{h:02d}" if alku is None else f"{(alku.hour + h) % 24:02d}"
         osat.append(f'<line x1="{x(h):.1f}" x2="{x(h):.1f}" y1="{yla}" y2="{yla + pk}" stroke="#f0f2f4"/>'
-                    f'<text x="{x(h):.1f}" y="{yla + pk + 16}" text-anchor="middle" fill="#5c6670">{h:02d}</text>')
+                    f'<text x="{x(h):.1f}" y="{yla + pk + 16}" text-anchor="middle" fill="#5c6670">{nimi}</text>')
     for nimi, arvo, vari in vertailu:
         osat.append(f'<line x1="{vasen}" x2="{vasen + pl}" y1="{y(arvo):.1f}" y2="{y(arvo):.1f}" stroke="{vari}" '
                     f'stroke-dasharray="2 4" stroke-width="1.5"/><text x="{vasen + pl - 4}" y="{y(arvo) - 4:.1f}" '
@@ -745,21 +760,34 @@ def tunti_svg(otsikko: str, paiva: dt.date, tunnit: dict, vertailu: list[tuple[s
     ka = tunnit["keskiarvo"]
     osat.append(f'<line x1="{vasen}" x2="{vasen + pl}" y1="{y(ka):.1f}" y2="{y(ka):.1f}" stroke="#6a1b9a" '
                 f'stroke-width="1.5"/><text x="{vasen + 6}" y="{y(ka) - 5:.1f}" fill="#6a1b9a" font-weight="600" '
-                f'stroke="#fff" stroke-width="3" paint-order="stroke">{e(_t("päivän keskiarvo-ennuste"))} {luku(ka)}</text>')
+                f'stroke="#fff" stroke-width="3" paint-order="stroke">{e(_t(tavoite))} {luku(ka)}</text>')
+    if rinnakkainen:   # vertailukäyrä ohuempana alle
+        r, rv = rinnakkainen, rinnakkainen["vari"]
+        if r["arviot"]:
+            osat.append(f'<path d="{polku([(x(t + kohta), y(v)) for t, v in sorted(r["arviot"].items())])}" '
+                        f'fill="none" stroke="{rv}" stroke-width="2"/>')
+        if len(r["ennuste"]) > 1:
+            osat.append(f'<path d="{polku([(x(t + kohta), y(v)) for t, v in sorted(r["ennuste"].items())])}" '
+                        f'fill="none" stroke="{rv}" stroke-width="2" stroke-dasharray="6 4"/>')
+        if r.get("arvo") is not None:
+            osat.append(f'<text x="{vasen + 6}" y="{y(r["arvo"]) + 15:.1f}" fill="{rv}" font-weight="600" '
+                        f'stroke="#fff" stroke-width="3" paint-order="stroke">{e(r["arvo_nimi"])} {luku(r["arvo"])}</text>')
     if tunnit["arviot"]:
-        osat.append(f'<path d="{polku([(x(t + 0.5), y(v)) for t, v in sorted(tunnit["arviot"].items())])}" '
+        osat.append(f'<path d="{polku([(x(t + kohta), y(v)) for t, v in sorted(tunnit["arviot"].items())])}" '
                     f'fill="none" stroke="#6a1b9a" stroke-width="2.5"/>')
         for t, v in sorted(tunnit["arviot"].items()):
-            osat.append(f'<circle cx="{x(t + 0.5):.1f}" cy="{y(v):.1f}" r="2.8" fill="#6a1b9a"/>')
+            osat.append(f'<circle cx="{x(t + kohta):.1f}" cy="{y(v):.1f}" r="2.8" fill="#6a1b9a"/>')
     if len(tunnit["ennuste"]) > 1:
-        osat.append(f'<path d="{polku([(x(t + 0.5), y(v)) for t, v in sorted(tunnit["ennuste"].items())])}" '
+        osat.append(f'<path d="{polku([(x(t + kohta), y(v)) for t, v in sorted(tunnit["ennuste"].items())])}" '
                     f'fill="none" stroke="#6a1b9a" stroke-width="2.5" stroke-dasharray="8 5"/>')
-    nx = x(tunnit["viim"] + 1)
+    nx = x(tunnit["viim"] + (1 if alku is None else 0))
     osat.append(f'<line x1="{nx:.1f}" x2="{nx:.1f}" y1="{yla}" y2="{yla + pk}" stroke="#00bcd4" stroke-width="2" '
                 f'stroke-dasharray="6 4"/>')
     osat.append(f'<rect x="{vasen}" y="{yla}" width="{pl}" height="{pk}" fill="none" stroke="#9aa4ae"/>')
-    selite = [("viiva", "#6a1b9a", _t(mitattu)), ("katko", "#6a1b9a", _t("ennuste päivän loppuun")),
+    selite = [("viiva", "#6a1b9a", _t(mitattu)), ("katko", "#6a1b9a", _t(ennuste_nimi)),
               ("katko", "#00bcd4", _t("viimeisin mittaus"))]
+    if rinnakkainen:
+        selite.insert(1, ("viiva", rinnakkainen["vari"], rinnakkainen["nimi"]))
     def merkki(laji: str, vari: str, sx: float, sy: float) -> str:
         viiva = ' stroke-dasharray="5 3"' if laji == "katko" else ""
         return f'<line x1="{sx}" x2="{sx + 18}" y1="{sy - 4}" y2="{sy - 4}" stroke="{vari}" stroke-width="2.5"{viiva}/>'
@@ -800,11 +828,21 @@ def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: l
     havainnot = {_ms(p) + PAIVA_MS // 2: v for p, v in
                  _paivasarja(ajo.get("qhav"), tanaan - dt.timedelta(days=HISTORIA_PAIVIA),
                              tanaan - dt.timedelta(days=1)).items()}
-    arkisto = arkisto or {}
     menneet = [tanaan - dt.timedelta(days=n) for n in range(HISTORIA_PAIVIA, 0, -1)]
-    aiemmat = {p: arkisto[p] for p in menneet if p in arkisto}
-    jalkikateen = {p: v for p in menneet
-                   if p not in aiemmat and (v := syke_data.arvioi_paiva(asema, ajot, p)) is not None}
+    # menneet päivät neljännellä mallilla (edellisen päivän mittaus + jatkuvan tuntikäyrän muutos);
+    # mittaamattomat päivät tuoreimmasta mittauksesta kuluvaan päivään asti. Ensimmäisen mallin
+    # arkistoarvoja (`arkisto`) ei piirretä.
+    jalkikateen = syke_data.neljas_jalkikateen(asema, ajot, menneet) if asema in syke_data.TARKENNETUT else {}
+    if lukema.neljas_arvio is not None:
+        neljas = syke_data.neljas_arvio(asema, ajot, lukema.neljas_arvio[2])
+        if neljas:
+            jalkikateen.update({p: v for p, v in neljas["paivat"].items() if p < lukema.neljas_arvio[2]})
+    aiemmat: dict[dt.date, float] = {}
+    if not jalkikateen:   # ei tuntitietoja: ensimmäisen mallin arviot kuten ennen
+        arkisto = arkisto or {}
+        aiemmat = {p: arkisto[p] for p in menneet if p in arkisto}
+        jalkikateen = {p: v for p in menneet
+                       if p not in aiemmat and (v := syke_data.arvioi_paiva(asema, ajot, p)) is not None}
     arvio = lukema.arvo
     ennuste = {tanaan + dt.timedelta(days=n): v for n in lukema.ennuste
                if (v := lukema.ennuste_korjattu(n)) is not None}
@@ -822,6 +860,8 @@ def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: l
                   f"{_t('(' + lukema.lahde)[1:]} · {_t('ennuste tehty')} {tanaan.day}.{tanaan.month}.")
     return piirra(otsikko, alaotsikko, tanaan, ennuste=ennuste, ennuste_vali=vali, havainnot=havainnot,
                   havainto_viiva=True, arvio=arvio, aiemmat_arviot=aiemmat, jalkikateen_arviot=jalkikateen,
+                  jalkikateen_nimi="neljäs malli jälkikäteen" if not aiemmat and lukema.neljas_arvio else
+                  "laskettu jälkikäteen",
                   toinen_arvio=lukema.toinen_arvio, kolmas_arvio=lukema.kolmas_arvio,
                   neljas_arvio=lukema.neljas_arvio,
                   tunnus=tunnus, alueet=alueet,

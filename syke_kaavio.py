@@ -16,6 +16,7 @@ voidaan lukea pikselitarkasti:
 
 from __future__ import annotations
 
+import datetime as dt
 import io
 import json
 import re
@@ -312,8 +313,10 @@ class Kaaviolukema:
     tietolahde: str = "kaavio"      # "kaavio" | "SYKE-data" | "arvio <malli>" (ks. syke_data.py)
     veden_lampotila: float | None = None  # aseman ajo.jsonin vesistömallin veden lämpötila tänään (°C)
     toinen_arvio: tuple[str, float] | None = None  # (mallin nimi, arvo) arviomallin rinnalla, ks. syke_data
-    kolmas_arvio: tuple[str, float] | None = None  # (mallin nimi, arvo): eilinen + tuntiarvioiden derivaatta
-    neljas_arvio: tuple[str, float] | None = None  # (mallin nimi, arvo): eilinen + tuntikäyrän muutos
+    # (mallin nimi, arvo, päivä): kuluvan Suomen päivän arvio tuoreimmasta mittauksesta tuntiarvioiden kautta,
+    # päivä voi olla SYKE:n "tänään" (ennustepvm_www) myöhempi, ks. syke_data.kolmas_arvio / neljas_arvio
+    kolmas_arvio: tuple[str, float, dt.date] | None = None
+    neljas_arvio: tuple[str, float, dt.date] | None = None
 
     @property
     def arvo(self) -> float | None:

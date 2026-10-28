@@ -173,7 +173,8 @@ def kerää_tilanne(hakija: osm.Hakija, paikat: tuple[Paikka, ...], tarkista_hak
         if not ajo:
             continue
         lukema.veden_lampotila = syke_data.veden_lampotila(ajo)
-        for virhe in (syke_data.taydenna(lukema, ajo), syke_data.arvioi_tanaan(lukema, luetut)):
+        for virhe in (syke_data.taydenna(lukema, ajo),
+                      syke_data.arvioi_tanaan(lukema, luetut, syke_data.suomen_paiva(nyt) if nyt else None)):
             if virhe:
                 varoitukset.append(virhe)
 
@@ -242,10 +243,10 @@ def kuvaa_lukema(l: Kaaviolukema, ennustepaiva: int = 3) -> str:
         teksti += f", tulvaindeksi {ti:.2f}"
     if l.toinen_arvio is not None:   # toinen arviomalli rinnalla (syke_data.TARKENNETUT)
         teksti += f", toinen arvio {_luku(l.toinen_arvio[1], l.yksikko)}"
-    if l.kolmas_arvio is not None:   # eilinen + tuntiarvioiden derivaatta (syke_data.kolmas_arvio)
-        teksti += f", kolmas arvio {_luku(l.kolmas_arvio[1], l.yksikko)}"
-    if l.neljas_arvio is not None:   # eilinen + tuntikäyrän muutos (syke_data.neljas_arvio)
-        teksti += f", neljäs arvio {_luku(l.neljas_arvio[1], l.yksikko)}"
+    for nimi, arvio in (("kolmas", l.kolmas_arvio), ("neljäs", l.neljas_arvio)):   # kuluvan päivän arviot
+        if arvio is not None:
+            pvm = f" ({arvio[2].day}.{arvio[2].month}.)" if arvio[2].day != l.tanaan_paiva else ""
+            teksti += f", {nimi} arvio {_luku(arvio[1], l.yksikko)}{pvm}"
     return teksti
 
 

@@ -1925,6 +1925,45 @@ def _arvio_kaavio(paikka, avain, mittari, asema: str, hakija: osm.Hakija, otsikk
                                 _alueet(paikka, avain, lukema.tunnusluvut), kieli, arkistoidut_arviot(asema))
     # alle päivän tuntikaavio toisesta arviosta (syötteiden reaaliaikamittaukset)
     tanaan = dt.date.fromisoformat(oma["ennustepvm_www"])
+    # Hawa'Ii ym.: jatkuva tuntikäyrä mittauksen kohdalta (klo 12) kuluvan päivän loppuun (neljäs arvio)
+    if lukema.neljas_arvio is not None:
+        neljas = syke_data.neljas_arvio(asema, ajot, lukema.neljas_arvio[2])
+        if neljas:
+            a, p0 = neljas["alku"], neljas["p0"]
+            loppu = dt.datetime.combine(neljas["paiva"] + dt.timedelta(days=1), dt.time(0))
+            tunteja = round((loppu - a) / dt.timedelta(hours=1))
+            n = lambda t: round((t - a) / dt.timedelta(hours=1))   # noqa: E731
+            arviot = {n(t): v for t, v in neljas["kayra"].items() if t < loppu}
+            viim = max(arviot)
+            d = neljas["derivaatta"]
+            ennuste = {h: arviot[viim] + d * (h - viim) for h in range(viim, tunteja + 1)}
+            vertailu = [(f"{kielet.kaanna('mitattu', kieli)} {p0.day}.{p0.month}.", neljas["q0"], "#1b1f24")]
+            if lukema.kolmas_arvio is not None:
+                vertailu.append((kielet.kaanna("kolmas arvio", kieli), lukema.kolmas_arvio[1], "#00897b"))
+            pv = neljas["paiva"]
+            nimi = (f"{paikka.nimi} – {kielet.kaanna('jatkuva tuntiarvio', kieli)} "
+                    f"{a.day}.{a.month}. {kielet.kaanna('klo', kieli)} {a.hour} – {pv.day}.{pv.month}.")
+            tunnit = {"arviot": arviot, "ennuste": ennuste, "keskiarvo": neljas["arvo"], "viim": viim}
+            tavoite = f"{kielet.kaanna('neljäs arvio', kieli)} {pv.day}.{pv.month}."
+            # ensimmäisen arvion tuntikäyrä samaan mittaukseen ankkuroituna rinnalle
+            ykkonen = syke_data.neljas_arvio(asema, ajot, pv, malli=1)
+            rinnakkainen = None
+            if ykkonen and ykkonen["alku"] == a:
+                y_arviot = {n(t): v for t, v in ykkonen["kayra"].items() if t < loppu}
+                y_viim = max(y_arviot)
+                rinnakkainen = {
+                    "arviot": y_arviot, "vari": "#ef6c00",
+                    "ennuste": {h: y_arviot[y_viim] + ykkonen["derivaatta"] * (h - y_viim)
+                                for h in range(y_viim, tunteja + 1)},
+                    "nimi": kielet.kaanna("ensimmäinen malli (Pudasjärvi + Siurua)", kieli),
+                    "arvo": ykkonen["arvo"],
+                    "arvo_nimi": f"{kielet.kaanna('ensimmäinen malli', kieli)} {pv.day}.{pv.month}."}
+            return kaavio_svg.pinoa(kuva, kaavio_svg.tunti_svg(
+                nimi, tanaan, tunnit, vertailu, kieli, alku=a, tavoite=tavoite, tunteja=tunteja,
+                rinnakkainen=rinnakkainen,
+                alaotsikko="ankkuroitu mittaukseen (päivän keskikohta klo 12), keskiyön askel poistettu",
+                mitattu="toinen malli mitatuista syötteistä",
+                ennuste_nimi="ennuste (kahden viimeisen tunnin derivaatta)"))
     tunnit = syke_data.tuntiarviot(asema, ajot, tanaan)
     if tunnit:
         vertailu = []

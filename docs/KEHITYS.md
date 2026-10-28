@@ -87,11 +87,15 @@ Maalismaa on PVO:n voimala, joten aseman oma päivän arvo julkaistaan vasta seu
 - Loppupäivän syöte jatkaa viimeisen 6 tunnin lineaarista trendiä (`TUNTITRENDI`).
 - Malli on sovitettu päiväarvoihin, joten tuntiarvo kertoo, mihin päivän keskiarvo on menossa.
 
-**Kolmas ja neljäs arvio** näytetään vain tekstinä ja kaaviossa, ja ne arkistoidaan kenttiin `tanaan3` ja `tanaan4`. Kumpikin perustuu Maalismaan tuoreimpaan mitattuun päiväarvoon ja toisen arvion tuntiarvioihin. SYKE julkaisee edellisen päivän arvon noin klo 20 Suomen aikaa (ajo.json `utc_aikaleima` noin 17–18 UTC), joten päivällä tuorein mittaus on toissapäivältä.
+**Kolmas ja neljäs arvio** näytetään vain tekstinä ja kaaviossa, ja ne arkistoidaan kenttiin `tanaan3` ja `tanaan4`. Kumpikin perustuu Maalismaan tuoreimpaan mitattuun päiväarvoon ja toisen arvion tuntiarvioihin. SYKE julkaisee edellisen päivän arvon ja vaihtaa "tämän päivän" (`ennustepvm_www`) noin klo 20 Suomen aikaa (ajo.json `utc_aikaleima` noin 17–18.10 UTC). Ensimmäinen ja toinen arvio lasketaan SYKE:n päivälle. Kolmas ja neljäs lasketaan aina kuluvalle Suomen päivälle (`arvioi_tanaan(..., kuluva)`), ja ne piirretään kaavioon sen päivän kohdalle. Päivällä niiden ankkurina on toissapäivän mittaus, ja tuntikäyrä ketjutetaan eilisen ja tämän päivän tuntien kautta kellonaikaan asti. Arkistossa päivä on kentässä `paiva34`.
 - Kolmas arvio (`kolmas_arvio`) = mittaus + derivaatta × 24 h kutakin mittauspäivän jälkeistä päivää kohden. Derivaatta on pienimmän neliösumman suoran kulmakerroin tuntiarvioihin mittauspäivän klo 12:sta viimeiseen mitattuun tuntiin.
-- Neljäs arvio (`neljas_arvio`) = mittaus + (tämän päivän tuntikäyrän keskiarvo − mittauspäivän tuntiarvioiden keskiarvo).
-  - Mitatut tunnit otetaan käyrään sellaisinaan.
-  - Loppupäivä jatketaan kahden viimeisen tunnin derivaatalla.
+- Jatkuva tuntikäyrä (`jatkuva_tuntikayra`): toisen arvion tuntiarviot ketjutetaan päivästä toiseen. Päivämalli vaihtaa keskiyöllä Q₋₁:n, Q₋₂:n ja syötteiden eiliset päiväarvot, jolloin raaka käyrä hyppää. Uuden päivän käyrää siirretään niin, että se jatkuu edellisen päivän viimeisestä tunnista, ja keskiyön muutokseksi otetaan molempien puolten tuntimuutosten keskiarvo. Myös kolmannen arvion suora sovitetaan tähän käyrään.
+- Neljäs arvio (`neljas_arvio`): päivän D arvo = Q(p0) + C(D klo 12) − C(p0 klo 12), jossa C on jatkuva käyrä ja p0 tuorein mittauspäivä.
+  - Mitatun tunnin jälkeen käyrää jatketaan kahden viimeisen tunnin derivaatalla.
+  - Arvot lasketaan päiville p0 + 1 … kuluva päivä.
+  - Monen päivän kaavion menneet päivät lasketaan samalla mallilla (`neljas_jalkikateen`: edellisen päivän mittaus + vuorokauden muutos) keskivirheineen. Ensimmäisen mallin arkistoarvot jäävät kaaviosta pois.
+  - Tuntikaavio näyttää jatkuvan käyrän ankkuroituna mittaukseen p0:n klo 12:sta kuluvan päivän loppuun.
+  - Ensimmäisellekin mallille lasketaan tuntiarviot (`tuntiarviot1`: Siuruan ja Pudasjärven tuntiarvot, eilinen päiväarvo vertailuna, korjaus kuten `arvioi_paiva`). Tuntikaaviossa sen jatkuva käyrä näytetään oranssina rinnalla samaan mittaukseen ankkuroituna (`neljas_arvio(..., malli=1)`).
 
 ## Reaaliaikamittaukset (SYKE)
 

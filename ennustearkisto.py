@@ -99,6 +99,8 @@ def oma_arvio(asema: str, ajot: dict[str, dict]) -> dict | None:
         "tanaan3": None if lukema.kolmas_arvio is None else round(lukema.kolmas_arvio[1], 3),
         # neljäs arvio: tuorein havainto + tuntikäyrän muutos (syke_data.neljas_arvio)
         "tanaan4": None if lukema.neljas_arvio is None else round(lukema.neljas_arvio[1], 3),
+        # päivä, jolle kolmas ja neljäs arvio laskettiin (kuluva Suomen päivä arkistointihetkellä)
+        "paiva34": next((a[2].isoformat() for a in (lukema.kolmas_arvio, lukema.neljas_arvio) if a), None),
         "ennuste": ennuste,
         "varoitukset": varoitukset,
     }

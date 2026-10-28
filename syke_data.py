@@ -428,11 +428,46 @@ def tuntiarviot(asema: str, ajot: dict[str, dict], paiva: dt.date) -> dict | Non
             "keskiarvo": sum(arvot.values()) / 24, "viim": viim}
 
 
+def tuntiarviot1(asema: str, ajot: dict[str, dict], paiva: dt.date) -> dict | None:
+    """Ensimmäisen arvion (ARVIOMALLIT, "Pudasjärvi + Siurua, eilinen korjaus") tunnittainen arvo päivälle:
+    kaava tunneittain Siuruan virtaamasta ja Pudasjärven vedenkorkeudesta (eilinen päiväarvo vertailuna,
+    kuten päivämallissa), kertoimet ja eilisen virheen korjaus kuten arvioi_paiva. Sama muoto kuin tuntiarviot."""
+    malli = ARVIOMALLIT.get(asema)
+    if not malli:
+        return None
+    oma = (ajot.get(f"{asema}/ajo.json") or {}).get("qhav")
+    viim_hav = None
+    for n in range(1, HAVAINTO_MAX_IKA + 1):
+        v = _arvo(oma, paiva - dt.timedelta(days=n)) if oma else None
+        if v is not None:
+            viim_hav = (n, v)
+            break
+    k = malli.iso if viim_hav and viim_hav[1] >= malli.raja else malli.pieni
+    korjaus = 0.0
+    if viim_hav:
+        silloin = _mallin_arvo(malli, k, ajot, paiva - dt.timedelta(days=viim_hav[0]))
+        if silloin is not None:
+            korjaus = k.alfa ** viim_hav[0] * (viim_hav[1] - silloin)
+    h_eilen = _syote(ajot, malli.korkeus_asema, paiva - dt.timedelta(days=1), vedenkorkeus=True)
+    asemat = (malli.virtaama_asema, malli.korkeus_asema)
+    sarjat = [_tuntisarja(ajot.get(f"{a}/reaaliaika_tunnit") or {}, paiva) for a in asemat]
+    if h_eilen is None or None in sarjat:
+        return None
+    viim = min(max(int(t[11:13]) for t in (ajot.get(f"{a}/reaaliaika_tunnit") or {}) if t[:10] == paiva.isoformat())
+               for a in asemat)
+    arvot = {t: malli.kaava(k, sarjat[0][t], sarjat[1][t] * 100, h_eilen * 100) + korjaus for t in range(24)}
+    return {"arviot": {t: v for t, v in arvot.items() if t <= viim},
+            "ennuste": {t: v for t, v in arvot.items() if t >= viim},
+            "keskiarvo": sum(arvot.values()) / 24, "viim": viim}
+
+
 KOLMAS_NIMI = "viimeisin mittaus + tuntiarvioiden derivaatta"
-NELJAS_NIMI = "viimeisin mittaus + tuntikäyrän muutos"
+NELJAS_NIMI = "mittaus + jatkuva tuntikäyrä"
+NELJAS_KESKIKOHTA = 12   # päiväkeskiarvon kohta käyrällä (klo)
 DERIVAATTA_ALKU = 12     # derivaatta mittauspäivän klo 12:sta (päiväkeskiarvon keskikohta) alkaen
 DERIVAATTA_MIN_TUNTEJA = 6
-NELJAS_DERIVAATTA_TUNTEJA = 2   # loppupäivä jatketaan kahden viimeisen mitatun tunnin derivaatalla
+NELJAS_DERIVAATTA_TUNTEJA = 2   # käyrä jatketaan kahden viimeisen mitatun tunnin derivaatalla
+TUNTI = dt.timedelta(hours=1)
 
 
 def _viimeisin_mittaus(asema: str, ajot: dict[str, dict], paiva: dt.date) -> tuple[dt.date, float] | None:
@@ -447,24 +482,57 @@ def _viimeisin_mittaus(asema: str, ajot: dict[str, dict], paiva: dt.date) -> tup
     return None
 
 
+def jatkuva_tuntikayra(asema: str, ajot: dict[str, dict], alku: dt.date, loppu: dt.date,
+                       malli: int = 2) -> dict[dt.datetime, float]:
+    """Toisen (malli=2, tuntiarviot) tai ensimmäisen (malli=1, tuntiarviot1) arvion tuntiarviot (vain
+    mitatuista syötteistä) päiviltä alku…loppu yhdeksi jatkuvaksi käyräksi:
+    tunti (Suomen aikaa, tunnin alku) -> arvo.
+
+    Päivämalli vaihtaa keskiyöllä aseman edellisten päivien virtaamat (Q₋₁, Q₋₂) ja syötteiden eiliset
+    päiväarvot, jolloin tuntiarviot hyppäävät. Uuden päivän käyrä siirretään jatkumaan edellisen päivän
+    viimeisestä tunnista; keskiyön muutokseksi otetaan molempien puolten tuntimuutosten keskiarvo.
+    Ketju katkeaa ensimmäiseen päivään, jolta tuntiarvioita ei ole."""
+    kayra: dict[dt.datetime, float] = {}
+    p = alku
+    while p <= loppu:
+        tunnit = (tuntiarviot1 if malli == 1 else tuntiarviot)(asema, ajot, p)
+        arviot = tunnit["arviot"] if tunnit else {}
+        if not arviot:
+            if kayra:
+                break
+            p += dt.timedelta(days=1)
+            continue
+        siirto = 0.0
+        ensim = min(arviot)
+        if kayra:
+            viim = max(kayra)
+            if viim + TUNTI != dt.datetime.combine(p, dt.time(ensim)):
+                break   # aukko: ei ketjuteta
+            muutos_ed = kayra[viim] - kayra.get(viim - TUNTI, kayra[viim])
+            muutos_uusi = arviot.get(ensim + 1, arviot[ensim]) - arviot[ensim]
+            siirto = kayra[viim] + (muutos_ed + muutos_uusi) / 2 - arviot[ensim]
+        for t, v in sorted(arviot.items()):
+            kayra[dt.datetime.combine(p, dt.time(t))] = v + siirto
+        if max(arviot) < 23:   # päivä kesken (kuluva päivä): ketju päättyy
+            break
+        p += dt.timedelta(days=1)
+    return kayra
+
+
 def kolmas_arvio(asema: str, ajot: dict[str, dict], paiva: dt.date) -> tuple[float, float] | None:
     """Kolmas arvio päivälle: tuorein mitattu päiväarvo + derivaatta × tunnit mittauspäivän
     keskikohdasta tämän päivän keskikohtaan (24 h päivää kohden).
 
-    Derivaatta (m³/s tunnissa) on pienimmän neliösumman suoran kulmakerroin toisen arvion
-    tuntiarvioihin (vain mitatuista syötteistä) mittauspäivän klo DERIVAATTA_ALKU:sta viimeiseen
-    mitattuun tuntiin. Palauttaa (arvo, derivaatta) tai None, jos mittausta tai tuntiarvioita ei ole."""
+    Derivaatta (m³/s tunnissa) on pienimmän neliösumman suoran kulmakerroin jatkuvaan tuntikäyrään
+    (jatkuva_tuntikayra, ilman päivämallin keskiyön askelta) mittauspäivän klo DERIVAATTA_ALKU:sta
+    viimeiseen mitattuun tuntiin. Palauttaa (arvo, derivaatta) tai None, jos mittausta tai tuntiarvioita ei ole."""
     mittaus = _viimeisin_mittaus(asema, ajot, paiva)
     if mittaus is None:
         return None
     p0, q0 = mittaus
-    pisteet = []
-    for n in range((paiva - p0).days + 1):
-        p = p0 + dt.timedelta(days=n)
-        tunnit = tuntiarviot(asema, ajot, p)
-        if tunnit:
-            pisteet += [(24 * n + t + 0.5, v) for t, v in tunnit["arviot"].items()
-                        if n > 0 or t >= DERIVAATTA_ALKU]
+    origo = dt.datetime.combine(p0, dt.time(0))
+    pisteet = [((t - origo) / TUNTI + 0.5, v) for t, v in jatkuva_tuntikayra(asema, ajot, p0, paiva).items()
+               if t >= origo + DERIVAATTA_ALKU * TUNTI]
     if len(pisteet) < DERIVAATTA_MIN_TUNTEJA:
         return None
     xs, ys = [x for x, _ in pisteet], [v for _, v in pisteet]
@@ -476,35 +544,67 @@ def kolmas_arvio(asema: str, ajot: dict[str, dict], paiva: dt.date) -> tuple[flo
     return q0 + 24 * (paiva - p0).days * derivaatta, derivaatta
 
 
-def neljas_arvio(asema: str, ajot: dict[str, dict], paiva: dt.date) -> tuple[float, float] | None:
-    """Neljäs arvio päivälle: tuorein mitattu päiväarvo + tuntikäyrän muutos mittauspäivästä.
+def _kayran_arvo(kayra: dict[dt.datetime, float], t: dt.datetime) -> float:
+    """Jatkuvan tuntikäyrän arvo hetkellä t: mitattu tunti, tai viimeisimmän mitatun jälkeen suora
+    kahden viimeisen mitatun tunnin derivaatalla."""
+    if t in kayra:
+        return kayra[t]
+    viim = max(kayra)
+    return kayra[viim] + _kayran_derivaatta(kayra) * ((t - viim) / TUNTI)
 
-    Tämän päivän tuntikäyrä = toisen arvion tuntiarviot mitatuilta tunneilta sellaisenaan (kaikki
-    muutokset mukana, kellonaikaan asti), loppupäivä viimeisestä mitatusta tunnista kahden viimeisen
-    tunnin derivaatalla. Muutos = tämän päivän käyrän keskiarvo − mittauspäivän tuntiarvioiden
-    keskiarvo, joten mallin oma harha kumoutuu ja arvo ankkuroituu mittaukseen (eilinen tai,
-    ennen SYKE:n iltapäivitystä, toissapäiväinen).
-    Palauttaa (arvo, derivaatta m³/s tunnissa) tai None, jos tietoja puuttuu."""
-    mittaus = _viimeisin_mittaus(asema, ajot, paiva)
+
+def _kayran_derivaatta(kayra: dict[dt.datetime, float]) -> float:
+    viim = max(kayra)
+    aiempi = kayra.get(viim - NELJAS_DERIVAATTA_TUNTEJA * TUNTI)
+    return (kayra[viim] - aiempi) / NELJAS_DERIVAATTA_TUNTEJA if aiempi is not None else 0.0
+
+
+def _keskikohta(paiva: dt.date) -> dt.datetime:
+    return dt.datetime.combine(paiva, dt.time(NELJAS_KESKIKOHTA))
+
+
+def neljas_arvio(asema: str, ajot: dict[str, dict], kuluva: dt.date, malli: int = 2) -> dict | None:
+    """Neljäs arvio: tuorein mitattu päiväarvo + jatkuvan tuntikäyrän muutos päivien keskikohtien välillä.
+
+    Päivän D arvo = Q(p0) + C(D klo 12) − C(p0 klo 12), jossa p0 on tuorein mittauspäivä ennen kuluvaa
+    päivää ja C jatkuva tuntikäyrä (jatkuva_tuntikayra, ilman päivämallin keskiyön askelta). Käyrä
+    alkaa mittauksen kohdalta (päiväkeskiarvon keskikohta) ja jatkuu mitattuja tunteja pitkin;
+    mittaamaton osa on ennustetta kahden viimeisen mitatun tunnin derivaatalla.
+    Palauttaa {"arvo" (kuluva päivä), "paiva", "paivat" (p0 + 1 … kuluva -> arvo), "p0", "q0", "alku"
+    (p0 klo 12), "kayra" (mitatut tunnit ankkuroituna mittaukseen), "derivaatta"} tai None.
+    malli=1: sama ensimmäisen arvion tuntikäyrästä (vertailuksi tuntikaaviossa)."""
+    mittaus = _viimeisin_mittaus(asema, ajot, kuluva)
     if mittaus is None:
         return None
     p0, q0 = mittaus
-    pohja, tanaan = tuntiarviot(asema, ajot, p0), tuntiarviot(asema, ajot, paiva)
-    if not pohja or not pohja["arviot"] or not tanaan:
+    kayra = jatkuva_tuntikayra(asema, ajot, p0, kuluva, malli)
+    alku = _keskikohta(p0)
+    if alku not in kayra:
         return None
-    mitatut = tanaan["arviot"]
-    viim = tanaan["viim"]
-    if viim not in mitatut:
-        return None
-    aiempi = mitatut.get(viim - NELJAS_DERIVAATTA_TUNTEJA)
-    if aiempi is None:   # aamulla: kahden tunnin takainen arvo eilisestä
-        eiliset = tuntiarviot(asema, ajot, paiva - dt.timedelta(days=1)) or {"arviot": {}}
-        aiempi = eiliset["arviot"].get(24 + viim - NELJAS_DERIVAATTA_TUNTEJA)
-    derivaatta = (mitatut[viim] - aiempi) / NELJAS_DERIVAATTA_TUNTEJA if aiempi is not None else 0.0
-    kayra = [mitatut[t] if t in mitatut and t <= viim else mitatut[viim] + derivaatta * (t - viim)
-             for t in range(24)]
-    muutos = sum(kayra) / 24 - sum(pohja["arviot"].values()) / len(pohja["arviot"])
-    return q0 + muutos, derivaatta
+    paivat = {}
+    p = p0 + dt.timedelta(days=1)
+    while p <= kuluva:
+        paivat[p] = q0 + _kayran_arvo(kayra, _keskikohta(p)) - kayra[alku]
+        p += dt.timedelta(days=1)
+    return {"arvo": paivat[kuluva], "paiva": kuluva, "paivat": paivat, "p0": p0, "q0": q0, "alku": alku,
+            "kayra": {t: q0 + v - kayra[alku] for t, v in kayra.items() if t >= alku},
+            "derivaatta": _kayran_derivaatta(kayra)}
+
+
+def neljas_jalkikateen(asema: str, ajot: dict[str, dict], paivat: list[dt.date]) -> dict[dt.date, float]:
+    """Neljäs malli menneille päiville: Q(D − 1) + C(D klo 12) − C(D − 1 klo 12) mitatuilla tunneilla
+    (edellisen päivän mittaus ja vuorokauden tuntikäyrän muutos). Päivät, joilta tietoja puuttuu, ohitetaan."""
+    if not paivat:
+        return {}
+    oma = (ajot.get(f"{asema}/ajo.json") or {}).get("qhav")
+    kayra = jatkuva_tuntikayra(asema, ajot, min(paivat) - dt.timedelta(days=1), max(paivat))
+    tulos = {}
+    for p in paivat:
+        q = _arvo(oma, p - dt.timedelta(days=1)) if oma else None
+        a, b = _keskikohta(p - dt.timedelta(days=1)), _keskikohta(p)
+        if q is not None and a in kayra and b in kayra:
+            tulos[p] = q + kayra[b] - kayra[a]
+    return tulos
 
 
 def _mallin_arvo(malli: Arviomalli, k: Kertoimet, ajot: dict[str, dict], paiva: dt.date) -> float | None:
@@ -540,10 +640,22 @@ def arvioi_paiva(asema: str, ajot: dict[str, dict], paiva: dt.date) -> float | N
     return arvo
 
 
-def arvioi_tanaan(lukema: Kaaviolukema, ajot: dict[str, dict]) -> str | None:
+def suomen_paiva(nyt: dt.datetime | None = None) -> dt.date:
+    """Kuluva päivä Suomen ajassa."""
+    nyt = nyt or dt.datetime.now(dt.timezone.utc)
+    try:
+        from zoneinfo import ZoneInfo
+        return nyt.astimezone(ZoneInfo("Europe/Helsinki")).date()
+    except Exception:  # aikavyöhyketietokanta puuttuu
+        return nyt.astimezone(dt.timezone(dt.timedelta(hours=2))).date()
+
+
+def arvioi_tanaan(lukema: Kaaviolukema, ajot: dict[str, dict], kuluva: dt.date | None = None) -> str | None:
     """Korvaa vanhentuneen havainnon arviomallin arvolla (vain virtaamat).
 
     `ajot`: ajo.json-avain -> luettu ajo.json. Palauttaa varoituksen tai None.
+    Ensimmäinen ja toinen arvio lasketaan SYKE:n "tämälle päivälle" (ennustepvm_www, vaihtuu n. klo 20),
+    kolmas ja neljäs kuluvalle Suomen päivälle `kuluva` (oletus: tänään) kellonaikaan asti.
     """
     asema = "/".join(lukema.url.split("/i2/", 1)[-1].split("/")[:2])
     malli = ARVIOMALLIT.get(asema)
@@ -563,10 +675,12 @@ def arvioi_tanaan(lukema: Kaaviolukema, ajot: dict[str, dict]) -> str | None:
         arvo2 = arvioi_paiva2(asema, ajot, tanaan)
         if arvo2 is not None:
             lukema.toinen_arvio = (TARKENNETUT[asema].nimi, arvo2)
-        kolmas = kolmas_arvio(asema, ajot, tanaan)
+        # kolmas ja neljäs: kuluva Suomen päivä (päivällä SYKE:n "tänään" on vielä eilinen)
+        paiva = max(kuluva or suomen_paiva(), tanaan)
+        kolmas = kolmas_arvio(asema, ajot, paiva)
         if kolmas is not None:
-            lukema.kolmas_arvio = (KOLMAS_NIMI, kolmas[0])
-        neljas = neljas_arvio(asema, ajot, tanaan)
+            lukema.kolmas_arvio = (KOLMAS_NIMI, kolmas[0], paiva)
+        neljas = neljas_arvio(asema, ajot, paiva)
         if neljas is not None:
-            lukema.neljas_arvio = (NELJAS_NIMI, neljas[0])
+            lukema.neljas_arvio = (NELJAS_NIMI, neljas["arvo"], paiva)
     return None
