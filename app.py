@@ -67,9 +67,7 @@ from paikat import PAIKAT, SIJAINNIT, TUNTEMATON_ASEMA, aseman_nimi, kohteen_kaj
 from paikkakunnat import PAIKKAKUNNAT, RUOTSI
 
 VALIMUISTI_S = 60 * 60   # SYKE:n data päivittyy kerran päivässä; pidempi aika säästää suoritinaikaa
-# CDN pitää sivun 10 min (tilanne on muistissa / Firestoressa, joten uusi sivu on halpa); uusi hyväksytty
-# kohde näkyy viimeistään noin 20 min päästä
-CACHE_CONTROL = "public, max-age=120, s-maxage=600, stale-while-revalidate=600, stale-if-error=3600"
+CACHE_CONTROL = "public, max-age=300, s-maxage=3600, stale-while-revalidate=3600, stale-if-error=86400"
 ODOTUS_CACHE = "public, max-age=0, s-maxage=30"   # paikkasivu ilman valmista vesitilannetta (haetaan jälkikäteen)
 
 

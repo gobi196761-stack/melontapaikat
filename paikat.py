@@ -323,9 +323,7 @@ PAIKAT: tuple[Paikka, ...] = (
                   huom="n. 600 m³/s keula kolisee; 850 m³/s tosi hyvä ja paranee; "
                        "toimii 650–1300 m³/s, 645 m³/s matala", lahde="meloja",
                   kajakit=("freestyle",)),
-            Kohde("Kitula", (650, 1300), (650, 1300), 0.8,
-                  huom="toimii 650–1300 m³/s; 607 m³/s keskiaallosta loppui pito, "
-                       "645–649 m³/s matala", lahde="meloja", kajakit=("freestyle",)),
+            # Kitula on oma kohteensa: käyttäjän ehdotus "Kitulankoski (Iijoki)"
         ),
     ),
     Paikka(

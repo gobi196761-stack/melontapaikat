@@ -677,3 +677,6 @@ def test_yllapidon_muutokset_julkaistuun_kohteeseen(ymparisto):
     assert "<h1>Kitulankoski (Iijoki)</h1>" in sivu and "Maalismaan voimalaitoksen kohdalla" in sivu
     assert "ehdottajan mukaan" not in sivu.lower() and "Ehdottajan huomiot" not in sivu
     assert "Kitulankoski is a play spot" in pyynto(f"/ehdotus/{tunniste}", "kieli=en")[2]
+    assert "607 m³/s keskiaallosta loppui pito" in sivu   # entisen Hawa'Ii-kohteen havainnot mukana
+    hawaii = next(p for p in PAIKAT if p.nimi.startswith("Hawa'Ii"))
+    assert [k.nimi for k in hawaii.kohteet] == ["Murtuva aalto"]   # ei päällekkäistä Kitula-kohdetta

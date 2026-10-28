@@ -296,6 +296,9 @@ YLLAPIDON_MUUTOKSET: dict[str, dict] = {
     "Iijoki Kitulankoski": {
         "nimi": "Kitulankoski (Iijoki)",
         "kohteet": {"Iijoki Kitulankoski": "Kitulankoski"},
+        # Hawa'Ii-paikan entisen Kitula-kohteen havainnot (melojan antamat)
+        "huom": {"Kitulankoski": "607 m³/s keskiaallosta loppui pito, 645–649 m³/s matala"},
+        "huom_en": {"Kitulankoski": "at 607 m³/s the middle wave lost its grip, 645–649 m³/s shallow"},
         "teksti": "Kitulankoski on pelipaikka Iijoessa Maalismaan voimalaitoksen kohdalla Yli-Iissä (Oulu). "
                   "Autolla pääsee aivan lähelle, ja paikka sopii myös aloitteleville.\n\n"
                   "Virtaamatieto tulee SYKE:n Maalismaan asemalta noin puolen kilometrin päästä. Paikka toimii "
@@ -355,8 +358,11 @@ YLLAPIDON_KOHTEET: dict[str, list[dict]] = {
 def kaikki_kohteet(ehdotus: dict) -> list[dict]:
     """Ehdottajan kohteet, täydennyksen ja ylläpitäjän lisäämät (merkitty "arvio": True); ehdottajan
     kohde voittaa."""
-    uudet_nimet = yllapidon_muutos(ehdotus).get("kohteet", {})
+    muutos = yllapidon_muutos(ehdotus)
+    uudet_nimet, huom, huom_en = muutos.get("kohteet", {}), muutos.get("huom", {}), muutos.get("huom_en", {})
     omat = [{**k, "nimi": uudet_nimet.get(k["nimi"], k["nimi"])} for k in ehdotus.get("kohteet", [])]
+    omat = [{**k, **({"huom": huom[k["nimi"]], "huom_en": huom_en.get(k["nimi"], "")} if k["nimi"] in huom else {})}
+            for k in omat]
     nimet = {k["nimi"] for k in omat}
     lisatyt = [{**k, "nimi": uudet_nimet.get(k.get("nimi"), k.get("nimi"))}
                for k in valmis_taydennys(ehdotus).get("kohteet", [])]

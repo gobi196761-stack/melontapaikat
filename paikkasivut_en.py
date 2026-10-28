@@ -1161,7 +1161,6 @@ HUOMIOT: dict[str, tuple[str, ...]] = {
     "Hawa'Ii (Iijoki, Maalismaa)": (
         "about 600 m³/s the bow hits the bottom; 850 m³/s really good and getting better; works "
         "650–1300 m³/s, 645 m³/s shallow",
-        "works 650–1300 m³/s; at 607 m³/s the middle wave lost its grip, 645–649 m³/s shallow",
     ),
     "Pyhäjoki": (
         "eddy on river right; paddle back; works 45–90 m³/s",
