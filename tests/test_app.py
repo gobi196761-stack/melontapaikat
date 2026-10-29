@@ -951,6 +951,8 @@ def test_omat_kuvat_ja_alapalkki(palvelin):
                               "wsgi.input": io.BytesIO()}, lambda s, o: vastaus.update(s=s, o=dict(o))))
     assert vastaus["s"] == "200 OK" and vastaus["o"]["Content-Type"] == "image/jpeg" and runko[:2] == b"\xff\xd8"
     assert pyynto("/omat-kuvat/../app.py")[0] == "404 Not Found"
+    from pathlib import Path
+    assert all((Path(app.__file__).with_name("omat_kuvat") / t).exists() for t in app.kuvat.OMAT.values())
     runko = pyynto("/")[2]
     palkki = runko.split('<nav class="alapalkki"')[1].split("</nav>")[0]
     assert 'aria-label="Surffi: ei surffattavaa"' in palkki and "</span>Surffi" not in palkki
