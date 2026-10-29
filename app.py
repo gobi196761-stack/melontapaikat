@@ -1410,6 +1410,21 @@ def _turvaosio(tilanne: Tilanne, kieli: str) -> str:
             f'<p class="pieni">{lahde}</p></details>')
 
 
+# Viimeksi valittu kategoria (Kaikki, Pelipaikat, Retket, Ruotsi, Suosikit, Muut kohteet) muistetaan
+# selaimessa: sovellusta avattaessa (etusivu ilman kategoriaa, ei sivuston sisäisestä linkistä) siirrytään
+# heti sinne. Takaisin-linkit ja kielenvaihto eivät ohjaa (viittaaja on oma sivusto).
+KATEGORIA_MUISTI = """(() => {
+  try {
+    const valittu = localStorage.getItem("melonta-kategoria");
+    const en = location.search === "?kieli=en";
+    if (!valittu || location.pathname !== "/" || (location.search && !en)) return;
+    if (document.referrer && new URL(document.referrer).host === location.host) return;
+    if (valittu.includes("kieli=en") !== en || valittu === location.pathname + location.search) return;
+    location.replace(valittu);
+  } catch (e) {}
+})();"""
+
+
 def _osoite(**parametrit) -> str:
     """Sivun osoite annetuilla kyselyparametreilla (tyhjät jätetään pois, oletuskieli ei näy)."""
     parametrit = {k: v for k, v in parametrit.items() if v and not (k == "kieli" and v == "fi")}
@@ -1432,7 +1447,8 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
                            ("suosikit", "♥ Suosikit")]) + vaihtoehto(
         "/muut" + ("?kieli=en" if kieli == "en" else ""), k_("Muut kohteet"), len(muut_kohteet.KOHTEET), False)
     suodattimet = (f'<select id="kategoria" aria-label="{k_("Kategoria")}" '
-                   f'onchange="location.href = this.value">{suodattimet}</select>')
+                   f'onchange="try {{ localStorage.setItem(&quot;melonta-kategoria&quot;, this.value) }} catch (e) {{}} '
+                   f'location.href = this.value">{suodattimet}</select>')
     toinen = "fi" if kieli == "en" else "en"
     vaihto = (f'<a class="kieli" href="{e(_osoite(tyyppi=valittu, kieli=toinen))}" hreflang="{toinen}" '
               f'lang="{toinen}" title="{"Suomeksi" if toinen == "fi" else "In English"}" '
@@ -1470,6 +1486,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="{k_("Melonta")}">
 <style>{TYYLI}</style>
+<script>{KATEGORIA_MUISTI}</script>
 </head>
 <body><main class="etusivu">
 <div class="otsikkorivi"><h1>{k_("Melontakohteet")}</h1>{vaihto}</div>

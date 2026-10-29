@@ -951,6 +951,8 @@ def test_omat_kuvat_ja_alapalkki(palvelin):
                               "wsgi.input": io.BytesIO()}, lambda s, o: vastaus.update(s=s, o=dict(o))))
     assert vastaus["s"] == "200 OK" and vastaus["o"]["Content-Type"] == "image/jpeg" and runko[:2] == b"\xff\xd8"
     assert pyynto("/omat-kuvat/../app.py")[0] == "404 Not Found"
+    from pathlib import Path
+    assert all((Path(app.__file__).with_name("omat_kuvat") / t).exists() for t in app.kuvat.OMAT.values())
     runko = pyynto("/")[2]
     palkki = runko.split('<nav class="alapalkki"')[1].split("</nav>")[0]
     assert 'aria-label="Surffi: ei surffattavaa"' in palkki and "</span>Surffi" not in palkki
@@ -1047,3 +1049,11 @@ def test_kortin_tilamerkki_kohteiden_mukaan(palvelin, tilanne):
     odotettu = {"paras": "★ Parhaimmillaan", "toimii": "✓ Toimii", "ei toimi": "✗ Ei toimi"}[app._paras_tila(t.kohteet)]
     assert f">{odotettu}</span>" in rivi[:rivi.index("</tr>")] and "data-tilat='" in rivi
     assert "Erinomaiset olot" not in runko and "★ At its best" in pyynto("/", "kieli=en")[2]
+
+
+def test_kategoria_muistetaan(palvelin):
+    """Valittu kategoria tallennetaan selaimeen ja sovellus avautuu siihen (vain etusivun avauksessa)."""
+    runko = pyynto("/")[2]
+    assert "localStorage.setItem(&quot;melonta-kategoria&quot;, this.value)" in runko
+    alku = runko.split("</head>")[0]
+    assert app.KATEGORIA_MUISTI in alku and "location.replace(valittu)" in alku
