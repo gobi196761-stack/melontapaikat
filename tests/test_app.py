@@ -1017,7 +1017,7 @@ def test_tilanne_tallessa_ja_paikkasivu_ilman_laskentaa(monkeypatch, tilanne):
     assert ladattu is not None and [t.paikka.nimi for t in ladattu.tulokset] == [t.paikka.nimi for t in tilanne.tulokset]
     monkeypatch.setattr(app.melonta, "kerää_tilanne", lambda *a, **k: (_ for _ in ()).throw(AssertionError("laskettiin")))
     assert app.hae_tilanne() is not None and app._tilanne is not None   # kylmä käynnistys: tallennetusta
-    kanta.data[app.TILANNE_DOKUMENTTI]["julkaisu"] = "toinen"   # toisen julkaisun tilannetta ei käytetä
+    kanta.data[app.TILANNE_DOKUMENTTI]["muoto"] = "toinen"   # eri rakenteen tilannetta ei käytetä
     monkeypatch.setattr(app, "_tilanne", None)
     assert app.hae_tilanne(laske=False) is None
     # paikkasivu ilman valmista tilannetta: osio haetaan jälkikäteen, lyhyt välimuisti
@@ -1057,3 +1057,17 @@ def test_kategoria_muistetaan(palvelin):
     assert "localStorage.setItem(&quot;melonta-kategoria&quot;, this.value)" in runko
     alku = runko.split("</head>")[0]
     assert app.KATEGORIA_MUISTI in alku and "location.replace(valittu)" in alku
+
+
+def test_esilaskenta_ja_tilanteen_muoto(monkeypatch, tilanne):
+    """Cron laskee tilanteen valmiiksi; tallennettu tilanne kelpaa uudelle julkaisulle, jos rakenne on sama."""
+    monkeypatch.delenv("CRON_SECRET", raising=False)
+    assert app.esilaske({})[0].startswith("503")
+    monkeypatch.setenv("CRON_SECRET", "s")
+    assert app.esilaske({"HTTP_AUTHORIZATION": "Bearer väärä"})[0].startswith("401")
+    assert len(app.TILANNE_MUOTO) == 12 and app._tilanteen_muoto() == app.TILANNE_MUOTO
+    import json as json_
+    crons = json_.load(open(Path(app.__file__).with_name("vercel.json")))["crons"]
+    esilaskennat = [c for c in crons if c["path"] == "/api/esilaske"]
+    assert len(esilaskennat) >= 10 and all(c["schedule"].split()[2:] == ["*", "*", "*"] for c in esilaskennat)
+    assert len(crons) <= 20   # Vercelin ilmaisversio: kerran päivässä, rajattu määrä
