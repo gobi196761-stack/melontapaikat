@@ -100,7 +100,22 @@ _tilanteen_paikat: set[str] | None = None   # laskennan paikat (hyväksytty uusi
 
 
 TILANNE_DOKUMENTTI = ("asetukset", "tilanne")   # viimeksi laskettu tilanne (kylmä käynnistys lukee sen)
-JULKAISU = os.environ.get("VERCEL_DEPLOYMENT_ID") or os.environ.get("VERCEL_GIT_COMMIT_SHA") or "paikallinen"
+
+
+def _tilanteen_muoto() -> str:
+    """Tallennetun tilanteen rakenteen tunniste: tilanteen dataluokkien kentät. Uusi julkaisu voi käyttää
+    edellisen tallentamaa tilannetta, kun rakenne on sama (muuten lasketaan uudelleen)."""
+    import dataclasses
+    import hashlib
+    import syke_kaavio as kaavio_mod
+    import paikat as paikat_mod
+    luokat = [Tilanne] + [o for m in (arviointi, paikat_mod, kaavio_mod) for o in vars(m).values()
+                          if isinstance(o, type) and dataclasses.is_dataclass(o) and o.__module__ == m.__name__]
+    kuvaus = sorted(f"{c.__module__}.{c.__name__}:{','.join(f.name for f in dataclasses.fields(c))}" for c in luokat)
+    return hashlib.sha256("|".join(kuvaus).encode()).hexdigest()[:12]
+
+
+TILANNE_MUOTO = _tilanteen_muoto()
 
 
 def _tallenna_tilanne(tilanne: Tilanne, paikat) -> None:
@@ -110,22 +125,22 @@ def _tallenna_tilanne(tilanne: Tilanne, paikat) -> None:
         return
     try:
         data = base64.b64encode(zlib.compress(pickle.dumps(tilanne, protocol=5), 9)).decode("ascii")
-        kanta.kirjoita(*TILANNE_DOKUMENTTI, {"data": data, "aika": time.time(), "julkaisu": JULKAISU,
+        kanta.kirjoita(*TILANNE_DOKUMENTTI, {"data": data, "aika": time.time(), "muoto": TILANNE_MUOTO,
                                              "paikat": sorted(p.nimi for p in paikat)})
     except Exception:   # noqa: BLE001 – tallennus on vain nopeutus
         pass
 
 
 def _lataa_tilanne(paikat, enintaan_s: float) -> tuple[float, Tilanne] | None:
-    """Firestoreen tallennettu tilanne (ikä s, tilanne), jos se on tästä julkaisusta, tältä päivältä,
-    samoille paikoille ja enintään enintaan_s vanha."""
+    """Firestoreen tallennettu tilanne (ikä s, tilanne), jos sen rakenne on sama kuin tämän julkaisun,
+    se on tältä päivältä, samoille paikoille ja enintään enintaan_s vanha."""
     kanta = _kanta()
     if not kanta:
         return None
     try:
         doc = kanta.lue(*TILANNE_DOKUMENTTI) or {}
         ika = time.time() - float(doc.get("aika") or 0)
-        if doc.get("julkaisu") != JULKAISU or ika > enintaan_s or doc.get("paikat") != sorted(p.nimi for p in paikat):
+        if doc.get("muoto") != TILANNE_MUOTO or ika > enintaan_s or doc.get("paikat") != sorted(p.nimi for p in paikat):
             return None
         tilanne = pickle.loads(zlib.decompress(base64.b64decode(doc["data"])))   # oma, palvelimen kirjoittama data
         return (ika, tilanne) if tilanne.paivitetty.date() == suomen_aika().date() else None
@@ -1697,6 +1712,18 @@ def halytys_api(environ, metodi: str) -> tuple[str, dict]:
     except (firestore.FirestoreVirhe, OSError) as e:
         return "502 Bad Gateway", {"virhe": f"Firestore: {e}"}
     return "200 OK", {"tilattu": True}
+
+
+def esilaske(environ) -> tuple[str, dict]:
+    """Vercel Cron tunnin välein päiväsaikaan: laskee tilanteen valmiiksi Firestoreen, jottei sovelluksen
+    avaaja odota laskentaa (tuoreempi kuin tunti: ei lasketa uudelleen)."""
+    _, virhe = _cron_kanta(environ)
+    if virhe:
+        return virhe
+    alku = time.monotonic()
+    tilanne = hae_tilanne()
+    return "200 OK", {"paivitetty": tilanne.paivitetty.isoformat(timespec="minutes"),
+                      "kesto_s": round(time.monotonic() - alku, 1), "lukemia": tilanne.lukemia}
 
 
 def arkistoi(environ) -> tuple[str, dict]:
@@ -3486,6 +3513,9 @@ def app(environ, start_response):
         return vastaa("404 Not Found", "text/plain; charset=utf-8", "Ei löydy.\n")
     if polku == "/sw.js":
         return vastaa("200 OK", "application/javascript; charset=utf-8", halytykset.SERVICE_WORKER, "no-cache")
+    if polku == "/api/esilaske":
+        status, tulos = esilaske(environ)
+        return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False))
     if polku == "/api/halyta":
         status, tulos = halyta(environ)
         return vastaa(status, "application/json; charset=utf-8", json.dumps(tulos, ensure_ascii=False))
