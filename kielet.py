@@ -111,7 +111,7 @@ SANAT = {
     "kolmas arvio tänään": "third estimate today",
     "neljäs arvio tänään": "fourth estimate today",
     "mittaus + jatkuva tuntikäyrä": "measurement + continuous hourly curve",
-    "neljäs malli jälkikäteen": "fourth model afterwards",
+    "toinen malli jälkikäteen": "second model afterwards",
     "jatkuva tuntiarvio": "continuous hourly estimate",
     "mitattu": "measured",
     "ankkuroitu mittaukseen (päivän keskikohta klo 12), keskiyön askel poistettu": "anchored to the measurement (midday), midnight step removed",

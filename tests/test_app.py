@@ -253,8 +253,9 @@ def test_arviomallin_kaavio(ajot, monkeypatch, vaaka):
     ET.fromstring(kuva)
     assert "Hawa&#x27;Ii (Iijoki, Maalismaa) – mittari" in kuva
     assert "arvio Pudasjärvi + Siurua" in kuva and "ennuste tehty 18.10." in kuva
-    assert "arvio tänään" in kuva and "ennusteen 5–95 %" in kuva and "arvio silloin (arkisto) (keskivirhe 1" in kuva
-    assert "laskettu jälkikäteen (keskivirhe" in kuva   # päivät ennen arkiston alkua
+    assert "arvio tänään" in kuva and "ennusteen 5–95 %" in kuva
+    # ennustehistoria toisella mallilla; ensimmäisen mallin arkistoarvoja ei piirretä
+    assert "toinen malli jälkikäteen (keskivirhe" in kuva and "arvio silloin (arkisto)" not in kuva
     # vain mitatut historia-arvot: ei mallin jälkilaskennan viivaa
     assert "malli (ennuste" not in kuva
     # mitatut päivät 8.–17.10. (tämän päivän havaintoa ei vielä ole) vinoneliöinä + selitteen kaksi
@@ -282,12 +283,12 @@ def test_arviomallin_ennuste_jatkuu_arviosta(ajot):
     tanaan = dt.date(2026, 10, 18)
     assert tallentaja["arvio"] == pytest.approx(lukema.arvo)
     assert tanaan not in tallentaja["havainnot"]
-    # menneet arviot: silloin näytetty arvo arkistosta, muut päivät laskettuna jälkikäteen
-    assert tallentaja["aiemmat_arviot"] == {dt.date(2026, 10, 16): 390.0}
+    # menneet arviot toisella mallilla (ensimmäisen mallin arkistoarvoja ei piirretä)
+    assert tallentaja["aiemmat_arviot"] == {} and tallentaja["jalkikateen_nimi"] == "toinen malli jälkikäteen"
     jalkikateen = tallentaja["jalkikateen_arviot"]
-    assert dt.date(2026, 10, 16) not in jalkikateen and max(jalkikateen) < tanaan
+    assert max(jalkikateen) < tanaan
     assert jalkikateen[dt.date(2026, 10, 17)] == pytest.approx(
-        syke_data.arvioi_paiva("61/q6101750y", luetut, dt.date(2026, 10, 17)))
+        syke_data.arvioi_paiva2("61/q6101750y", luetut, dt.date(2026, 10, 17)))
     eka = tallentaja["ennuste"][tanaan + dt.timedelta(days=1)]
     assert eka == pytest.approx(lukema.arvo + lukema.ennuste[1] - lukema.malli)
 

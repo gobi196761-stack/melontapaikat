@@ -829,16 +829,11 @@ def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: l
                  _paivasarja(ajo.get("qhav"), tanaan - dt.timedelta(days=HISTORIA_PAIVIA),
                              tanaan - dt.timedelta(days=1)).items()}
     menneet = [tanaan - dt.timedelta(days=n) for n in range(HISTORIA_PAIVIA, 0, -1)]
-    # menneet päivät neljännellä mallilla (edellisen päivän mittaus + jatkuvan tuntikäyrän muutos);
-    # mittaamattomat päivät tuoreimmasta mittauksesta kuluvaan päivään asti. Ensimmäisen mallin
-    # arkistoarvoja (`arkisto`) ei piirretä.
-    jalkikateen = syke_data.neljas_jalkikateen(asema, ajot, menneet) if asema in syke_data.TARKENNETUT else {}
-    if lukema.neljas_arvio is not None:
-        neljas = syke_data.neljas_arvio(asema, ajot, lukema.neljas_arvio[2])
-        if neljas:
-            jalkikateen.update({p: v for p, v in neljas["paivat"].items() if p < lukema.neljas_arvio[2]})
+    # menneet päivät toisella mallilla (tarkin seuraavan päivän arvio, ks. docs/KEHITYS.md);
+    # ensimmäisen mallin arkistoarvoja (`arkisto`) ei piirretä
+    jalkikateen = {p: v for p in menneet if (v := syke_data.arvioi_paiva2(asema, ajot, p)) is not None}         if asema in syke_data.TARKENNETUT else {}
     aiemmat: dict[dt.date, float] = {}
-    if not jalkikateen:   # ei tuntitietoja: ensimmäisen mallin arviot kuten ennen
+    if not jalkikateen:   # ei toisen mallin syötteitä: ensimmäisen mallin arviot kuten ennen
         arkisto = arkisto or {}
         aiemmat = {p: arkisto[p] for p in menneet if p in arkisto}
         jalkikateen = {p: v for p in menneet
@@ -860,8 +855,8 @@ def arvio_svg(lukema, ajot: dict[str, dict], asema: str, otsikko: str, alueet: l
                   f"{_t('(' + lukema.lahde)[1:]} · {_t('ennuste tehty')} {tanaan.day}.{tanaan.month}.")
     return piirra(otsikko, alaotsikko, tanaan, ennuste=ennuste, ennuste_vali=vali, havainnot=havainnot,
                   havainto_viiva=True, arvio=arvio, aiemmat_arviot=aiemmat, jalkikateen_arviot=jalkikateen,
-                  jalkikateen_nimi="neljäs malli jälkikäteen" if not aiemmat and lukema.neljas_arvio else
-                  "laskettu jälkikäteen",
+                  jalkikateen_nimi="toinen malli jälkikäteen" if not aiemmat and asema in syke_data.TARKENNETUT
+                  else "laskettu jälkikäteen",
                   toinen_arvio=lukema.toinen_arvio, kolmas_arvio=lukema.kolmas_arvio,
                   neljas_arvio=lukema.neljas_arvio,
                   tunnus=tunnus, alueet=alueet,

@@ -472,7 +472,7 @@ TUNTI = dt.timedelta(hours=1)
 
 def _viimeisin_mittaus(asema: str, ajot: dict[str, dict], paiva: dt.date) -> tuple[dt.date, float] | None:
     """Aseman tuorein mitattu päiväarvo ennen päivää (enintään HAVAINTO_MAX_IKA päivää vanha).
-    Maalismaan edellisen päivän arvo julkaistaan vasta n. klo 20, joten päivällä se on toissapäivän."""
+    Maalismaan edellisen päivän arvo ilmestyy SYKE:n päiväajossa (n. klo 14), joten aamulla se on toissapäivän."""
     oma = (ajot.get(f"{asema}/ajo.json") or {}).get("qhav")
     for n in range(1, HAVAINTO_MAX_IKA + 1):
         p = paiva - dt.timedelta(days=n)
@@ -654,7 +654,7 @@ def arvioi_tanaan(lukema: Kaaviolukema, ajot: dict[str, dict], kuluva: dt.date |
     """Korvaa vanhentuneen havainnon arviomallin arvolla (vain virtaamat).
 
     `ajot`: ajo.json-avain -> luettu ajo.json. Palauttaa varoituksen tai None.
-    Ensimmäinen ja toinen arvio lasketaan SYKE:n "tämälle päivälle" (ennustepvm_www, vaihtuu n. klo 20),
+    Ensimmäinen ja toinen arvio lasketaan SYKE:n "tämälle päivälle" (ennustepvm_www),
     kolmas ja neljäs kuluvalle Suomen päivälle `kuluva` (oletus: tänään) kellonaikaan asti.
     """
     asema = "/".join(lukema.url.split("/i2/", 1)[-1].split("/")[:2])
