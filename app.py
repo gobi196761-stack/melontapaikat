@@ -156,16 +156,29 @@ def _muistissa(paikat, enintaan_s: float = VALIMUISTI_S) -> Tilanne | None:
     return None
 
 
-def hae_tilanne(laske: bool = True) -> Tilanne | None:
+VANHA_KELPAA_S = 18 * 60 * 60   # sivulle kelpaa saman päivän vanhempikin tilanne; tausta laskee uuden
+
+
+def tilanne_vanha(tilanne: Tilanne) -> bool:
+    """Yli tunnin vanha tilanne: sivu pyytää taustalla uuden laskennan (/api/esilaske?tausta=1)."""
+    nyt = suomen_aika()
+    if tilanne.paivitetty.tzinfo is None:   # vanhat ja testien tilanteet ilman aikavyöhykettä
+        nyt = nyt.replace(tzinfo=None)
+    return (nyt - tilanne.paivitetty).total_seconds() > VALIMUISTI_S
+
+
+def hae_tilanne(laske: bool = True, vanha_kelpaa: bool = False) -> Tilanne | None:
     """Kaikkien paikkojen tilanne: muistista, Firestoreen tallennettuna (kylmä käynnistys) tai laskemalla.
-    laske=False: vain valmis tilanne (paikkasivu ei odota laskentaa), muuten None."""
+    laske=False: vain valmis tilanne (paikkasivu ei odota laskentaa), muuten None.
+    vanha_kelpaa: saman päivän vanhempikin valmis tilanne kelpaa heti (sivu ei odota laskentaa)."""
     global _tilanne, _tilanteen_paikat
-    if not laske:   # ei odoteta käynnissä olevaa laskentaa
+    if not laske or vanha_kelpaa:   # ei odoteta laskentaa, jos saman päivän tilanne on valmiina
         paikat = kaikki_paikat()
-        tilanne = _muistissa(paikat, 2 * VALIMUISTI_S)
-        if tilanne is None and (tallessa := _lataa_tilanne(paikat, 2 * VALIMUISTI_S)):
+        tilanne = _muistissa(paikat, VANHA_KELPAA_S)
+        if tilanne is None and (tallessa := _lataa_tilanne(paikat, VANHA_KELPAA_S)):
             tilanne = tallessa[1]
-        return tilanne
+        if tilanne is not None or not laske:
+            return tilanne
     with _lukko:   # samanaikaiset pyynnöt odottavat yhtä laskentaa
         paikat = kaikki_paikat()
         if (tilanne := _muistissa(paikat)) is not None:
@@ -1446,6 +1459,10 @@ def _osoite(**parametrit) -> str:
     return "/" + ("?" + urlencode(parametrit) if parametrit else "")
 
 
+# Sivu näytettiin vanhalla tilanteella: uusi laskenta omana pyyntönään (ei hidasta tätä sivua)
+TAUSTALASKENTA = ('<script>fetch("/api/esilaske?tausta=1", {keepalive: true}).catch(() => {});</script>')
+
+
 def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
     valittu = kysely.get("tyyppi", [""])[0]
     kieli = kielet.kieli(kysely)
@@ -1544,6 +1561,7 @@ aria-label="{"Search spots…" if kieli == "en" else "Hae kohdetta…"}"></label
 {f'<p class="pieni"><a href="/kuvat{"?kieli=en" if kieli == "en" else ""}">{k_("Kuvat: tekijät ja lisenssit")}</a></p>' if tilanne.kuvat else ""}
 </main>
 <script>{SKRIPTI}</script>
+{TAUSTALASKENTA if tilanne_vanha(tilanne) else ""}
 </body>
 </html>"""
 
@@ -1716,10 +1734,13 @@ def halytys_api(environ, metodi: str) -> tuple[str, dict]:
 
 def esilaske(environ) -> tuple[str, dict]:
     """Vercel Cron tunnin välein päiväsaikaan: laskee tilanteen valmiiksi Firestoreen, jottei sovelluksen
-    avaaja odota laskentaa (tuoreempi kuin tunti: ei lasketa uudelleen)."""
-    _, virhe = _cron_kanta(environ)
-    if virhe:
-        return virhe
+    avaaja odota laskentaa (tuoreempi kuin tunti: ei lasketa uudelleen). Myös sivun taustapyyntö
+    (?tausta=1, ilman tunnistetta), kun sivu näytettiin vanhalla tilanteella: laskee vain, jos tilanne on vanha."""
+    taustalla = parse_qs(environ.get("QUERY_STRING", "")).get("tausta") == ["1"]
+    if not taustalla:
+        _, virhe = _cron_kanta(environ)
+        if virhe:
+            return virhe
     alku = time.monotonic()
     tilanne = hae_tilanne()
     return "200 OK", {"paivitetty": tilanne.paivitetty.isoformat(timespec="minutes"),
@@ -3588,7 +3609,7 @@ def app(environ, start_response):
     if polku not in ("/", "/api"):
         return vastaa("404 Not Found", "text/plain; charset=utf-8", "Ei löydy.\n")
 
-    tilanne = hae_tilanne()
+    tilanne = hae_tilanne(vanha_kelpaa=True)
     if not tilanne.lukemia:
         viesti = "SYKE:n kaavioita ei saatu luettua.\n" + "\n".join(tilanne.varoitukset)
         return vastaa("503 Service Unavailable", "text/plain; charset=utf-8", viesti)
@@ -3598,7 +3619,9 @@ def app(environ, start_response):
         tulos["paivitetty"] = tilanne.paivitetty.isoformat(timespec="seconds")
         return vastaa("200 OK", "application/json; charset=utf-8",
                       json.dumps(tulos, ensure_ascii=False), CACHE_CONTROL)
-    return vastaa("200 OK", "text/html; charset=utf-8", sivu(tilanne, tulokset, kysely), CACHE_CONTROL)
+    vanha = tilanne_vanha(tilanne)   # vanha tilanne: lyhyt välimuisti, selain pyytää taustalla uuden laskennan
+    return vastaa("200 OK", "text/html; charset=utf-8", sivu(tilanne, tulokset, kysely),
+                  ODOTUS_CACHE if vanha else CACHE_CONTROL)
 
 
 if __name__ == "__main__":

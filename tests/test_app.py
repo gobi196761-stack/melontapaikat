@@ -63,7 +63,7 @@ def pyynto(polku, kysely="", metodi="GET"):
 
 @pytest.fixture
 def palvelin(monkeypatch, tilanne):
-    monkeypatch.setattr(app, "hae_tilanne", lambda: tilanne)
+    monkeypatch.setattr(app, "hae_tilanne", lambda **_: tilanne)
 
 
 def test_sivu(palvelin, tilanne):
@@ -838,7 +838,7 @@ def test_halyta_kirjoittaa_yhteenvedon_lokiin(monkeypatch, capsys):
     monkeypatch.setattr(app, "_cron_kanta", lambda environ: ("kanta", None))
     monkeypatch.setattr(app.kapsi, "keraa", lambda kanta, nyt: {"mittauksia": 5, "uusia": 5})
     monkeypatch.setattr(app.halytykset, "avaimet", lambda kanta: ("julk", "yks"))
-    monkeypatch.setattr(app, "hae_tilanne", lambda: app.Tilanne(paivitetty=dt.datetime(2026, 10, 23, 8, 0),
+    monkeypatch.setattr(app, "hae_tilanne", lambda **_: app.Tilanne(paivitetty=dt.datetime(2026, 10, 23, 8, 0),
                                                                 tulokset=[], varoitukset=[], lukemia=1))
     monkeypatch.setattr(app.halytykset, "aja", lambda *a: {"tilauksia": 2, "lahetetty": 1, "jo_ilmoitettu": 1,
                                                            "poistettu": 0, "virheet": []})
@@ -901,7 +901,7 @@ def test_englanninkielisen_etusivun_linkit(palvelin):
 def test_turvavaroitukset_avattavana_osiona(monkeypatch, tilanne):
     turva = {"meri": 6.0, "maatuuli": {"ms": 6.0, "puuska": None, "suunta": 90, "aika": PAIVA.timestamp(),
                                        "alkaa": PAIVA.timestamp()}}
-    monkeypatch.setattr(app, "hae_tilanne", lambda: app.Tilanne(**{**tilanne.__dict__, "turva": turva}))
+    monkeypatch.setattr(app, "hae_tilanne", lambda **_: app.Tilanne(**{**tilanne.__dict__, "turva": turva}))
     fi = pyynto("/")[2]
     # kiinni oletuksena, otsikot (punaiset) näkyvissä, koko teksti avattuna; merkintöjen yläpuolella
     assert '<details class="turva"><summary><span class="turva-otsikko">🥶 Kylmä vesi' in fi
@@ -913,7 +913,7 @@ def test_turvavaroitukset_avattavana_osiona(monkeypatch, tilanne):
     assert 'id="turva"' not in fi and "turva-tausta" not in fi   # ei ponnahdusikkunaa
     en = pyynto("/", "kieli=en")[2]
     assert "Cold water: dry suit" in en and "Offshore wind on the Oulu coast" in en
-    monkeypatch.setattr(app, "hae_tilanne", lambda: app.Tilanne(**{**tilanne.__dict__, "turva": {}}))
+    monkeypatch.setattr(app, "hae_tilanne", lambda **_: app.Tilanne(**{**tilanne.__dict__, "turva": {}}))
     ilman = pyynto("/")[2]
     assert ('<details class="turva">' in ilman) == any(
         l is not None and l.veden_lampotila is not None and l.veden_lampotila < 15
@@ -1023,7 +1023,7 @@ def test_tilanne_tallessa_ja_paikkasivu_ilman_laskentaa(monkeypatch, tilanne):
     # paikkasivu ilman valmista tilannetta: osio haetaan jälkikäteen, lyhyt välimuisti
     sivu = app.paikkasivu(paikat[0], "fi", None)
     assert 'id="vesitilanne-tulossa"' in sivu and "/api/vesitilanne?paikka=" in sivu
-    monkeypatch.setattr(app, "hae_tilanne", lambda laske=True: tilanne)
+    monkeypatch.setattr(app, "hae_tilanne", lambda **_: tilanne)
     status, otsakkeet, runko = pyynto("/api/vesitilanne", "paikka=" + quote(paikat[0].nimi))
     assert status == "200 OK" and '<section class="paikan-tilanne"' in runko and "<script>" in runko
     assert pyynto("/api/vesitilanne", "paikka=Tuntematon")[0] == "404 Not Found"
@@ -1071,3 +1071,22 @@ def test_esilaskenta_ja_tilanteen_muoto(monkeypatch, tilanne):
     esilaskennat = [c for c in crons if c["path"] == "/api/esilaske"]
     assert len(esilaskennat) >= 10 and all(c["schedule"].split()[2:] == ["*", "*", "*"] for c in esilaskennat)
     assert len(crons) <= 20   # Vercelin ilmaisversio: kerran päivässä, rajattu määrä
+
+
+def test_vanha_tilanne_heti_ja_laskenta_taustalla(monkeypatch, tilanne):
+    """Saman päivän vanha tilanne näytetään heti (ei odoteta laskentaa); sivu pyytää uuden laskennan taustalla."""
+    paikat = tuple(t.paikka for t in tilanne.tulokset)
+    monkeypatch.setattr(app, "kaikki_paikat", lambda: paikat)
+    monkeypatch.setattr(app, "suomen_aika", lambda: tilanne.paivitetty + dt.timedelta(hours=5))
+    monkeypatch.setattr(app, "_tilanne", (app.time.monotonic() - 5 * 3600, tilanne))
+    monkeypatch.setattr(app, "_tilanteen_paikat", {p.nimi for p in paikat})
+    monkeypatch.setattr(app.melonta, "kerää_tilanne", lambda *a, **k: (_ for _ in ()).throw(AssertionError("laskettiin")))
+    assert app.hae_tilanne(vanha_kelpaa=True) is tilanne and app.tilanne_vanha(tilanne)
+    status, otsakkeet, runko = pyynto("/")
+    assert status == "200 OK" and otsakkeet["Cache-Control"] == app.ODOTUS_CACHE
+    assert 'fetch("/api/esilaske?tausta=1"' in runko
+    # taustapyyntö ei tarvitse cron-tunnistetta (laskee vain, jos tilanne on vanha)
+    laskettu = []
+    monkeypatch.setattr(app, "hae_tilanne", lambda **_: laskettu.append(1) or tilanne)
+    assert pyynto("/api/esilaske", "tausta=1")[0] == "200 OK" and laskettu == [1]
+    assert pyynto("/api/esilaske")[0] != "200 OK"   # ilman taustamerkintää vaatii tunnisteen
