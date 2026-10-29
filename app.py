@@ -131,7 +131,7 @@ def _tallenna_tilanne(tilanne: Tilanne, paikat) -> None:
         pass
 
 
-def _lataa_tilanne(paikat, enintaan_s: float) -> tuple[float, Tilanne] | None:
+def _lataa_tilanne(paikat, enintaan_s: float, sama_paiva: bool = True) -> tuple[float, Tilanne] | None:
     """Firestoreen tallennettu tilanne (ikä s, tilanne), jos sen rakenne on sama kuin tämän julkaisun,
     se on tältä päivältä, samoille paikoille ja enintään enintaan_s vanha."""
     kanta = _kanta()
@@ -143,20 +143,22 @@ def _lataa_tilanne(paikat, enintaan_s: float) -> tuple[float, Tilanne] | None:
         if doc.get("muoto") != TILANNE_MUOTO or ika > enintaan_s or doc.get("paikat") != sorted(p.nimi for p in paikat):
             return None
         tilanne = pickle.loads(zlib.decompress(base64.b64decode(doc["data"])))   # oma, palvelimen kirjoittama data
-        return (ika, tilanne) if tilanne.paivitetty.date() == suomen_aika().date() else None
+        return (ika, tilanne) if not sama_paiva or tilanne.paivitetty.date() == suomen_aika().date() else None
     except Exception:   # noqa: BLE001
         return None
 
 
-def _muistissa(paikat, enintaan_s: float = VALIMUISTI_S) -> Tilanne | None:
+def _muistissa(paikat, enintaan_s: float = VALIMUISTI_S, sama_paiva: bool = True) -> Tilanne | None:
     if _tilanne and time.monotonic() - _tilanne[0] < enintaan_s \
-            and _tilanne[1].paivitetty.date() == suomen_aika().date() \
+            and (not sama_paiva or _tilanne[1].paivitetty.date() == suomen_aika().date()) \
             and _tilanteen_paikat == {p.nimi for p in paikat}:
         return _tilanne[1]   # uusi hyväksytty kohde laskee tilanteen uudelleen
     return None
 
 
-VANHA_KELPAA_S = 18 * 60 * 60   # sivulle kelpaa saman päivän vanhempikin tilanne; tausta laskee uuden
+# Sivulle kelpaa vanhempikin valmis tilanne (myös edelliseltä päivältä: selain näyttää silloin ennusteen
+# tämän päivän version), jottei avaaja odota laskentaa; taustapyyntö laskee uuden
+VANHA_KELPAA_S = 48 * 60 * 60
 
 
 def tilanne_vanha(tilanne: Tilanne) -> bool:
@@ -170,12 +172,12 @@ def tilanne_vanha(tilanne: Tilanne) -> bool:
 def hae_tilanne(laske: bool = True, vanha_kelpaa: bool = False) -> Tilanne | None:
     """Kaikkien paikkojen tilanne: muistista, Firestoreen tallennettuna (kylmä käynnistys) tai laskemalla.
     laske=False: vain valmis tilanne (paikkasivu ei odota laskentaa), muuten None.
-    vanha_kelpaa: saman päivän vanhempikin valmis tilanne kelpaa heti (sivu ei odota laskentaa)."""
+    vanha_kelpaa: vanhempikin valmis tilanne (enintään 2 vrk, myös eiliseltä) kelpaa heti."""
     global _tilanne, _tilanteen_paikat
     if not laske or vanha_kelpaa:   # ei odoteta laskentaa, jos saman päivän tilanne on valmiina
         paikat = kaikki_paikat()
-        tilanne = _muistissa(paikat, VANHA_KELPAA_S)
-        if tilanne is None and (tallessa := _lataa_tilanne(paikat, VANHA_KELPAA_S)):
+        tilanne = _muistissa(paikat, VANHA_KELPAA_S, sama_paiva=False)
+        if tilanne is None and (tallessa := _lataa_tilanne(paikat, VANHA_KELPAA_S, sama_paiva=False)):
             tilanne = tallessa[1]
         if tilanne is not None or not laske:
             return tilanne
