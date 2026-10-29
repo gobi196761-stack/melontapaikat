@@ -1091,3 +1091,23 @@ def test_vanha_tilanne_heti_ja_laskenta_taustalla(monkeypatch, tilanne):
     monkeypatch.setattr(app, "hae_tilanne", lambda **_: laskettu.append(1) or tilanne)
     assert pyynto("/api/esilaske", "tausta=1")[0] == "200 OK" and laskettu == [1]
     assert pyynto("/api/esilaske")[0] != "200 OK"   # ilman taustamerkintää vaatii tunnisteen
+
+
+def test_eilinen_tilanne_kelpaa_avaukseen(monkeypatch, tilanne):
+    """Avaus ei odota laskentaa vuorokauden vaihduttuakaan: eilinen tilanne heti, uusi laskenta taustalla."""
+    paikat = tuple(t.paikka for t in tilanne.tulokset)
+    monkeypatch.setattr(app, "kaikki_paikat", lambda: paikat)
+    monkeypatch.setattr(app, "suomen_aika", lambda: tilanne.paivitetty + dt.timedelta(hours=20))
+    monkeypatch.setattr(app, "_tilanne", (app.time.monotonic() - 20 * 3600, tilanne))
+    monkeypatch.setattr(app, "_tilanteen_paikat", {p.nimi for p in paikat})
+    monkeypatch.setattr(app.melonta, "kerää_tilanne", lambda *a, **k: (_ for _ in ()).throw(AssertionError("laskettiin")))
+    assert (app.suomen_aika().date() - tilanne.paivitetty.date()).days == 1
+    assert app.hae_tilanne(vanha_kelpaa=True) is tilanne and app.hae_tilanne(laske=False) is tilanne
+    assert 'fetch("/api/esilaske?tausta=1"' in pyynto("/")[2]
+
+
+def test_takaisin_sulkee_luukun(palvelin):
+    """Kategorian vaihto ei lisää historiaan; puhelimen takaisin-nappi sulkee avatun luukun."""
+    runko = pyynto("/")[2]
+    assert "location.replace(this.value)" in runko and "location.href = this.value" not in runko
+    assert 'history.pushState({luukku: true}, "")' in runko and 'addEventListener("popstate"' in runko
