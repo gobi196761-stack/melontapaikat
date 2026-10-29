@@ -1047,3 +1047,11 @@ def test_kortin_tilamerkki_kohteiden_mukaan(palvelin, tilanne):
     odotettu = {"paras": "★ Parhaimmillaan", "toimii": "✓ Toimii", "ei toimi": "✗ Ei toimi"}[app._paras_tila(t.kohteet)]
     assert f">{odotettu}</span>" in rivi[:rivi.index("</tr>")] and "data-tilat='" in rivi
     assert "Erinomaiset olot" not in runko and "★ At its best" in pyynto("/", "kieli=en")[2]
+
+
+def test_kategoria_muistetaan(palvelin):
+    """Valittu kategoria tallennetaan selaimeen ja sovellus avautuu siihen (vain etusivun avauksessa)."""
+    runko = pyynto("/")[2]
+    assert "localStorage.setItem(&quot;melonta-kategoria&quot;, this.value)" in runko
+    alku = runko.split("</head>")[0]
+    assert app.KATEGORIA_MUISTI in alku and "location.replace(valittu)" in alku
