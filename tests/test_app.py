@@ -1104,3 +1104,10 @@ def test_eilinen_tilanne_kelpaa_avaukseen(monkeypatch, tilanne):
     assert (app.suomen_aika().date() - tilanne.paivitetty.date()).days == 1
     assert app.hae_tilanne(vanha_kelpaa=True) is tilanne and app.hae_tilanne(laske=False) is tilanne
     assert 'fetch("/api/esilaske?tausta=1"' in pyynto("/")[2]
+
+
+def test_takaisin_sulkee_luukun(palvelin):
+    """Kategorian vaihto ei lisää historiaan; puhelimen takaisin-nappi sulkee avatun luukun."""
+    runko = pyynto("/")[2]
+    assert "location.replace(this.value)" in runko and "location.href = this.value" not in runko
+    assert 'history.pushState({luukku: true}, "")' in runko and 'addEventListener("popstate"' in runko

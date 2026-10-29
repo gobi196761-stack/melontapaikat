@@ -964,6 +964,22 @@ SKRIPTI = """
     if (p) p.open = !p.open;
   });
   const nakyvatNapit = () => palkki.forEach(b => { const p = document.getElementById(b.dataset.avaa); b.hidden = !p || p.hidden; });
+  // Puhelimen takaisin-nappi sulkee avatun luukun (varoitukset, alapalkin paneelit) eikä vaihda sivua:
+  // luukun avaus lisää historiaan merkinnän, jonka takaisin poistaa
+  const luukut = [...document.querySelectorAll("details.turva, .alapaneelit > details")];
+  let aukiLuukku = null;
+  for (const d of luukut) d.addEventListener("toggle", () => {
+    if (d.open && aukiLuukku !== d) {
+      if (!aukiLuukku) history.pushState({luukku: true}, "");
+      aukiLuukku = d;
+    } else if (!d.open && aukiLuukku === d) {
+      aukiLuukku = null;
+      if (history.state && history.state.luukku) history.back();
+    }
+  });
+  addEventListener("popstate", () => {
+    if (aukiLuukku) { const d = aukiLuukku; aukiLuukku = null; d.open = false; }
+  });
 
   // Hälytys hyvistä oloista: ehdot (paikka tai kohde; toimii / optimi / pisteraja) ja ennusteen pituus,
   // push-tilaus (service worker /sw.js) ja asetukset palvelimelle (/api/halytys)
@@ -1482,7 +1498,7 @@ def sivu(tilanne: Tilanne, tulokset: list, kysely: dict[str, list[str]]) -> str:
         "/muut" + ("?kieli=en" if kieli == "en" else ""), k_("Muut kohteet"), len(muut_kohteet.KOHTEET), False)
     suodattimet = (f'<select id="kategoria" aria-label="{k_("Kategoria")}" '
                    f'onchange="try {{ localStorage.setItem(&quot;melonta-kategoria&quot;, this.value) }} catch (e) {{}} '
-                   f'location.href = this.value">{suodattimet}</select>')
+                   f'location.replace(this.value)">{suodattimet}</select>')   # ei historiaan: takaisin ei vaihda kategoriaa
     toinen = "fi" if kieli == "en" else "en"
     vaihto = (f'<a class="kieli" href="{e(_osoite(tyyppi=valittu, kieli=toinen))}" hreflang="{toinen}" '
               f'lang="{toinen}" title="{"Suomeksi" if toinen == "fi" else "In English"}" '
