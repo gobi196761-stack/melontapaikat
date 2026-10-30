@@ -1111,3 +1111,14 @@ def test_takaisin_sulkee_luukun(palvelin):
     runko = pyynto("/")[2]
     assert "location.replace(this.value)" in runko and "location.href = this.value" not in runko
     assert 'history.pushState({luukku: true}, "")' in runko and 'addEventListener("popstate"' in runko
+
+
+def test_tuntikaavion_vertailutekstit_eivat_paallekkain():
+    """Samalla arvolla olevat vertailuarvot (esim. eilen mitattu ja SYKE:n päiväarvo) allekkain."""
+    import re
+    tunnit = {"arviot": {0: 108.163, 6: 108.165}, "ennuste": {6: 108.165, 23: 108.171}, "keskiarvo": 108.167, "viim": 6}
+    kuva = kaavio_svg.tunti_svg("Kipinä", dt.date(2026, 10, 30), tunnit,
+                                [("eilen mitattu", 108.16, "#000"), ("SYKE päiväarvo", 108.16, "#e67700")])
+    ET.fromstring(kuva)
+    rivit = sorted(float(y) for y in re.findall(r'<text x="[\d.]+" y="([\d.]+)" text-anchor="end" fill="#(?:000|e67700)"', kuva))
+    assert len(rivit) == 2 and rivit[1] - rivit[0] >= 14

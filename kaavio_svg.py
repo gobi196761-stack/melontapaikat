@@ -753,10 +753,16 @@ def tunti_svg(otsikko: str, paiva: dt.date, tunnit: dict, vertailu: list[tuple[s
         nimi = f"{h:02d}" if alku is None else f"{(alku.hour + h) % 24:02d}"
         osat.append(f'<line x1="{x(h):.1f}" x2="{x(h):.1f}" y1="{yla}" y2="{yla + pk}" stroke="#f0f2f4"/>'
                     f'<text x="{x(h):.1f}" y="{yla + pk + 16}" text-anchor="middle" fill="#5c6670">{nimi}</text>')
-    for nimi, arvo, vari in vertailu:
+    sijoitetut: list[float] = []   # vertailutekstien rivit: lähekkäiset arvot allekkain, ei päällekkäin
+    for nimi, arvo, vari in sorted(vertailu, key=lambda v: -v[1]):
+        ty = y(arvo) - 4
+        while any(abs(ty - muu) < 14 for muu in sijoitetut):
+            ty += 15
+        sijoitetut.append(ty)
         osat.append(f'<line x1="{vasen}" x2="{vasen + pl}" y1="{y(arvo):.1f}" y2="{y(arvo):.1f}" stroke="{vari}" '
-                    f'stroke-dasharray="2 4" stroke-width="1.5"/><text x="{vasen + pl - 4}" y="{y(arvo) - 4:.1f}" '
-                    f'text-anchor="end" fill="{vari}">{e(nimi)} {luku(arvo)}</text>')
+                    f'stroke-dasharray="2 4" stroke-width="1.5"/><text x="{vasen + pl - 4}" y="{ty:.1f}" '
+                    f'text-anchor="end" fill="{vari}" stroke="#fff" stroke-width="3" paint-order="stroke">'
+                    f'{e(nimi)} {luku(arvo)}</text>')
     ka = tunnit["keskiarvo"]
     osat.append(f'<line x1="{vasen}" x2="{vasen + pl}" y1="{y(ka):.1f}" y2="{y(ka):.1f}" stroke="#6a1b9a" '
                 f'stroke-width="1.5"/><text x="{vasen + 6}" y="{y(ka) - 5:.1f}" fill="#6a1b9a" font-weight="600" '
