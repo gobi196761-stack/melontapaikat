@@ -239,7 +239,7 @@ def _reissu_osoitin(sarja: dict[int, float], ala_ms: float, yla_ms: float, x0: f
     px = x0 + (alku - ala_ms) / (yla_ms - ala_ms) * leveys
     tiedot = {"id": tunnus, "a": ala_ms, "b": yla_ms, "x0": x0, "w": leveys, "y0": y0, "h": korkeus,
               "alin": alin, "ylin": ylin, "m": metreja, "yks": "m" if metreja else "m³/s", "kieli": kieli,
-              "nimi": _t("reissu"), "t0": alku, "s": [[ms, round(v, 3)] for ms, v in sorted(sarja.items())],
+              "nimi": _t("Perillä"), "t0": alku, "s": [[ms, round(v, 3)] for ms, v in sorted(sarja.items())],
               "matka": matka.get(), "pv": syke_data.ENNUSTE_PAIVIA, "lahto": "departure" if kieli == "en" else "lähtö"}
     ala = y0 + korkeus
     halo = 'stroke="#fff" stroke-width="3" paint-order="stroke"'
@@ -261,7 +261,7 @@ def _reissu_osoitin(sarja: dict[int, float], ala_ms: float, yla_ms: float, x0: f
         f'<text class="r-nuoli" x="{px:.1f}" y="{ala + 4.5}" text-anchor="middle" fill="#fff" font-size="13" '
         f'font-weight="700" style="cursor:ew-resize;touch-action:none;user-select:none">↔</text>',
         f'<text class="r-aika" {aika_x} y="{ala - 17}" fill="#6a1b9a" font-weight="700" {halo} '
-        f'pointer-events="none">{e(_t("reissu"))}</text>',
+        f'pointer-events="none">{e(_t("Perillä"))}</text>',
         f'<text class="r-arvo" {arvo_x} y="{y0 + 30}" fill="#6a1b9a" font-size="13" font-weight="700" {halo} '
         f'pointer-events="none"></text>',
         "</g>",
@@ -287,7 +287,7 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
            neljas_arvio: tuple[str, float, dt.date] | None = None,
            tunnus: list[tuple[str, float, str]] | None = None,
            alueet: list[Alue] | None = None,
-           kieli: str = "fi") -> str:
+           kieli: str = "fi", ennustaja: str = "SYKE") -> str:
     """Yleinen kaavio. Päiväarvot piirretään päivän keskelle, havainnot (ms -> arvo) aikaleiman kohdalle.
 
     malli = mallin menneet päivät (yhtenäinen viiva), ennuste = tulevat päivät (katkoviiva,
@@ -529,7 +529,7 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     if malli:
         selite.append(("viiva", "#1565c0", _t("malli (ennuste katkoviivana)")))
     elif ennuste:
-        selite.append(("katko", "#1565c0", _t("ennuste (jatkuu viimeisestä havainnosta)")))
+        selite.append(("katko", "#1565c0", f'{ennustaja} {_t("ennuste (jatkuu viimeisestä havainnosta)")}'))
     if havainnot:
         selite.append(("vino" if havainto_viiva else "piste", "#000", _t("havainto")))
     def keskivirhe(arviot: dict[dt.date, float]) -> str:
@@ -559,7 +559,7 @@ def piirra(otsikko: str, alaotsikko: str, tanaan: dt.date, *,
     if tausta:
         selite += [("alue", "#cfd4d9", _t("vaihteluväli")), ("viiva", "#d81b9a", _t("mediaani"))]
     selite.append(("katko", "#00bcd4", _t("tänään")))
-    selite.append(("katko", "#6a1b9a", _t("reissu (vedä ajankohtaa)")))
+    selite.append(("katko", "#6a1b9a", _t("Perillä (vedä ajankohtaa)")))
     if alueet:
         selite += [("alue", "#d5ecd6", _t("kohde toimii")), ("alue", "#a9d5aa", _t("kohde parhaimmillaan"))]
     piilossa = [f"{n} {luku(a)}" for n, a, v in tunnus if (n, a, v) not in tunnus_nakyy]
@@ -622,7 +622,7 @@ def smhi_svg(havainto: dict | None, ennuste: dict | None, otsikko: str, nyt: dt.
     if tuorein:
         lukema = (tuorein[0], "havainto")
     return piirra(otsikko, alaotsikko, tanaan, ennuste=ennuste, tausta=tausta, havainnot=havainnot,
-                  paivan_arvo=lukema, tunnus=tunnus, alueet=alueet, kieli=kieli)
+                  paivan_arvo=lukema, tunnus=tunnus, alueet=alueet, kieli=kieli, ennustaja="SMHI")
 
 
 def _jatka_havainnosta(havaitut: dict[dt.date, float], malli: dict[dt.date, float], tanaan: dt.date,

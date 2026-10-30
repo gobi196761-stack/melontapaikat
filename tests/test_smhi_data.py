@@ -135,6 +135,7 @@ def test_smhi_kaavio(tmp_path, vaaka):
     ET.fromstring(kuva)   # kelvollista XML:ää
     assert "Pahakurkkio (Kalixälven) – mittari Männikkö (Kalixälven)" in kuva
     assert "ennuste tehty 18.10. klo 12.10 UTC" in kuva
+    assert "SMHI ennuste (jatkuu viimeisestä havainnosta)" in kuva and "SYKE ennuste" not in kuva
     assert "MQ 102" in kuva and "MHQ 531" in kuva   # MHQ on yli kuvan: vain tekstinä
     assert "Åretsvågen (ykköskönkään surffiaalto)" in kuva and "Koskisarja 1–7 " in kuva and "(paras 80–190)" in kuva   # alueiden selitykset
     assert kuva.count("<circle") > 20                 # havainnot tunnin välein + selite

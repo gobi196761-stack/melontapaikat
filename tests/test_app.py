@@ -333,7 +333,7 @@ def test_syke_kaavio(ajot, vaaka):
     ET.fromstring(kuva)
     assert "Kipinä (Iijoki) – mittari" in kuva and "Vedenkorkeus m" in kuva
     # ennuste jatkuu viimeisestä havainnosta, mallin menneitä arvoja ei piirretä
-    assert "ennuste (jatkuu viimeisestä havainnosta)" in kuva and "malli (ennuste" not in kuva and "havainto" in kuva
+    assert "SYKE ennuste (jatkuu viimeisestä havainnosta)" in kuva and "malli (ennuste" not in kuva and "havainto" in kuva
     # kohteiden alueet nimettyinä
     assert "Oikean silta-aukon surffiaalto 108.15–108.8 (paras 108.15–108.6)" in kuva
     assert "kohde parhaimmillaan" in kuva
@@ -667,11 +667,11 @@ def test_reissun_pystyviiva(ajot):
     osoitin = next(g for g in juuri.iter(f"{ns}g") if g.get("data-reissu"))
     tiedot = json.loads(osoitin.get("data-reissu"))
     # vedettävä osoitin alkaa reissun ajankohdasta; arvot havainnoista ja ennusteesta aikajärjestyksessä
-    assert tiedot["t0"] == reissu * 1000 and tiedot["yks"] == "m" and tiedot["nimi"] == "reissu"
+    assert tiedot["t0"] == reissu * 1000 and tiedot["yks"] == "m" and tiedot["nimi"] == "Perillä"
     assert [t for t, _ in tiedot["s"]] == sorted(t for t, _ in tiedot["s"]) and len(tiedot["s"]) > 10
     assert tiedot["a"] <= tiedot["t0"] <= tiedot["b"]
     assert 'class="r-kahva"' in kuva and "touch-action:none" in kuva and "<![CDATA[" in kuva
-    assert f'getElementById("{tiedot["id"]}")' in kuva and "reissu (vedä ajankohtaa)" in kuva
+    assert f'getElementById("{tiedot["id"]}")' in kuva and "Perillä (vedä ajankohtaa)" in kuva
     # kaavion ulkopuolinen reissu: osoitin kaavion alueelle (nykyhetki tai reuna)
     kaukana = kaavio_svg.reissu.set(reissu + 365 * 86400)
     try:
