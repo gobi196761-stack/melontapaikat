@@ -1400,6 +1400,16 @@ def _olot(tila: str | None, kieli: str) -> str:
     return f'<span class="olot {OLOT_LUOKKA[tila]}">{OLOT["en" if kieli == "en" else "fi"][tila]}</span>'
 
 
+def _kuvan_rajaus(tiedot: dict) -> str:
+    """Ylläpitäjän valitsema rajaus kortin neliöön: kohdistus (vaaka %, pysty %) tai koko kuva."""
+    if not tiedot.get("kuva_versio"):
+        return ""
+    if tiedot.get("kuva_koko"):
+        return "object-fit:contain;background:var(--pinta)"
+    x, y = tiedot.get("kuva_kohta") or (50, 50)
+    return f"object-position:{int(x)}% {int(y)}%" if (x, y) != (50, 50) else ""
+
+
 def _kortin_kuva_url(paikka, kuva: dict | None = None) -> str:
     """Ylläpitäjän lataama kuva, sovelluksen tekijän oma kuva, Commonsin kuva tai sovelluksen kuvake."""
     versio = kortin_tiedot(paikka).get("kuva_versio")
@@ -1416,7 +1426,9 @@ def _kortti(paikka, kuva: dict | None, kieli: str, km: str = "", merkki: str = "
     kuva_url = _kortin_kuva_url(paikka, kuva)
     tiedot = " · ".join(x for x in (e(k_(paikka.tyyppi)).capitalize(), km) if x)
     return (f'<div class="kortti"><a class="kortti-kuva" href="{e(osoite)}" tabindex="-1" aria-hidden="true">'
-            f'<img src="{e(kuva_url)}" alt="" loading="lazy" width="112" height="112"></a>'
+            f'<img src="{e(kuva_url)}" alt="" loading="lazy" width="112" height="112"'
+            + (f' style="{_kuvan_rajaus(kortin_tiedot(paikka))}"' if _kuvan_rajaus(kortin_tiedot(paikka)) else "")
+            + '></a>'
             f'<div class="kortti-tiedot"><div class="nimi"><a href="{e(osoite)}">{e(paikka.nimi)}</a>'
             + (f'<button type="button" class="suosikki" aria-pressed="false" title="{k_("Lisää suosikkeihin")}">♡</button>'
                if suosikki else "") + '</div>'
@@ -3350,12 +3362,38 @@ def _kortin_osio(avain: str, paikka=None, kentat: dict[str, list[str]] | None = 
     kuva = (f"/kortti-kuva/{avain}.jpg?v={tiedot['kuva_versio']}" if tiedot.get("kuva_versio")
             else _kortin_kuva_url(paikka, kuvat.kuva(paikka.nimi, _kanta())) if paikka is not None
             else sovellus.kuvake_osoite(512))
+    def valinta(nimi: str, oletus: str) -> str:
+        return (kentat.get(nimi) or [""])[0] if kentat is not None else oletus
+    x, y = tiedot.get("kuva_kohta") or (50, 50)
+    x, y, koko = valinta("kuva_x", str(int(x))), valinta("kuva_y", str(int(y))), valinta(
+        "kuva_koko", "1" if tiedot.get("kuva_koko") else "")
     return f"""<h2>Kortti</h2>
 <label for="kortin-kuva">Korttikuva</label>
 <p><img id="kortin-esikatselu" src="{e(kuva)}" alt="" width="112" height="112"
-  style="width:112px;height:112px;object-fit:cover;border-radius:10px;border:1px solid var(--viiva)"></p>
+  style="width:112px;height:112px;object-fit:cover;border-radius:14px;border:1px solid var(--viiva)"></p>
 <input type="file" id="kortin-kuva" accept="image/*"> <span id="kuva-tila" class="pieni"></span>
-<p class="ohje">Kuva pienennetään ja tallennetaan heti valinnan jälkeen. Kortilla kuva rajataan neliöksi.</p>
+<p class="ohje">Kuva pienennetään ja tallennetaan heti valinnan jälkeen. Kortilla kuva rajataan neliöksi:
+siirrä rajausta liukusäätimillä tai näytä koko kuva. Rajaus tallentuu Tallenna-napista.</p>
+<div id="rajaus">
+<label class="valinta">↔ Vaakasuunta <input type="range" name="kuva_x" min="0" max="100" value="{e(x)}"></label>
+<label class="valinta">↕ Pystysuunta <input type="range" name="kuva_y" min="0" max="100" value="{e(y)}"></label>
+<label class="valinta"><input type="checkbox" name="kuva_koko" value="1"{" checked" if koko else ""}> Näytä koko kuva
+(ei rajausta, reunoille jää tyhjää)</label>
+</div>
+<script>
+(() => {{
+  const kuva = document.getElementById("kortin-esikatselu"), r = document.getElementById("rajaus");
+  const x = r.querySelector('[name="kuva_x"]'), y = r.querySelector('[name="kuva_y"]'), koko = r.querySelector('[name="kuva_koko"]');
+  const paivita = () => {{
+    kuva.style.objectFit = koko.checked ? "contain" : "cover";
+    kuva.style.background = koko.checked ? "var(--pinta)" : "";
+    kuva.style.objectPosition = x.value + "% " + y.value + "%";
+    x.disabled = y.disabled = koko.checked;
+  }};
+  [x, y, koko].forEach(k => k.addEventListener("input", paivita));
+  paivita();
+}})();
+</script>
 {'<label class="valinta"><input type="checkbox" name="poista_kuva" value="1"> Poista ladattu kuva (palaa automaattiseen kuvaan)</label>' if tiedot.get("kuva_versio") else ""}
 <label for="kortin_linkit">Linkkiluukku</label>
 <p class="ohje">Yksi linkki riville: <code>Otsikko | https://…</code> tai pelkkä osoite. Linkit näkyvät julkaistulla
@@ -3413,6 +3451,14 @@ def tallenna_kortti(avain: str, kentat: dict[str, list[str]], paikka=None) -> st
                 tiedot["lahteet"] = lahteet
             else:
                 tiedot.pop("lahteet", None)
+    if "kuva_x" in kentat or "kuva_koko" in kentat:   # rajaus (liukusäätimet tai koko kuva)
+        def prosentti(nimi: str) -> int:
+            try:
+                return max(0, min(100, int(float((kentat.get(nimi) or ["50"])[0]))))
+            except ValueError:
+                return 50
+        tiedot["kuva_kohta"] = [prosentti("kuva_x"), prosentti("kuva_y")]
+        tiedot["kuva_koko"] = bool((kentat.get("kuva_koko") or [""])[0])
     if (kentat.get("poista_kuva") or [""])[0]:
         tiedot.pop("kuva_versio", None)
         kanta.poista(kortit.KUVAT, avain)
