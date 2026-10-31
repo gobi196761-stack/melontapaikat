@@ -2388,11 +2388,10 @@ def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None, ehdotu
                    + (k_("ei_rajoja") if en else "Paikalle ei ole vesikaaviota eikä lukuarvoisia rajoja – "
                       "tarkista olosuhteet itse.") + "</p>")
 
-    lahteet = list(paikkasivut.KUVAUKSET[paikka.nimi].lahteet if paikka.nimi in paikkasivut.KUVAUKSET else ())
     if ehdotuksen:
         lahteet = ehdotuksen[2]
-    elif paikka.url not in {url for _, url in lahteet}:
-        lahteet.insert(0, (k_("Paikan pääsivu"), paikka.url))
+    else:
+        lahteet = [(k_(nimi) if nimi == "Paikan pääsivu" else nimi, url) for nimi, url in _paikan_lahteet(paikka)]
     def lahde(otsikko: str, url: str | None) -> str:
         if not url:
             return f"<li>{e(otsikko)}</li>"
@@ -3405,6 +3404,15 @@ def tallenna_kortti(avain: str, kentat: dict[str, list[str]], paikka=None) -> st
                 tiedot[kentta] = teksti
             else:
                 tiedot.pop(kentta, None)
+        if "lahteet" in kentat:
+            lahteet, virhe = ehdotukset.tulkitse_lahteet(kentat["lahteet"][0])
+            if lahteet is None:
+                return virhe
+            oletus = ehdotukset.tulkitse_lahteet(ehdotukset.lahteet_tekstiksi(_koodin_lahteet(paikka)))[0]
+            if lahteet != oletus:
+                tiedot["lahteet"] = lahteet
+            else:
+                tiedot.pop("lahteet", None)
     if (kentat.get("poista_kuva") or [""])[0]:
         tiedot.pop("kuva_versio", None)
         kanta.poista(kortit.KUVAT, avain)
@@ -3425,6 +3433,22 @@ def tallenna_kortin_kuva(avain: str, data: bytes) -> str | None:
     kanta.kirjoita(kortit.KOKOELMA, avain, tiedot)
     kaikki_kortit(pakota=True)
     return f"/kortti-kuva/{avain}.jpg?v={versio}"
+
+
+def _koodin_lahteet(paikka) -> list[tuple[str, str | None]]:
+    """Paikkasivun lähteet koodista (paikkasivut.py) ja paikan pääsivu ensimmäisenä."""
+    lahteet = list(paikkasivut.KUVAUKSET[paikka.nimi].lahteet if paikka.nimi in paikkasivut.KUVAUKSET else ())
+    if paikka.url and paikka.url not in {url for _, url in lahteet}:
+        lahteet.insert(0, ("Paikan pääsivu", paikka.url))
+    return lahteet
+
+
+def _paikan_lahteet(paikka) -> list[tuple[str, str | None]]:
+    """Ylläpitäjän muokkaamat lähteet tai koodin lähteet."""
+    muokatut = kortin_tiedot(paikka).get("lahteet")
+    if muokatut is not None:
+        return [(l["nimi"], l.get("url") or None) for l in muokatut]
+    return _koodin_lahteet(paikka)
 
 
 def _oletusjohdanto(paikka, kieli: str) -> str:
@@ -3448,6 +3472,11 @@ def korttisivu(paikka, virhe: str = "", kentat: dict[str, list[str]] | None = No
              f'<textarea id="teksti" name="teksti" rows="8">{arvo("teksti", _oletusjohdanto(paikka, "fi"))}</textarea>'
              f'<label for="teksti_en">Kuvaus englanniksi</label>'
              f'<textarea id="teksti_en" name="teksti_en" rows="8">{arvo("teksti_en", _oletusjohdanto(paikka, "en"))}</textarea>'
+             f'<h2>Lähteet</h2><p class="ohje">Paikkasivun Lähteet-osio. Yksi riville: Nimi | https://…, pelkkä '
+             f'osoite tai pelkkä nimi (lähde ilman linkkiä). Poista rivi poistaaksesi lähteen.</p>'
+             f'<textarea id="lahteet" name="lahteet" rows="8">'
+             f'{e((kentat.get("lahteet") or [""])[0]) if kentat is not None else e(ehdotukset.lahteet_tekstiksi(_paikan_lahteet(paikka)))}'
+             f'</textarea>'
              + _kortin_osio(avain, paikka, kentat)
              + '<p><button class="nappi" type="submit">💾 Tallenna</button> <a href="/yllapito">Peruuta</a></p></form>'
              '<p class="pieni">Kohteiden rajat ja mittarit ovat sovelluksen koodissa; niiden muutokset tehdään sinne.</p>')
@@ -3481,13 +3510,15 @@ def muokkaussivu(tunniste: str, ehdotus: dict, virhe: str = "", kentat: dict[str
     osat.append(alue("teksti_en", "Kuvaus englanniksi", "Tyhjä = suomenkielinen kuvaus tai täydennyksen käännös."))
     if tayd:
         osat.append(alue("ehdottajan_teksti", "Ehdottajan teksti", "Näkyy esikatselussa, ei julkaistulla sivulla."))
+        osat.append(alue("huomiot", "Huomioita", "Täydennyksen huomiot: näkyvät esikatselussa ja ylläpitäjälle. "
+                                                 "Tyhjennä kenttä poistaaksesi osion."))
         osat.append(rivi("lahto", "Lähtö") + rivi("loppu", "Loppu")
                     + rivi("lahto_en", "Lähtö englanniksi") + rivi("loppu_en", "Loppu englanniksi"))
     if uusi:
         osat.append(rivi("mittari_virtaama", "Virtaamamittari", 300, "SYKE-aseman numero tai kaavion osoite.")
                     + rivi("mittari_vedenkorkeus", "Vedenkorkeusmittari", 300))
     kohderivit = []
-    for i in range(1, ehdotukset.KOHTEITA_ENINTAAN + 1):
+    for i in range(1, ehdotukset.MUOKATTAVIA_KOHTEITA + 1):
         rajat = ""
         for lyh, otsikko in (("q", "Virtaama m³/s"), ("w", "Vedenkorkeus m")):
             rajat += f'<p class="ohje">{otsikko}</p>' + "".join(
@@ -3499,14 +3530,27 @@ def muokkaussivu(tunniste: str, ehdotus: dict, virhe: str = "", kentat: dict[str
                 for x, nimi_ in (("toimii", "Toimii"), ("paras", "Parhaimmillaan")))
         arvio = (f'<label class="valinta"><input type="checkbox" name="k{i}_arvio" value="1"'
                  f'{" checked" if arvo(f"k{i}_arvio") else ""}> Rajat ovat arvio (täydennys tai ylläpito)</label>')
-        tyhja = not arvo(f"k{i}_nimi")
+        tyhja = not any(arvo(f"k{i}_{x}") for x in ("nimi", "huom", "q_toimii_ala", "q_toimii_yla", "q_paras_ala",
+                                                    "q_paras_yla", "w_toimii_ala", "w_toimii_yla", "w_paras_ala",
+                                                    "w_paras_yla"))
         kohderivit.append(
-            f'<fieldset><legend>Kohde {i}{" (tyhjä = ei kohdetta)" if tyhja else ""}</legend>'
+            f'<fieldset class="muokattava-kohde"{" data-tyhja" if tyhja else ""}><legend>Kohde</legend>'
             + rivi(f"k{i}_nimi", "Nimi", ehdotukset.NIMI_ENINTAAN) + rajat
-            + rivi(f"k{i}_huom", "Huomio") + rivi(f"k{i}_huom_en", "Huomio englanniksi") + arvio + "</fieldset>")
+            + rivi(f"k{i}_huom", "Huomio") + rivi(f"k{i}_huom_en", "Huomio englanniksi") + arvio
+            + '<p><button type="button" class="lisaa-kohde poista-kohde">✕ Poista kohde</button></p></fieldset>')
     osat.append("<h2>Kohteet ja rajat</h2>"
-                '<p class="ohje">Avoin raja jätetään tyhjäksi. Tyhjennä kohteen kentät poistaaksesi sen.</p>'
-                + "".join(kohderivit))
+                '<p class="ohje">Avoin raja jätetään tyhjäksi. Täytä uusi kohde ja paina "+ Lisää kohde", '
+                "niin seuraava avautuu.</p>" + "".join(kohderivit)
+                + '<p><button type="button" class="lisaa-kohde" id="lisaa-kohde">+ Lisää kohde</button> '
+                  '<span class="virhe" id="kohde-virhe"></span></p>' + _KOHDEMUOKKAUS_JS)
+    linkkiosa = ["<h2>Linkit ja lähteet</h2>"]
+    if tayd:
+        linkkiosa.append(alue("lahteet", "Lähteet", "Julkaistun sivun Lähteet-osio. Yksi riville: Nimi | https://…, "
+                                                    "pelkkä osoite tai pelkkä nimi (lähde ilman linkkiä)."))
+    linkkiosa.append(alue("linkit", "Ehdottajan linkit", "Näkyvät esikatselussa (vesitiedot, videot, muut) ja "
+                                                         "julkaistun sivun lähteissä. Yksi osoite riville."))
+    linkkiosa.append(alue("yksityiset_linkit", "Ei-julkaistavat linkit", "Vain ylläpitäjälle ja täydennykselle."))
+    osat.append("".join(linkkiosa))
     osat.append(_kortin_osio(tunniste, next((p for p in kaikki_paikat() if p.url == f"/ehdotus/{tunniste}"), None),
                              kentat))
     runko = (f"<h1>Muokkaa: {e(ehdotukset.nimi(ehdotus))}</h1>"
@@ -3515,6 +3559,40 @@ def muokkaussivu(tunniste: str, ehdotus: dict, virhe: str = "", kentat: dict[str
                f'<p><button class="nappi" type="submit">💾 Tallenna</button> '
                f'<a href="/ehdotus/{e(tunniste)}?y=1">Peruuta</a></p></form>')
     return _sivupohja("Muokkaa", runko, "fi", f"/ehdotus/{tunniste}?y=1")
+
+
+# Muokkauslomakkeen kohteet: tallennetut näkyvät, tyhjistä vain yksi kerrallaan auki. "+ Lisää kohde" hyväksyy
+# avoimen kohteen (nimi pakollinen) ja avaa seuraavan; "✕ Poista kohde" tyhjentää ja piilottaa kohteen.
+_KOHDEMUOKKAUS_JS = """<script>
+(() => {
+  const kohteet = [...document.querySelectorAll("fieldset.muokattava-kohde")];
+  const virhe = document.getElementById("kohde-virhe"), lisaa = document.getElementById("lisaa-kohde");
+  const nimi = f => f.querySelector('input[name$="_nimi"]');
+  const avaa = () => {
+    const seuraava = kohteet.find(f => f.hidden);
+    if (seuraava) { seuraava.hidden = false; nimi(seuraava).focus(); }
+    lisaa.disabled = !kohteet.some(f => f.hidden);
+  };
+  let auki = false;
+  kohteet.forEach(f => {
+    if (f.hasAttribute("data-tyhja")) { f.hidden = auki; auki = true; f.dataset.uusi = "1"; }
+    f.querySelector(".poista-kohde").addEventListener("click", () => {
+      f.querySelectorAll("input").forEach(i => { if (i.type === "checkbox") i.checked = false; else i.value = ""; });
+      f.hidden = true;
+      kohteet.splice(kohteet.indexOf(f), 1);   // poistettu ei avaudu uudelleen
+      if (!kohteet.some(k => !k.hidden && k.dataset.uusi)) avaa();
+    });
+  });
+  lisaa.addEventListener("click", () => {
+    const avoin = kohteet.find(f => !f.hidden && f.dataset.uusi);
+    if (avoin && !nimi(avoin).value.trim()) { virhe.textContent = "Anna ensin kohteen nimi."; nimi(avoin).focus(); return; }
+    virhe.textContent = "";
+    if (avoin) delete avoin.dataset.uusi;
+    avaa();
+  });
+  lisaa.disabled = !kohteet.some(f => f.hidden);
+})();
+</script>"""
 
 
 def muokkaa_ehdotusta(tunniste: str, kentat: dict[str, list[str]]) -> tuple[dict | None, str]:

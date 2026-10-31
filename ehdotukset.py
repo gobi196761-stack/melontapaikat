@@ -30,6 +30,7 @@ KOKOELMA = "ehdotukset"
 YLLAPITO = "yllapito_tilaukset"
 TILAT = ("odottaa", "hyvaksytty", "hylatty")
 KOHTEITA_ENINTAAN = 6           # lomakkeen "+ Lisää kohde" enintään 6 kertaa
+MUOKATTAVIA_KOHTEITA = 20       # ylläpitäjän muokkauslomakkeella (ehdottajan ja täydennyksen kohteet yhdessä)
 LINKKEJA_ENINTAAN = 10
 TEKSTI_ENINTAAN = 3000
 NIMI_ENINTAAN = 100
@@ -111,7 +112,7 @@ def _kentta(kentat: dict[str, list[str]], nimi: str, enintaan: int = NIMI_ENINTA
 
 
 def tulkitse_kohteet(kentat: dict[str, list[str]], kieli: str = "fi", vanha_suure: str | None = None,
-                     oletusnimi: str = "") -> tuple[list[dict], str]:
+                     oletusnimi: str = "", enintaan: int = KOHTEITA_ENINTAAN) -> tuple[list[dict], str]:
     """Lomakkeen kohderivit k<i>_* -> (kohteet, '') tai ([], virheilmoitus). Ylläpidon muokkauslomakkeella
     lisäksi k<i>_huom_en (englanninkielinen huomio) ja k<i>_arvio (täydennyksen arvioimat rajat)."""
     t = TEKSTIT["en" if kieli == "en" else "fi"]
@@ -120,7 +121,7 @@ def tulkitse_kohteet(kentat: dict[str, list[str]], kieli: str = "fi", vanha_suur
     # paikan nimi, ja lisää pelipaikkoja tai laskuosuuksia tulee "+ Lisää kohde" -napilla
     # Kohteen rajat suureittain: k<i>_q_* = virtaama (m³/s), k<i>_w_* = vedenkorkeus (m); molemmat, toinen
     # tai ei kumpaakaan. Avoin ala- tai yläraja sallitaan; pelkkä optimi käy myös toimii-alueeksi ja päinvastoin.
-    for i in range(1, KOHTEITA_ENINTAAN + 1):
+    for i in range(1, enintaan + 1):
         nimi = _kentta(kentat, f"k{i}_nimi")
         huom = _kentta(kentat, f"k{i}_huom", 300)
         huom_en = _kentta(kentat, f"k{i}_huom_en", 300)
@@ -930,6 +931,56 @@ def kaksoiskappaleet(ehdotus: dict, ehdokkaat: list[dict]) -> list[dict]:
 # Ylläpitäjän muokkaus ennen hyväksyntää (tai julkaisun jälkeen): /ehdotus/<tunniste>/muokkaa
 # ---------------------------------------------------------------------------
 
+LAHTEITA_ENINTAAN = 30
+
+
+def lahteet_tekstiksi(lahteet) -> str:
+    """[{"nimi", "url"}] tai [(nimi, url)] -> rivit 'Nimi | https://…', pelkkä osoite tai pelkkä nimi."""
+    rivit = []
+    for l in lahteet or []:
+        nimi_, url = (l.get("nimi") or "", l.get("url") or "") if isinstance(l, dict) else (l[0] or "", l[1] or "")
+        rivit.append(url if nimi_ in ("", url) else f"{nimi_} | {url}" if url else nimi_)
+    return "\n".join(rivit)
+
+
+def tulkitse_lahteet(teksti: str) -> tuple[list[dict] | None, str]:
+    """Rivit 'Nimi | https://…', pelkkä osoite tai pelkkä nimi (lähde ilman linkkiä) -> [{"nimi", "url"}]."""
+    lahteet = []
+    for rivi in (teksti or "").splitlines():
+        rivi = rivi.strip()
+        if not rivi:
+            continue
+        if "|" in rivi:
+            nimi_, _, url = rivi.rpartition("|")
+        elif re.match(r"https?://", rivi):
+            nimi_, url = rivi, rivi
+        else:
+            nimi_, url = rivi, ""
+        nimi_, url = nimi_.strip(), url.strip()
+        if url and not re.fullmatch(r"https?://\S{3,490}", url):
+            return None, f"Linkin pitää alkaa http:// tai https:// ({rivi[:80]})"
+        lahteet.append({"nimi": (nimi_ or url)[:200], "url": url})
+    if len(lahteet) > LAHTEITA_ENINTAAN:
+        return None, f"Enintään {LAHTEITA_ENINTAAN} lähdettä."
+    return lahteet, ""
+
+
+def _osoitteet(teksti: str) -> tuple[list[str] | None, str]:
+    """Rivit (osoite tai 'Nimi | osoite') -> osoitteet."""
+    lahteet, virhe = tulkitse_lahteet(teksti)
+    if lahteet is None:
+        return None, virhe
+    if any(not l["url"] for l in lahteet):
+        return None, "Jokaisella linkkirivillä pitää olla osoite (https://…)."
+    if len(lahteet) > LINKKEJA_ENINTAAN:
+        return None, t_virhe_linkkeja()
+    return [l["url"] for l in lahteet], ""
+
+
+def t_virhe_linkkeja() -> str:
+    return TEKSTIT["fi"]["virhe_linkkeja"].format(n=LINKKEJA_ENINTAAN)
+
+
 def _arvo(x: float | None) -> str:
     return "" if x is None else f"{x:g}".replace(".", ",")
 
@@ -943,6 +994,10 @@ def muokkauskentat(ehdotus: dict, paikat: tuple[Paikka, ...] = ()) -> dict[str, 
               "teksti": muutos.get("teksti") or (tayd.get("teksti") if tayd else ehdotus.get("teksti")) or "",
               "teksti_en": muutos.get("teksti_en") or en.get("teksti") or "",
               "ehdottajan_teksti": (ehdotus.get("teksti") or "") if tayd else "",
+              "huomiot": tayd.get("huomiot") or "",
+              "lahteet": lahteet_tekstiksi(tayd.get("lahteet")),
+              "linkit": "\n".join(l["url"] for l in ehdotus.get("linkit") or []),
+              "yksityiset_linkit": "\n".join(ehdotus.get("yksityiset_linkit") or []),
               "lahto": tayd.get("lahto") or "", "loppu": tayd.get("loppu") or "",
               "lahto_en": en.get("lahto") or "", "loppu_en": en.get("loppu") or ""}
     if ehdotus.get("laji") == "uusi":
@@ -951,7 +1006,7 @@ def muokkauskentat(ehdotus: dict, paikat: tuple[Paikka, ...] = ()) -> dict[str, 
         kentat["mittari_vedenkorkeus"] = mittarit.get("vedenkorkeus", "")
     oletus = oletussuure(ehdotus, paikat)
     huom_en = en.get("huom") or {}
-    for i, k in enumerate(kaikki_kohteet(ehdotus)[:KOHTEITA_ENINTAAN], 1):
+    for i, k in enumerate(kaikki_kohteet(ehdotus)[:MUOKATTAVIA_KOHTEITA], 1):
         kentat[f"k{i}_nimi"] = k.get("nimi") or ""
         kentat[f"k{i}_huom"] = k.get("huom") or ""
         kentat[f"k{i}_huom_en"] = huom_en.get(k.get("nimi")) or k.get("huom_en") or ""
@@ -991,26 +1046,46 @@ def muokkaa(ehdotus: dict, kentat: dict[str, list[str]]) -> tuple[dict | None, s
         if tayd:
             tayd["mittarit"] = mittarit
             tayd.pop("mittari", None)
-    kohteet, virhe = tulkitse_kohteet(kentat, "fi", None, ehdotus.get("nimi", "") if uusi else "")
+    kohteet, virhe = tulkitse_kohteet(kentat, "fi", None, ehdotus.get("nimi", "") if uusi else "",
+                                      MUOKATTAVIA_KOHTEITA)
     if virhe:
         return None, virhe
     teksti = (kentat.get("teksti") or [""])[0].strip()
     teksti_en = (kentat.get("teksti_en") or [""])[0].strip()
     if max(len(teksti), len(teksti_en), len((kentat.get("ehdottajan_teksti") or [""])[0])) > TEKSTI_ENINTAAN:
         return None, t["virhe_teksti"].format(n=TEKSTI_ENINTAAN)
+    linkit, virhe = _osoitteet((kentat.get("linkit") or [""])[0])
+    if linkit is None:
+        return None, virhe
+    yksityiset, virhe = _osoitteet((kentat.get("yksityiset_linkit") or [""])[0])
+    if yksityiset is None:
+        return None, virhe
+    lahteet, virhe = tulkitse_lahteet((kentat.get("lahteet") or [""])[0])
+    if lahteet is None:
+        return None, virhe
+    ehdotus["linkit"] = [{"url": url, "laji": linkin_laji(url)} for url in linkit]
+    ehdotus["yksityiset_linkit"] = yksityiset
     ehdotus["kohteet"] = kohteet
     if tayd:
+        tayd["lahteet"] = lahteet
         tayd["teksti"] = teksti
         ehdotus["teksti"] = (kentat.get("ehdottajan_teksti") or [""])[0].strip()
         tayd["kohteet"] = []
         for avain in ("lahto", "loppu"):
             tayd[avain] = _kentta(kentat, avain, 300)
+        huomiot = (kentat.get("huomiot") or [""])[0].strip()[:TEKSTI_ENINTAAN]   # tyhjä poistaa osion
+        if huomiot:
+            tayd["huomiot"] = huomiot
+        else:
+            tayd.pop("huomiot", None)
         en = dict(tayd.get("en") or {})
         if en or teksti_en:   # käännös: muokattu teksti; kohteiden huomiot ovat nyt kohteissa
             en.update(teksti=teksti_en, huom={}, lahto=_kentta(kentat, "lahto_en", 300),
                       loppu=_kentta(kentat, "loppu_en", 300))
             tayd["en"] = en
         ehdotus["taydennys"] = {**(ehdotus.get("taydennys") or {}), **tayd}
+        if "huomiot" not in tayd:
+            ehdotus["taydennys"].pop("huomiot", None)
     else:
         ehdotus["teksti"] = teksti
         if teksti_en:
