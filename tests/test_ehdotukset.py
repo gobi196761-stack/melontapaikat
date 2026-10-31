@@ -892,3 +892,18 @@ def test_muokkaus_linkit_ja_lahteet(ymparisto):
     pyynto(f"/yllapito/kortti/{avain}", metodi="POST", evaste=evaste, runko=lomake(
         teksti="", teksti_en="", kortin_linkit="", lahteet=ehdotukset.lahteet_tekstiksi(app._koodin_lahteet(KIPINA))))
     assert "lahteet" not in kanta.lue(app.kortit.KOKOELMA, avain)
+
+
+def test_korttikuvan_rajaus(ymparisto):
+    kanta, _ = ymparisto
+    evaste = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))[1]["Set-Cookie"].split(";")[0]
+    avain = app.kortit.avain(KIPINA)
+    pyynto(f"/api/kortti/{avain}/kuva", metodi="POST", runko=b"\xff\xd8\xff\xe0xx", tyyppi="image/jpeg", evaste=evaste)
+    assert 'name="kuva_x"' in pyynto(f"/yllapito/kortti/{avain}", evaste=evaste)[2]
+    pyynto(f"/yllapito/kortti/{avain}", metodi="POST", evaste=evaste, runko=lomake(
+        teksti="", teksti_en="", kortin_linkit="", kuva_x="20", kuva_y="70"))
+    assert kanta.lue(app.kortit.KOKOELMA, avain)["kuva_kohta"] == [20, 70]
+    assert 'style="object-position:20% 70%"' in app._kortti(KIPINA, None, "fi")
+    pyynto(f"/yllapito/kortti/{avain}", metodi="POST", evaste=evaste, runko=lomake(
+        teksti="", teksti_en="", kortin_linkit="", kuva_koko="1"))
+    assert 'style="object-fit:contain;background:var(--pinta)"' in app._kortti(KIPINA, None, "fi")
