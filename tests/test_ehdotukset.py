@@ -644,14 +644,15 @@ def test_korvattu_kohde_ja_ilmoitusten_seuranta(ymparisto, monkeypatch):
     """Korvattu julkaistu kohde piilotetaan ja ohjataan uuteen; ylläpitäjä näkee, menikö ilmoitus perille."""
     kanta, lahetetyt = ymparisto
     vanha, uusi = next(iter(ehdotukset.KORVATUT.items()))
-    for tun in (vanha, uusi):
+    for tun in (vanha, uusi.removeprefix("/ehdotus/")):
         kanta.kirjoita(ehdotukset.KOKOELMA, tun, {"laji": "uusi", "nimi": "Kiiminkijoki: Kivarinjärvi-Kalliuskoski",
                                                   "tyyppi": "retki", "tila": "hyvaksytty", "kohteet": [], "linkit": [],
                                                   "mittari_virtaama": "60/q6000110y/qinlyhyt.png"})
     nimet = [p.nimi for p in app.kaikki_paikat()]
     assert nimet.count("Kiiminkijoki: Kivarinjärvi-Kalliuskoski") == 1 and "(käyttäjän ehdotus)" not in "".join(nimet)
     status, otsakkeet, _ = pyynto(f"/ehdotus/{vanha}")
-    assert status == "303 See Other" and otsakkeet["Location"] == f"/ehdotus/{uusi}"
+    assert status == "303 See Other" and otsakkeet["Location"] == uusi
+    assert pyynto("/ehdotus/Kh9e2kcPZfw8KrOZH8h06A")[1]["Location"] == "/paikka/koiteli-kiiminkijoki"
     # testi-ilmoitus ylläpitosivulta: laitteiden määrä ja onnistuneet
     _, ylla, _ = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))
     evaste = ylla["Set-Cookie"].split(";")[0]

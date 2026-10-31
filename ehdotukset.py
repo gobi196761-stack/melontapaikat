@@ -332,9 +332,11 @@ def nimi(ehdotus: dict) -> str:
     return urlparse(linkit[0]["url"]).hostname or "?" if linkit else "?"
 
 
-# Ylläpitäjän korvaamat julkaistut kohteet: vanha tunniste -> uusi (vanha piilotetaan, osoite ohjaa uuteen)
+# Ylläpitäjän poistamat tai korvaamat julkaistut kohteet: tunniste -> osoite, johon vanha sivu ohjaa
+# (kohde piilotetaan listoista ja hälytyksistä)
 KORVATUT: dict[str, str] = {
-    "xtf8Q1wKk9Gi1TZiQTLFtw": "HGpostBehXWrMgCxqacgTQ",   # Kiiminkijoki: Kivarinjärvi-Kalliuskoski
+    "xtf8Q1wKk9Gi1TZiQTLFtw": "/ehdotus/HGpostBehXWrMgCxqacgTQ",   # Kiiminkijoki: uudempi ehdotus
+    "Kh9e2kcPZfw8KrOZH8h06A": "/paikka/koiteli-kiiminkijoki",     # Tulikurkku: Koitelin kohde
 }
 
 # Ylläpitäjän rajat julkaistuille kohteille (ehdotuksen nimi -> kohteet), kun ehdottaja kertoo
