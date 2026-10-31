@@ -3000,7 +3000,10 @@ def _julkaistun_yllapito(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: b
         osat.append(f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele"><b>{e(t["yllapito"])}:</b> '
                     f'<button class="nappi toissijainen" name="toiminto" value="kaanna">{e(t["kaanna_nappi"])}</button>'
                     f' <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
-    osat.append(f'<p><a class="nappi toissijainen" href="/ehdotus/{e(tunniste)}/muokkaa">{e(t["muokkaa"])}</a></p>')
+    osat.append(f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele">'
+                f'<a class="nappi toissijainen" href="/ehdotus/{e(tunniste)}/muokkaa">{e(t["muokkaa"])}</a>'
+                f'<button class="nappi toissijainen" name="toiminto" value="palauta">{e(t["palauta"])}</button>'
+                f'<span class="pieni"> {e(t["palauta_ohje"])}</span></form>')
     tayd = ehdotukset.valmis_taydennys(ehdotus)
     if tayd.get("huomiot"):   # täydennyksen huomiot ylläpitäjälle
         osat.append(f'<p class="huom"><b>{e(t["huomioita"])}:</b> {e(tayd["huomiot"])}</p>')
@@ -3086,6 +3089,8 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
                      f'<button class="nappi toissijainen" name="toiminto" value="hylkaa">{e(t["hylkaa"])}</button>'
                      + (f'<button class="nappi toissijainen" name="toiminto" value="taydenna">{e(taydenna)}</button>'
                         if taydennys.get("tila") != "kaynnissa" else ""))
+        else:   # hyväksytty tai hylätty: takaisin käsittelyyn
+            napit = f'<button class="nappi toissijainen" name="toiminto" value="palauta">{e(t["palauta"])}</button>'
         if taydennys.get("tila") == "valmis" and not taydennys.get("en") and taydennys.get("kaannos") != "kaynnissa":
             napit += f'<button class="nappi toissijainen" name="toiminto" value="kaanna">{e(t["kaanna_nappi"])}</button>'
         napit += f'<a class="nappi toissijainen" href="/ehdotus/{e(tunniste)}/muokkaa">{e(t["muokkaa"])}</a>'
@@ -3383,12 +3388,21 @@ def kasittele_ehdotus(tunniste: str, toiminto: str) -> bool:
         return True
     kanta = _kanta()
     ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste) if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None
-    if not ehdotus or toiminto not in ("hyvaksy", "hylkaa"):
+    if not ehdotus or toiminto not in ("hyvaksy", "hylkaa", "palauta"):
         return False
+    global _tilanne
+    _tilanne = None   # hyväksytty kohde tulee listaan (tai palautettu poistuu) heti tällä palvelininstanssilla
+    if toiminto == "palauta":   # vanha ehdotus uudelleen käsittelyyn: julkaisu poistuu, kunnes hyväksytään
+        if ehdotus.get("tila") == "odottaa":
+            return True
+        ehdotus["aiempi_tila"] = ehdotus.get("tila")
+        ehdotus["tila"] = "odottaa"
+        ehdotus.pop("kasitelty", None)
+        kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
+        kaikki_ehdotukset(pakota=True)
+        return True
     ehdotus["tila"] = "hyvaksytty" if toiminto == "hyvaksy" else "hylatty"
     ehdotus["kasitelty"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
-    global _tilanne
-    _tilanne = None   # hyväksytty kohde tulee listaan heti tällä palvelininstanssilla
     try:
         _ilmoita_ehdottajalle(kanta, tunniste, ehdotus)
     except OSError:

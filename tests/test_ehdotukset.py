@@ -744,3 +744,25 @@ def test_muokkaus_ohittaa_koodin_yllapidon_muutokset():
     assert ehdotukset.kaikki_kohteet(muokattu)[0]["huom"] == "Uusi huomio"
     assert muokattu["teksti"].startswith("Kitulankoski on pelipaikka")
     assert muokattu["teksti_en"].startswith("Kitulankoski is a play spot")
+
+
+def test_vanha_ehdotus_palautetaan_kasittelyyn(ymparisto):
+    kanta, _ = ymparisto
+    osoite = pyynto("/ehdota", metodi="POST", runko=lomake(
+        laji="uusi", nimi="Kitkajoki", mittari_virtaama="7300350", k1_nimi="Käylä – Juuma", k1_q_toimii_ala="20",
+        verkkosivu=""))[1]["Location"]
+    tunniste = osoite.removeprefix("/ehdotus/")
+    evaste = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))[1]["Set-Cookie"].split(";")[0]
+    assert pyynto(f"{osoite}/kasittele", metodi="POST", runko=lomake(toiminto="palauta"))[0] == "403 Forbidden"
+    for toiminto in ("hylkaa", "hyvaksy"):
+        pyynto(f"{osoite}/kasittele", metodi="POST", runko=lomake(toiminto=toiminto), evaste=evaste)
+        assert kanta.lue(ehdotukset.KOKOELMA, tunniste)["tila"] != "odottaa"
+        sivu = pyynto(osoite, "y=1", evaste=evaste)[2]
+        assert 'value="palauta"' in sivu and 'value="hyvaksy"' not in sivu
+        assert pyynto(f"{osoite}/kasittele", metodi="POST", runko=lomake(toiminto="palauta"),
+                      evaste=evaste)[0] == "303 See Other"
+        tallessa = kanta.lue(ehdotukset.KOKOELMA, tunniste)
+        assert tallessa["tila"] == "odottaa" and "kasitelty" not in tallessa
+        sivu = pyynto(osoite, evaste=evaste)[2]
+        assert 'value="hyvaksy"' in sivu and 'value="palauta"' not in sivu
+        assert tunniste not in app._ehdotusluukku("fi")

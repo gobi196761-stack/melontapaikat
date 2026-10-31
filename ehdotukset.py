@@ -707,7 +707,7 @@ TEKSTIT = {
         "ilmoitus_tilattu": "Ilmoitus tilattu – saat push-ilmoituksen, kun ehdotus on käsitelty.",
         "ilmoitus_virhe": "Ilmoitusta ei voitu tilata", "tallenna_linkki": "Tallenna tämän sivun osoite: "
         "sillä näet ehdotuksen tilan myöhemmin.",
-        "hyvaksy": "✓ Hyväksy ja julkaise", "muokkaa": "✏️ Muokkaa", "hylkaa": "✗ Hylkää", "yllapito": "Ylläpito",
+        "hyvaksy": "✓ Hyväksy ja julkaise", "muokkaa": "✏️ Muokkaa", "palauta": "↩️ Palauta käsittelyyn", "palauta_ohje": "Kohde poistuu julkaisusta, kunnes se hyväksytään uudelleen.", "hylkaa": "✗ Hylkää", "yllapito": "Ylläpito",
         "kayttajien_lisaykset": "Käyttäjien lisäykset", "lisaysta": "Katso koko ehdotus",
         "takaisin": "← Melontatilanne", "virhe_otsikko": "Ehdotusta ei voitu lähettää",
         "virhe_laji": "Valitse, onko kyseessä uusi kohde vai täydennys.", "virhe_paikka": "Valitse paikka.",
@@ -808,7 +808,7 @@ TEKSTIT = {
         "ilmoitus_tilattu": "Notification set – you will get a push notification when the suggestion has been "
                             "processed.", "ilmoitus_virhe": "Could not set the notification",
         "tallenna_linkki": "Save the address of this page: it shows the status of your suggestion later.",
-        "hyvaksy": "✓ Approve and publish", "muokkaa": "✏️ Edit", "hylkaa": "✗ Reject", "yllapito": "Admin",
+        "hyvaksy": "✓ Approve and publish", "muokkaa": "✏️ Edit", "palauta": "↩️ Reopen", "palauta_ohje": "The spot is unpublished until it is approved again.", "hylkaa": "✗ Reject", "yllapito": "Admin",
         "kayttajien_lisaykset": "Additions by users", "lisaysta": "See the full suggestion",
         "takaisin": "← Paddling conditions", "virhe_otsikko": "The suggestion could not be sent",
         "virhe_laji": "Choose whether this is a new spot or an addition.", "virhe_paikka": "Choose a spot.",
