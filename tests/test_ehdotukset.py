@@ -860,3 +860,35 @@ def test_muokkaus_huomiot_ja_monta_kohdetta():
     assert "huomiot" not in muokattu["taydennys"]
     sivu = app.muokkaussivu("abcdefghijklmnopq", ehdotus)
     assert 'id="huomiot"' in sivu and sivu.count('class="muokattava-kohde" data-tyhja') == 12
+
+
+def test_muokkaus_linkit_ja_lahteet(ymparisto):
+    kanta, _ = ymparisto
+    ehdotus = {"laji": "uusi", "nimi": "Joki", "teksti": "", "kohteet": [],
+               "linkit": [{"url": "https://youtu.be/a", "laji": "video"}], "yksityiset_linkit": ["https://x.fi/y"],
+               "taydennys": {"tila": "valmis", "teksti": "T", "kohteet": [], "lahteet": [
+                   {"nimi": "Blogi", "url": "https://blogi.fi/a"}, {"nimi": "Melontapäiväkirja", "url": ""}]}}
+    kentat = ehdotukset.muokkauskentat(ehdotus)
+    assert kentat["lahteet"] == "Blogi | https://blogi.fi/a\nMelontapäiväkirja"
+    assert kentat["linkit"] == "https://youtu.be/a" and kentat["yksityiset_linkit"] == "https://x.fi/y"
+    muokattu, virhe = ehdotukset.muokkaa(ehdotus, {k: [v] for k, v in {
+        **kentat, "lahteet": "Melontapäiväkirja\nhttps://uusi.fi/b", "linkit": "Video | https://vesi.fi/z",
+        "yksityiset_linkit": ""}.items()})
+    assert not virhe and muokattu["taydennys"]["lahteet"] == [
+        {"nimi": "Melontapäiväkirja", "url": ""}, {"nimi": "https://uusi.fi/b", "url": "https://uusi.fi/b"}]
+    assert muokattu["linkit"] == [{"url": "https://vesi.fi/z", "laji": "vesi"}] and muokattu["yksityiset_linkit"] == []
+    assert ehdotukset.muokkaa(ehdotus, {**{k: [v] for k, v in kentat.items()}, "linkit": ["pelkkä nimi"]})[0] is None
+    # sovelluksen paikan lähteet
+    evaste = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))[1]["Set-Cookie"].split(";")[0]
+    avain = app.kortit.avain(KIPINA)
+    sivu = pyynto(f"/yllapito/kortti/{avain}", evaste=evaste)[2]
+    assert 'name="lahteet"' in sivu and "osm.fi: Kipinä | " in sivu
+    pyynto(f"/yllapito/kortti/{avain}", metodi="POST", evaste=evaste, runko=lomake(
+        teksti="", teksti_en="", kortin_linkit="", lahteet="Oma lähde | https://oma.fi/a\nKirja ilman linkkiä"))
+    assert kanta.lue(app.kortit.KOKOELMA, avain)["lahteet"][1] == {"nimi": "Kirja ilman linkkiä", "url": ""}
+    sivu = pyynto(f"/paikka/{avain}")[2]
+    assert 'href="https://oma.fi/a"' in sivu and "<li>Kirja ilman linkkiä</li>" in sivu and "osm.fi: Kipinä" not in sivu
+    # ennallaan tallennettu ei korvaa koodin lähteitä
+    pyynto(f"/yllapito/kortti/{avain}", metodi="POST", evaste=evaste, runko=lomake(
+        teksti="", teksti_en="", kortin_linkit="", lahteet=ehdotukset.lahteet_tekstiksi(app._koodin_lahteet(KIPINA))))
+    assert "lahteet" not in kanta.lue(app.kortit.KOKOELMA, avain)
