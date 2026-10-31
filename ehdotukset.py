@@ -110,6 +110,50 @@ def _kentta(kentat: dict[str, list[str]], nimi: str, enintaan: int = NIMI_ENINTA
     return (kentat.get(nimi) or [""])[0].strip()[:enintaan]
 
 
+def tulkitse_kohteet(kentat: dict[str, list[str]], kieli: str = "fi", vanha_suure: str | None = None,
+                     oletusnimi: str = "") -> tuple[list[dict], str]:
+    """Lomakkeen kohderivit k<i>_* -> (kohteet, '') tai ([], virheilmoitus). Ylläpidon muokkauslomakkeella
+    lisäksi k<i>_huom_en (englanninkielinen huomio) ja k<i>_arvio (täydennyksen arvioimat rajat)."""
+    t = TEKSTIT["en" if kieli == "en" else "fi"]
+    kohteet = []
+    # uutena kohteena ehdotetaan yksi paikka kerrallaan; sen ensimmäisen kohteen nimi on oletuksena
+    # paikan nimi, ja lisää pelipaikkoja tai laskuosuuksia tulee "+ Lisää kohde" -napilla
+    # Kohteen rajat suureittain: k<i>_q_* = virtaama (m³/s), k<i>_w_* = vedenkorkeus (m); molemmat, toinen
+    # tai ei kumpaakaan. Avoin ala- tai yläraja sallitaan; pelkkä optimi käy myös toimii-alueeksi ja päinvastoin.
+    for i in range(1, KOHTEITA_ENINTAAN + 1):
+        nimi = _kentta(kentat, f"k{i}_nimi")
+        huom = _kentta(kentat, f"k{i}_huom", 300)
+        huom_en = _kentta(kentat, f"k{i}_huom_en", 300)
+        rajat = {}
+        for suure, lyh in (("virtaama", "q"), ("vedenkorkeus", "w")):
+            arvot = [_kentta(kentat, f"k{i}_{lyh}_{x}", 20) for x in ("toimii_ala", "toimii_yla", "paras_ala", "paras_yla")]
+            if suure == vanha_suure and not any(arvot):   # vanha lomake: k<i>_toimii_ala jne.
+                arvot = [_kentta(kentat, f"k{i}_{x}", 20) for x in ("toimii_ala", "toimii_yla", "paras_ala", "paras_yla")]
+            if not any(arvot):
+                continue
+            try:
+                ta, ty, pa, py = (luku(a) for a in arvot)
+            except ValueError:
+                return [], t["virhe_luku"].format(n=i)
+            if any(a is not None and b is not None and a > b for a, b in ((ta, ty), (pa, py))):
+                return [], t["virhe_jarjestys"].format(n=i)
+            toimii, paras = [ta, ty], [pa, py]
+            rajat[suure] = {"toimii": toimii if toimii != [None, None] else paras,
+                            "paras": paras if paras != [None, None] else toimii}
+        if not nimi and not rajat and not huom:
+            continue
+        nimi = nimi or (oletusnimi if i == 1 else "")
+        if not nimi:
+            return [], t["virhe_kohteen_nimi"].format(n=i)
+        kohde = {"nimi": nimi, "rajat": rajat, "huom": huom}
+        if huom_en:
+            kohde["huom_en"] = huom_en
+        if _kentta(kentat, f"k{i}_arvio"):
+            kohde["arvio"] = True
+        kohteet.append(kohde)
+    return kohteet, ""
+
+
 def tulkitse(kentat: dict[str, list[str]], paikat: tuple[Paikka, ...], kieli: str = "fi") \
         -> tuple[dict | None, str]:
     """Lomakkeen kentät -> (ehdotus, '') tai (None, virheilmoitus valitulla kielellä)."""
@@ -148,36 +192,9 @@ def tulkitse(kentat: dict[str, list[str]], paikat: tuple[Paikka, ...], kieli: st
                 ehdotus.setdefault(f"mittari_{suure_kaaviosta(kaavio) or suure}", kaavio)
         sijainti = sijainti_tekstista(_kentta(kentat, "sijainti", 300))
         ehdotus["sijainti"] = list(sijainti) if sijainti else None
-    kohteet = []
-    # uutena kohteena ehdotetaan yksi paikka kerrallaan; sen ensimmäisen kohteen nimi on oletuksena
-    # paikan nimi, ja lisää pelipaikkoja tai laskuosuuksia tulee "+ Lisää kohde" -napilla
-    # Kohteen rajat suureittain: k<i>_q_* = virtaama (m³/s), k<i>_w_* = vedenkorkeus (m); molemmat, toinen
-    # tai ei kumpaakaan. Avoin ala- tai yläraja sallitaan; pelkkä optimi käy myös toimii-alueeksi ja päinvastoin.
-    for i in range(1, KOHTEITA_ENINTAAN + 1):
-        nimi = _kentta(kentat, f"k{i}_nimi")
-        huom = _kentta(kentat, f"k{i}_huom", 300)
-        rajat = {}
-        for suure, lyh in (("virtaama", "q"), ("vedenkorkeus", "w")):
-            arvot = [_kentta(kentat, f"k{i}_{lyh}_{x}", 20) for x in ("toimii_ala", "toimii_yla", "paras_ala", "paras_yla")]
-            if suure == vanha_suure and not any(arvot):   # vanha lomake: k<i>_toimii_ala jne.
-                arvot = [_kentta(kentat, f"k{i}_{x}", 20) for x in ("toimii_ala", "toimii_yla", "paras_ala", "paras_yla")]
-            if not any(arvot):
-                continue
-            try:
-                ta, ty, pa, py = (luku(a) for a in arvot)
-            except ValueError:
-                return None, t["virhe_luku"].format(n=i)
-            if any(a is not None and b is not None and a > b for a, b in ((ta, ty), (pa, py))):
-                return None, t["virhe_jarjestys"].format(n=i)
-            toimii, paras = [ta, ty], [pa, py]
-            rajat[suure] = {"toimii": toimii if toimii != [None, None] else paras,
-                            "paras": paras if paras != [None, None] else toimii}
-        if not nimi and not rajat and not huom:
-            continue
-        nimi = nimi or (ehdotus["nimi"] if laji == "uusi" and i == 1 else "")
-        if not nimi:
-            return None, t["virhe_kohteen_nimi"].format(n=i)
-        kohteet.append({"nimi": nimi, "rajat": rajat, "huom": huom})
+    kohteet, virhe = tulkitse_kohteet(kentat, kieli, vanha_suure, ehdotus["nimi"] if laji == "uusi" else "")
+    if virhe:
+        return None, virhe
     def linkkirivit(kentta: str) -> tuple[list[str] | None, str]:
         urlit = []
         for rivi in (kentat.get(kentta) or [""])[0].splitlines():
@@ -316,7 +333,10 @@ YLLAPIDON_MUUTOKSET: dict[str, dict] = {
 
 
 def yllapidon_muutos(ehdotus: dict) -> dict:
-    return YLLAPIDON_MUUTOKSET.get(ehdotus.get("nimi") or "", {}) if ehdotus.get("laji") == "uusi" else {}
+    """Koodiin kirjattu ylläpidon muutos; muokkauslomakkeella muokattu ehdotus sisältää ne jo itse."""
+    if ehdotus.get("laji") != "uusi" or ehdotus.get("muokattu"):
+        return {}
+    return YLLAPIDON_MUUTOKSET.get(ehdotus.get("nimi") or "", {})
 
 
 def nimi(ehdotus: dict) -> str:
@@ -368,7 +388,7 @@ def kaikki_kohteet(ehdotus: dict) -> list[dict]:
     nimet = {k["nimi"] for k in omat}
     lisatyt = [{**k, "nimi": uudet_nimet.get(k.get("nimi"), k.get("nimi"))}
                for k in valmis_taydennys(ehdotus).get("kohteet", [])]
-    if ehdotus.get("laji") == "uusi":
+    if ehdotus.get("laji") == "uusi" and not ehdotus.get("muokattu"):
         lisatyt += YLLAPIDON_KOHTEET.get(nimi(ehdotus), [])
     return omat + [{**k, "arvio": True} for k in lisatyt if k.get("nimi") not in nimet]
 
@@ -687,7 +707,7 @@ TEKSTIT = {
         "ilmoitus_tilattu": "Ilmoitus tilattu – saat push-ilmoituksen, kun ehdotus on käsitelty.",
         "ilmoitus_virhe": "Ilmoitusta ei voitu tilata", "tallenna_linkki": "Tallenna tämän sivun osoite: "
         "sillä näet ehdotuksen tilan myöhemmin.",
-        "hyvaksy": "✓ Hyväksy ja julkaise", "hylkaa": "✗ Hylkää", "yllapito": "Ylläpito",
+        "hyvaksy": "✓ Hyväksy ja julkaise", "muokkaa": "✏️ Muokkaa", "palauta": "↩️ Palauta käsittelyyn", "palauta_ohje": "Kohde poistuu julkaisusta, kunnes se hyväksytään uudelleen.", "hylkaa": "✗ Hylkää", "yllapito": "Ylläpito",
         "kayttajien_lisaykset": "Käyttäjien lisäykset", "lisaysta": "Katso koko ehdotus",
         "takaisin": "← Melontatilanne", "virhe_otsikko": "Ehdotusta ei voitu lähettää",
         "virhe_laji": "Valitse, onko kyseessä uusi kohde vai täydennys.", "virhe_paikka": "Valitse paikka.",
@@ -788,7 +808,7 @@ TEKSTIT = {
         "ilmoitus_tilattu": "Notification set – you will get a push notification when the suggestion has been "
                             "processed.", "ilmoitus_virhe": "Could not set the notification",
         "tallenna_linkki": "Save the address of this page: it shows the status of your suggestion later.",
-        "hyvaksy": "✓ Approve and publish", "hylkaa": "✗ Reject", "yllapito": "Admin",
+        "hyvaksy": "✓ Approve and publish", "muokkaa": "✏️ Edit", "palauta": "↩️ Reopen", "palauta_ohje": "The spot is unpublished until it is approved again.", "hylkaa": "✗ Reject", "yllapito": "Admin",
         "kayttajien_lisaykset": "Additions by users", "lisaysta": "See the full suggestion",
         "takaisin": "← Paddling conditions", "virhe_otsikko": "The suggestion could not be sent",
         "virhe_laji": "Choose whether this is a new spot or an addition.", "virhe_paikka": "Choose a spot.",
@@ -899,3 +919,98 @@ def kaksoiskappaleet(ehdotus: dict, ehdokkaat: list[dict]) -> list[dict]:
         if syyt:
             tulos.append({"nimi": k["nimi"], "osoite": k["osoite"], "syy": ", ".join(syyt)})
     return tulos
+
+
+# ---------------------------------------------------------------------------
+# Ylläpitäjän muokkaus ennen hyväksyntää (tai julkaisun jälkeen): /ehdotus/<tunniste>/muokkaa
+# ---------------------------------------------------------------------------
+
+def _arvo(x: float | None) -> str:
+    return "" if x is None else f"{x:g}".replace(".", ",")
+
+
+def muokkauskentat(ehdotus: dict, paikat: tuple[Paikka, ...] = ()) -> dict[str, str]:
+    """Muokkauslomakkeen alkuarvot siitä, mitä sivu nyt näyttää (ylläpidon muutokset ja täydennys mukana)."""
+    tayd = valmis_taydennys(ehdotus)
+    en = tayd.get("en") or {}
+    muutos = yllapidon_muutos(ehdotus)
+    kentat = {"laji": ehdotus.get("laji", "uusi"), "nimi": nimi(ehdotus), "tyyppi": ehdotus.get("tyyppi", "retki"),
+              "teksti": muutos.get("teksti") or (tayd.get("teksti") if tayd else ehdotus.get("teksti")) or "",
+              "teksti_en": muutos.get("teksti_en") or en.get("teksti") or "",
+              "ehdottajan_teksti": (ehdotus.get("teksti") or "") if tayd else "",
+              "lahto": tayd.get("lahto") or "", "loppu": tayd.get("loppu") or "",
+              "lahto_en": en.get("lahto") or "", "loppu_en": en.get("loppu") or ""}
+    if ehdotus.get("laji") == "uusi":
+        mittarit = ehdotuksen_mittarit(ehdotus)
+        kentat["mittari_virtaama"] = mittarit.get("virtaama", "")
+        kentat["mittari_vedenkorkeus"] = mittarit.get("vedenkorkeus", "")
+    oletus = oletussuure(ehdotus, paikat)
+    huom_en = en.get("huom") or {}
+    for i, k in enumerate(kaikki_kohteet(ehdotus)[:KOHTEITA_ENINTAAN], 1):
+        kentat[f"k{i}_nimi"] = k.get("nimi") or ""
+        kentat[f"k{i}_huom"] = k.get("huom") or ""
+        kentat[f"k{i}_huom_en"] = huom_en.get(k.get("nimi")) or k.get("huom_en") or ""
+        if k.get("arvio"):
+            kentat[f"k{i}_arvio"] = "1"
+        for suure, (toimii, paras) in kohteen_rajat(k, oletus).items():
+            lyh = "q" if suure == "virtaama" else "w"
+            for x, arvo in zip(("toimii_ala", "toimii_yla", "paras_ala", "paras_yla"), (*toimii, *paras)):
+                kentat[f"k{i}_{lyh}_{x}"] = _arvo(arvo)
+    return kentat
+
+
+def muokkaa(ehdotus: dict, kentat: dict[str, list[str]]) -> tuple[dict | None, str]:
+    """Muokkauslomakkeen tallennus: (muokattu ehdotus, '') tai (None, virhe). Kohteet tallentuvat
+    ehdotuksen omiksi (täydennyksen kohteet siirtyvät niihin), tekstit sinne, mistä sivu ne näyttää."""
+    t = TEKSTIT["fi"]
+    ehdotus = {**ehdotus}
+    tayd = dict(valmis_taydennys(ehdotus))
+    uusi = ehdotus.get("laji") == "uusi"
+    if uusi:
+        uusi_nimi = _kentta(kentat, "nimi")
+        if not uusi_nimi:
+            return None, t["virhe_nimi"]
+        ehdotus["nimi"] = uusi_nimi
+        ehdotus["tyyppi"] = "peli" if _kentta(kentat, "tyyppi") == "peli" else "retki"
+        mittarit = dict(tayd.get("mittarit") or {})
+        for suure in SUUREET:
+            teksti = _kentta(kentat, f"mittari_{suure}", 300)
+            kaavio = mittari_tekstista(teksti, suure)
+            if teksti and not kaavio:
+                return None, t["virhe_asema"]
+            ehdotus.pop(f"mittari_{suure}", None)
+            mittarit.pop(suure, None)
+            if kaavio:
+                ehdotus[f"mittari_{suure_kaaviosta(kaavio) or suure}"] = kaavio
+        ehdotus.pop("mittari", None)   # vanha yhden mittarin kenttä on nyt suureittain
+        if tayd:
+            tayd["mittarit"] = mittarit
+            tayd.pop("mittari", None)
+    kohteet, virhe = tulkitse_kohteet(kentat, "fi", None, ehdotus.get("nimi", "") if uusi else "")
+    if virhe:
+        return None, virhe
+    teksti = (kentat.get("teksti") or [""])[0].strip()
+    teksti_en = (kentat.get("teksti_en") or [""])[0].strip()
+    if max(len(teksti), len(teksti_en), len((kentat.get("ehdottajan_teksti") or [""])[0])) > TEKSTI_ENINTAAN:
+        return None, t["virhe_teksti"].format(n=TEKSTI_ENINTAAN)
+    ehdotus["kohteet"] = kohteet
+    if tayd:
+        tayd["teksti"] = teksti
+        ehdotus["teksti"] = (kentat.get("ehdottajan_teksti") or [""])[0].strip()
+        tayd["kohteet"] = []
+        for avain in ("lahto", "loppu"):
+            tayd[avain] = _kentta(kentat, avain, 300)
+        en = dict(tayd.get("en") or {})
+        if en or teksti_en:   # käännös: muokattu teksti; kohteiden huomiot ovat nyt kohteissa
+            en.update(teksti=teksti_en, huom={}, lahto=_kentta(kentat, "lahto_en", 300),
+                      loppu=_kentta(kentat, "loppu_en", 300))
+            tayd["en"] = en
+        ehdotus["taydennys"] = {**(ehdotus.get("taydennys") or {}), **tayd}
+    else:
+        ehdotus["teksti"] = teksti
+        if teksti_en:
+            ehdotus["teksti_en"] = teksti_en
+        else:
+            ehdotus.pop("teksti_en", None)
+    ehdotus["muokattu"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    return ehdotus, ""

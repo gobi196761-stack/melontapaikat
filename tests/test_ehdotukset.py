@@ -681,3 +681,88 @@ def test_yllapidon_muutokset_julkaistuun_kohteeseen(ymparisto):
     assert "607 m³/s keskiaallosta loppui pito" in sivu   # entisen Hawa'Ii-kohteen havainnot mukana
     hawaii = next(p for p in PAIKAT if p.nimi.startswith("Hawa'Ii"))
     assert [k.nimi for k in hawaii.kohteet] == ["Murtuva aalto"]   # ei päällekkäistä Kitula-kohdetta
+
+
+def test_yllapitaja_muokkaa_ehdotusta_ennen_hyvaksyntaa(ymparisto):
+    kanta, _ = ymparisto
+    status, otsakkeet, _ = pyynto("/ehdota", metodi="POST", runko=lomake(
+        laji="uusi", nimi="Kitkajoki", tyyppi="retki", mittari_virtaama="7300350",
+        k1_nimi="Käylä – Juuma", k1_q_toimii_ala="20", teksti="Ehdottajan teksti.", verkkosivu=""))
+    osoite = otsakkeet["Location"]
+    tunniste = osoite.removeprefix("/ehdotus/")
+    kanta.data[ehdotukset.KOKOELMA][tunniste]["taydennys"] = {
+        "tila": "valmis", "teksti": "Koottu kuvaus.", "lahto": "Käylä", "kohteet": [
+            {"nimi": "Juuma – Jyrävä", "rajat": {"virtaama": {"toimii": [15, 60], "paras": [25, 40]}}, "huom": ""}],
+        "en": {"teksti": "Compiled.", "huom": {"Juuma – Jyrävä": "short"}}}
+    # vain ylläpitäjälle
+    assert pyynto(f"{osoite}/muokkaa")[0] == "403 Forbidden"
+    assert pyynto(f"{osoite}/muokkaa", metodi="POST", runko=lomake(nimi="X"))[0] == "403 Forbidden"
+    evaste = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))[1]["Set-Cookie"].split(";")[0]
+    assert f'href="{osoite}/muokkaa"' in pyynto(osoite, evaste=evaste)[2]
+    status, _, sivu = pyynto(f"{osoite}/muokkaa", evaste=evaste)
+    assert status == "200 OK" and 'value="Kitkajoki"' in sivu and "Koottu kuvaus.</textarea>" in sivu
+    assert "Ehdottajan teksti.</textarea>" in sivu and 'value="73/q7300350y/qinlyhyt.png"' in sivu
+    assert 'name="k2_nimi" maxlength="100" value="Juuma – Jyrävä"' in sivu and 'value="short"' in sivu
+    assert 'name="k2_q_paras_yla" aria-label="Parhaimmillaan Virtaama m³/s ylä" placeholder="ylä" value="40"' in sivu
+    # virhe: lomake täytetään uudelleen
+    status, _, sivu = pyynto(f"{osoite}/muokkaa", metodi="POST", evaste=evaste, runko=lomake(
+        nimi="Kitkajoki", k1_nimi="A", k1_q_toimii_ala="abc"))
+    assert status == "400 Bad Request" and "Kohteen 1 rajat eivät ole lukuja." in sivu and 'value="abc"' in sivu
+    status, otsakkeet, _ = pyynto(f"{osoite}/muokkaa", metodi="POST", evaste=evaste, runko=lomake(
+        nimi="Kitkajoki (Käylä – Juuma)", tyyppi="retki", teksti="Uusi kuvaus.", teksti_en="New text.",
+        ehdottajan_teksti="Ehdottajan teksti.", lahto="Käylän silta", loppu="Juuma", mittari_virtaama="7300350",
+        k1_nimi="Käylä – Juuma", k1_q_toimii_ala="22", k1_q_paras_ala="30", k1_q_paras_yla="50", k1_huom="Kuohuja",
+        k2_nimi="Juuma – Jyrävä", k2_q_toimii_ala="15", k2_q_toimii_yla="60", k2_huom_en="short run", k2_arvio="1"))
+    assert status == "303 See Other" and otsakkeet["Location"] == f"{osoite}?y=1"
+    tallessa = kanta.lue(ehdotukset.KOKOELMA, tunniste)
+    assert tallessa["nimi"] == "Kitkajoki (Käylä – Juuma)" and tallessa["tila"] == "odottaa" and tallessa["muokattu"]
+    assert tallessa["kohteet"] == [
+        {"nimi": "Käylä – Juuma", "huom": "Kuohuja",
+         "rajat": {"virtaama": {"toimii": [22.0, None], "paras": [30.0, 50.0]}}},
+        {"nimi": "Juuma – Jyrävä", "huom": "", "huom_en": "short run", "arvio": True,
+         "rajat": {"virtaama": {"toimii": [15.0, 60.0], "paras": [15.0, 60.0]}}}]
+    t = tallessa["taydennys"]
+    assert t["teksti"] == "Uusi kuvaus." and t["kohteet"] == [] and t["lahto"] == "Käylän silta"
+    assert t["en"]["teksti"] == "New text." and t["en"]["huom"] == {}
+    sivu = pyynto(osoite, evaste=evaste)[2]
+    assert "Uusi kuvaus." in sivu and "Kuohuja" in sivu and "toimii yli 22 m³/s" in sivu
+    # julkaistuna muokattu esitys
+    pyynto(f"{osoite}/kasittele", metodi="POST", runko=lomake(toiminto="hyvaksy"), evaste=evaste)
+    sivu = pyynto(osoite, "kieli=en")[2]
+    assert "New text." in sivu and "short run" in sivu
+    assert f'href="{osoite}/muokkaa"' in pyynto(osoite, "y=1", evaste=evaste)[2]
+
+
+def test_muokkaus_ohittaa_koodin_yllapidon_muutokset():
+    ehdotus = {"laji": "uusi", "nimi": "Iijoki Kitulankoski", "teksti": "vanha",
+               "kohteet": [{"nimi": "Iijoki Kitulankoski", "rajat": {}, "huom": ""}]}
+    kentat = ehdotukset.muokkauskentat(ehdotus)
+    assert kentat["nimi"] == "Kitulankoski (Iijoki)" and kentat["k1_nimi"] == "Kitulankoski"
+    assert kentat["teksti"].startswith("Kitulankoski on pelipaikka") and kentat["k1_huom"].startswith("607")
+    muokattu, virhe = ehdotukset.muokkaa(ehdotus, {k: [v] for k, v in {**kentat, "k1_huom": "Uusi huomio"}.items()})
+    assert not virhe and ehdotukset.nimi(muokattu) == "Kitulankoski (Iijoki)"
+    assert ehdotukset.kaikki_kohteet(muokattu)[0]["huom"] == "Uusi huomio"
+    assert muokattu["teksti"].startswith("Kitulankoski on pelipaikka")
+    assert muokattu["teksti_en"].startswith("Kitulankoski is a play spot")
+
+
+def test_vanha_ehdotus_palautetaan_kasittelyyn(ymparisto):
+    kanta, _ = ymparisto
+    osoite = pyynto("/ehdota", metodi="POST", runko=lomake(
+        laji="uusi", nimi="Kitkajoki", mittari_virtaama="7300350", k1_nimi="Käylä – Juuma", k1_q_toimii_ala="20",
+        verkkosivu=""))[1]["Location"]
+    tunniste = osoite.removeprefix("/ehdotus/")
+    evaste = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))[1]["Set-Cookie"].split(";")[0]
+    assert pyynto(f"{osoite}/kasittele", metodi="POST", runko=lomake(toiminto="palauta"))[0] == "403 Forbidden"
+    for toiminto in ("hylkaa", "hyvaksy"):
+        pyynto(f"{osoite}/kasittele", metodi="POST", runko=lomake(toiminto=toiminto), evaste=evaste)
+        assert kanta.lue(ehdotukset.KOKOELMA, tunniste)["tila"] != "odottaa"
+        sivu = pyynto(osoite, "y=1", evaste=evaste)[2]
+        assert 'value="palauta"' in sivu and 'value="hyvaksy"' not in sivu
+        assert pyynto(f"{osoite}/kasittele", metodi="POST", runko=lomake(toiminto="palauta"),
+                      evaste=evaste)[0] == "303 See Other"
+        tallessa = kanta.lue(ehdotukset.KOKOELMA, tunniste)
+        assert tallessa["tila"] == "odottaa" and "kasitelty" not in tallessa
+        sivu = pyynto(osoite, evaste=evaste)[2]
+        assert 'value="hyvaksy"' in sivu and 'value="palauta"' not in sivu
+        assert tunniste not in app._ehdotusluukku("fi")
