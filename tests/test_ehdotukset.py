@@ -827,3 +827,22 @@ def test_ehdotuksen_muokkauksessa_kortin_linkit(ymparisto):
     assert pyynto(f"{osoite}/muokkaa", metodi="POST", evaste=evaste, runko=lomake(
         **kentat, kortin_linkit="Kartta | https://example.com/k"))[0] == "303 See Other"
     assert "🔗 Linkit (1)" in pyynto(osoite)[2]
+
+
+def test_korvattu_tulikurkku_palautetaan_kasittelyyn(ymparisto):
+    kanta, _ = ymparisto
+    tun = "Kh9e2kcPZfw8KrOZH8h06A"
+    kanta.kirjoita(ehdotukset.KOKOELMA, tun, {"laji": "uusi", "nimi": "Tulikurkku", "tyyppi": "peli",
+                                              "tila": "hyvaksytty", "kohteet": [], "linkit": [], "teksti": "x",
+                                              "mittari_virtaama": "60/q6000110y/qinlyhyt.png"})
+    assert pyynto(f"/ehdotus/{tun}")[0] == "303 See Other"
+    evaste = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))[1]["Set-Cookie"].split(";")[0]
+    assert "piilotettu (korvattu)" in pyynto("/yllapito", evaste=evaste)[2]
+    status, _, sivu = pyynto(f"/ehdotus/{tun}", "y=1", evaste=evaste)
+    assert status == "200 OK" and "Piilotettu" in sivu and 'value="palauta"' in sivu
+    pyynto(f"/ehdotus/{tun}/kasittele", metodi="POST", runko=lomake(toiminto="palauta"), evaste=evaste)
+    tallessa = kanta.lue(ehdotukset.KOKOELMA, tun)
+    assert tallessa["tila"] == "odottaa" and tallessa["palautettu"]
+    assert pyynto(f"/ehdotus/{tun}")[0] == "200 OK"   # ei enää ohjausta
+    pyynto(f"/ehdotus/{tun}/kasittele", metodi="POST", runko=lomake(toiminto="hyvaksy"), evaste=evaste)
+    assert "Tulikurkku" in [p.nimi for p in app.kaikki_paikat()]

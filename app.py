@@ -2536,7 +2536,7 @@ def kortin_tiedot(paikka) -> dict:
 
 def hyvaksytyt_ehdotukset() -> list[tuple[str, dict]]:
     return sorted(((t, e) for t, e in kaikki_ehdotukset().items()
-                   if e.get("tila") == "hyvaksytty" and t not in ehdotukset.KORVATUT),
+                   if e.get("tila") == "hyvaksytty" and not ehdotukset.korvattu(t, e)),
                   key=lambda x: x[1].get("kasitelty") or x[1].get("luotu") or "")
 
 
@@ -2581,7 +2581,7 @@ def _kaksoisehdokkaat(oma_tunniste: str) -> list[dict]:
              "sanat": ehdotukset._sanat(ehdotukset.nimi(ed)), "pisteet": ehdotukset.ehdotuksen_sijainnit(ed)}
             for tun, ed in kaikki_ehdotukset().items()
             if tun != oma_tunniste and ed.get("laji") == "uusi" and ed.get("tila") != "hylatty"
-            and tun not in ehdotukset.KORVATUT]
+            and not ehdotukset.korvattu(tun, ed)]
     return _kaksois_pohja + muut
 
 
@@ -3173,6 +3173,10 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
         kaksois_html += (f'<div class="huom"><b>⚠️ {e(t["kaksoiskappale"])}</b><ul>' + "".join(
             f'<li><a href="{e(k["osoite"])}">{e(k["nimi"])}</a> <span class="pieni">({e(k["syy"])})</span></li>'
             for k in kaksoset) + f"</ul>{muunnot}</div>")
+    if ehdotukset.korvattu(tunniste, ehdotus):
+        kaksois_html += (f'<p class="huom">Piilotettu: julkinen osoite ohjaa sivulle '
+                         f'<a href="{e(ehdotukset.KORVATUT[tunniste])}">{e(ehdotukset.KORVATUT[tunniste])}</a>. '
+                         f'Palauta käsittelyyn tuodaksesi ehdotuksen takaisin.</p>')
     if ehdotus.get("alkuperainen_nimi"):
         kaksois_html += f'<p class="pieni">{e(t["muunnettu"].format(nimi=ehdotus["alkuperainen_nimi"]))}</p>'
     runko = (f"<h1>{e(otsikko)}</h1>{meta}{alku}{kaksois_html}{taydennys_tila}{hallinta}{ilmoitus}"
@@ -3557,10 +3561,11 @@ def kasittele_ehdotus(tunniste: str, toiminto: str) -> bool:
     global _tilanne
     _tilanne = None   # hyväksytty kohde tulee listaan (tai palautettu poistuu) heti tällä palvelininstanssilla
     if toiminto == "palauta":   # vanha ehdotus uudelleen käsittelyyn: julkaisu poistuu, kunnes hyväksytään
-        if ehdotus.get("tila") == "odottaa":
+        if ehdotus.get("tila") == "odottaa" and not ehdotukset.korvattu(tunniste, ehdotus):
             return True
         ehdotus["aiempi_tila"] = ehdotus.get("tila")
         ehdotus["tila"] = "odottaa"
+        ehdotus["palautettu"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
         ehdotus.pop("kasitelty", None)
         kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, ehdotus)
         kaikki_ehdotukset(pakota=True)
@@ -3599,7 +3604,9 @@ def yllapitosivu(kirjautunut: bool, virhe: str = "") -> str:
         rivit = "".join(
             f'<li><a href="/ehdotus/{e(tun)}?y=1">{e(ehdotukset.nimi(ed))}</a> <span class="pieni">· '
             f'{"täydennys" if ed.get("laji") == "taydenna" else "uusi kohde"} · {e(ed.get("luotu", "")[:16])}'
-            f'{" · " + e(ed["ehdottaja"]) if ed.get("ehdottaja") else ""}</span></li>' for tun, ed in omat)
+            f'{" · " + e(ed["ehdottaja"]) if ed.get("ehdottaja") else ""}'
+            f'{" · piilotettu (korvattu), palauta käsittelyyn tuodaksesi takaisin" if ehdotukset.korvattu(tun, ed) else ""}'
+            f'</span></li>' for tun, ed in omat)
         osat.append(f"<h2>{otsikko} ({len(omat)})</h2><ul>{rivit or '<li class=pieni>–</li>'}</ul>")
     vapid = halytykset.avaimet(uudelleen=False)
     tilaus = ""
@@ -3780,11 +3787,12 @@ def ehdotus_api(polku: str, environ, metodi: str):
             if not kasittele_ehdotus(tunniste, toiminto):
                 return "404 Not Found", html_tyyppi, b"Ehdotusta ei loydy."
             return ohjaa(f"/ehdotus/{tunniste}?y=1")
-        if tunniste in ehdotukset.KORVATUT:   # korvattu uudemmalla ehdotuksella
-            return ohjaa(ehdotukset.KORVATUT[tunniste] + ("?kieli=en" if kieli == "en" else ""))
         kanta = _kanta()
         ehdotus = (kanta.lue(ehdotukset.KOKOELMA, tunniste)
                    if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None)
+        # korvattu uudemmalla tai olemassa olevalla kohteella; ylläpitäjä näkee sen ja voi palauttaa käsittelyyn
+        if ehdotukset.korvattu(tunniste, ehdotus) and not yllapitaja:
+            return ohjaa(ehdotukset.KORVATUT[tunniste] + ("?kieli=en" if kieli == "en" else ""))
         if not ehdotus or (ehdotus.get("tila") == "hylatty" and not yllapitaja):
             return "404 Not Found", html_tyyppi, "Ehdotusta ei löydy.\n".encode("utf-8")
         paikka = (next((p for p in kaikki_paikat() if p.url == f"/ehdotus/{tunniste}"), None)

@@ -359,6 +359,11 @@ KORVATUT: dict[str, str] = {
     "Kh9e2kcPZfw8KrOZH8h06A": "/paikka/koiteli-kiiminkijoki",     # Tulikurkku: Koitelin kohde
 }
 
+def korvattu(tunniste: str, ehdotus: dict | None) -> bool:
+    """Piilotettu ja ohjattu korvaavaan sivuun, ellei ylläpitäjä ole palauttanut ehdotusta käsittelyyn."""
+    return tunniste in KORVATUT and not (ehdotus or {}).get("palautettu")
+
+
 # Ylläpitäjän rajat julkaistuille kohteille (ehdotuksen nimi -> kohteet), kun ehdottaja kertoo
 # melontapäivän jälkikäteen: päivän virtaama SYKE:n mittarilta ja kesän alivirtaamat.
 YLLAPIDON_KOHTEET: dict[str, list[dict]] = {
