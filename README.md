@@ -137,9 +137,13 @@ Tukholmassa (`arn1`) lähellä osm.fi:tä ja SYKE:ä ja jättää testit pois pa
    MQ/MHQ/MLQ ovat mallin; MLQ toimii tulvaindeksin alarajana (MNQ).
 5. **Arviointi** (`arviointi.py`): jokaisen kohteen pisteet ovat 100 parhaalla
    alueella, 60–100 toimivalla alueella ja 45→0 toimivan alueen ulkopuolella
-   (marginaalin matkalla). Pisteet kerrotaan kohteen laatukertoimella (esim.
-   "paras pelipaikka" 1.0, retkimelonta 0.6), ja jokainen muu toimiva kohde
-   tuo +2 (enintään +6). Sama lasketaan ennusteesta seuraaville kolmelle päivälle.
+   (marginaalin matkalla). Paikan pisteet tulevat kohteiden tiloista: kaikki
+   kohteet parhaimmillaan = 100; ainakin yksi parhaimmillaan = 90–99 (90 + 9 ×
+   (parhaat + ½ × toimivat) / kohteet, laatukertoimella painotettuina); pelkät
+   toimivat = 60–85 (paras toimiva skaalattuna, +2 jokaisesta muusta toimivasta,
+   katto 85); mikään ei toimi = 0–45. Laatukerroin ("paras pelipaikka" 1.0,
+   retkimelonta 0.6) painottaa kohteita tason sisällä. Sama lasketaan ennusteesta
+   lähipäiville.
    Järjestys: pisteet (5 pisteen tarkkuudella), tasapisteissä lähempi paikka ensin.
 
 ## Ennusteiden arkisto ja tarkkuus
@@ -318,7 +322,7 @@ täydennetty ruotsalaisesta Forsguidenista (forsguiden.com, Wayback-arkisto 2004
 | **Korpikoski** (Rovaniemi, Raudanjoki, tie 82) | Olkkajärven tulovirtaama | Virranrajat (kurssit, tekniikka) | aina | < 30 m³/s | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=15): alle 30 kivi nousee ja jakaa virran kahteen virranrajaan |
 | **Vaattunkiköngäs** (Rovaniemi, Raudanjoki) | Olkkajärven tulovirtaama | Akanvirrat, virranylitykset | 200–250 m³/s | = | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=16): alle 250; alaraja (50 m³/s rajan alla ei enää hyvä) käyttäjän tarkennus |
 | | | Isompi aallokko (tulva) | > 250 m³/s | = | Roimeloo: "vähäsen tuntumaa isomman aallokon melontaan" |
-| **Marraskoski** (Rovaniemi, Ounasjoki) | Marraskosken virtaama (q6503600y) | Stoppari ja akanvirta (kesäsurffi) | 100–250 m³/s | 160–250 m³/s (laatukerroin 0.8 → enintään 80 p.) | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=13): yli 250 kova työ, alle 100 stoppari matala; [Tuorala 2011](https://tuorala.wordpress.com/2011/05/20/kevaan-marraskoski-sessiot/): aalto toimii n. 160–250 |
+| **Marraskoski** (Rovaniemi, Ounasjoki) | Marraskosken virtaama (q6503600y) | Stoppari ja akanvirta (kesäsurffi) | 100–250 m³/s | 160–250 m³/s (laatukerroin 0.8) | [Roimeloo](https://roimeloo.net/keskustelu/viewtopic.php?f=15&t=13): yli 250 kova työ, alle 100 stoppari matala; [Tuorala 2011](https://tuorala.wordpress.com/2011/05/20/kevaan-marraskoski-sessiot/): aalto toimii n. 160–250 |
 | | | Soulwave (kevättulva) | > 800 m³/s | > 1000 m³/s (100 p.) | Roimeloo: yli 800; [Tuorala 2012](https://tuorala.wordpress.com/2012/05/28/marraskoski-soul-wave/): leveä aalto yli 1000 |
 | **Molkoköngäs** (Ounasjoki, tie 79) | Kaukosen virtaama (q6503300y) | Molkoaalto (surffiaaltojono) | 220–280 m³/s | 260–270 m³/s | [Tuorala 5.6.2012](https://tuorala.wordpress.com/2012/06/07/molkokongas-5-6-2012/): "toiminee virtaamilla 220-280m3 Kaukosessa", paras n. 260–270; Roimeloo: alle 300 |
 

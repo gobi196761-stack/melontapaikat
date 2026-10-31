@@ -51,9 +51,11 @@ def test_paikan_pisteet_lisa_toimivista_kohteista():
         Kohde("C", (12.0, 13.0), (12.0, 13.0)),
     ))
     t = arviointi.arvioi(p, {"paa": lukema(10.5)})
-    assert t.pisteet == 100  # A paras (100) + B toimii (+2), katto 100
+    # A paras, B toimii (laatu 0.5), C ei toimi: 90 + 9 × (1 + ½ × 0.5) / 2.5
+    assert t.pisteet == pytest.approx(94.5)
     t = arviointi.arvioi(p, {"paa": lukema(10.2)})
-    assert t.pisteet == pytest.approx(80 + 2)
+    # ei parhaita: A toimii puolivälissä (60 + 25 × ½) + B toimii (+2)
+    assert t.pisteet == pytest.approx(72.5 + 2)
     assert [k.kohde.nimi for k in t.toimivat] == ["A", "B"]
 
 
@@ -70,7 +72,7 @@ def test_ennustepisteet():
     p = Paikka("P", "u", "peli", 10, "", {"paa": Mittari("x", marginaali=0.3)}, (KOHDE,))
     l = lukema(10.5, ennuste={1: 10.5, 2: 10.2, 3: 9.0})
     t = arviointi.arvioi(p, {"paa": l})
-    assert t.ennuste == {1: 100, 2: pytest.approx(80), 3: 0}
+    assert t.ennuste == {1: 100, 2: pytest.approx(72.5), 3: 0}
 
 
 def test_jarjestys_tasapisteissa_lahempi_ensin():
@@ -143,14 +145,15 @@ def test_paasta_paahan_offline(tmp_path, capsys):
     assert varoitukset == []
     tulokset = melonta.arvioi_kaikki(paikat, sivun_kaaviot, lukemat, dt.date(2026, 10, 18))
     nimet = [t.paikka.nimi for t in tulokset]
-    # Matkakoski 27.95 m -> Matkan aalto parhaimmillaan (0.9 × 100 + 2)
-    # Kipinä: Pudasjärvi 108.59 m -> oikean silta-aukon surffiaalto parhaimmillaan (0.8 × 100)
+    # Kipinä: Pudasjärvi 108.59 m -> oikean silta-aukon surffiaalto parhaimmillaan, muut eivät toimi
+    # Matkakoski 27.95 m -> Matkan aalto parhaimmillaan ja peliajan paikat toimivat
     # Niskakoski 15 m³/s -> stoppari vaatii yli 50 m³/s (0 p.)
-    assert nimet == ["Matkakoski (Tornionjoki)", "Kipinä (Iijoki)", "Niskakoski (Lestijoki)"]
-    assert tulokset[0].pisteet == pytest.approx(92)
-    assert tulokset[0].paras_kohde.kohde.nimi == "Matkan aalto"
-    assert tulokset[1].pisteet == pytest.approx(80)
-    assert tulokset[1].paras_kohde.kohde.nimi == "Oikean silta-aukon surffiaalto"
+    # (jokin kohde parhaimmillaan -> vähintään 90; tasapisteissä 5 pisteen tarkkuudella lähempi ensin)
+    assert nimet == ["Kipinä (Iijoki)", "Matkakoski (Tornionjoki)", "Niskakoski (Lestijoki)"]
+    assert tulokset[0].pisteet == pytest.approx(90 + 9 * 0.8 / 2.65)
+    assert tulokset[0].paras_kohde.kohde.nimi == "Oikean silta-aukon surffiaalto"
+    assert tulokset[1].pisteet == pytest.approx(90 + 9 * (0.9 + 0.5) / 4.1)
+    assert tulokset[1].paras_kohde.kohde.nimi == "Matkan aalto"
     assert tulokset[2].pisteet == 0
     assert not any("ei ole tältä päivältä" in h for t in tulokset for h in t.huomiot)
 
@@ -161,7 +164,7 @@ def test_paasta_paahan_offline(tmp_path, capsys):
     melonta.tulosta(tulokset, varoitukset, dt.date(2026, 10, 18), laaja=True)
     tuloste = capsys.readouterr().out
     assert "Veden lämpötila (Kipinä): 2.8 °C" in tuloste
-    assert " 1. Matkakoski (Tornionjoki)" in tuloste and " 2. Kipinä (Iijoki)" in tuloste
+    assert " 1. Kipinä (Iijoki)" in tuloste and " 2. Matkakoski (Tornionjoki)" in tuloste
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +200,7 @@ def test_kutujoki_otermajarven_kaaviosta():
     kutujoki = next(p for p in PAIKAT if p.nimi == "Kutujoki")
     t = arviointi.arvioi(kutujoki, {"paa": l, "korkeus": korkeus})
     assert [k.tila for k in t.kohteet] == ["paras", "paras"]
-    assert t.pisteet == pytest.approx(80 + 2)   # koko reitti paras (laatu 0.8) + kosket toimii
+    assert t.pisteet == 100   # molemmat kohteet parhaimmillaan
 
 
 @pytest.mark.parametrize("virtaama, reitti, kosket", [
@@ -230,7 +233,7 @@ def test_tervajoki_otermanjarven_tulovirtaamasta():
     assert l.suure == "virtaama" and l.yksikko == "m3/s" and l.tunnusluvut == {}
     assert l.arvo == pytest.approx(7.5, abs=0.3)
     t = arviointi.arvioi(tervajoki, {"paa": l})
-    assert t.kohteet[0].tila == "paras" and t.pisteet == pytest.approx(70)
+    assert t.kohteet[0].tila == "paras" and t.pisteet == 100   # ainoa kohde parhaimmillaan
 
 
 @pytest.mark.parametrize("virtaama, tila", [
@@ -244,3 +247,18 @@ def test_tervajoen_rajat(virtaama, tila):
     tervajoki = next(p for p in PAIKAT if p.nimi == "Tervajoki (Vaala)")
     t = arviointi.arvioi(tervajoki, {"paa": lukema(virtaama, yksikko="m3/s")})
     assert t.kohteet[0].tila == tila
+
+
+def test_paikan_pistetasot():
+    """Jokin kohde parhaimmillaan -> vähintään 90, kaikki -> 100, pelkät toimivat -> enintään 85."""
+    p = Paikka("P", "u", "peli", 10, "", {"paa": Mittari("x", marginaali=0.3)}, (
+        Kohde("A", (10.0, 11.0), (10.4, 10.6), 0.5),
+        Kohde("B", (10.0, 11.0), (10.5, 10.9)),
+    ))
+    assert arviointi.arvioi(p, {"paa": lukema(10.5)}).pisteet == 100
+    assert arviointi.arvioi(p, {"paa": lukema(10.4)}).pisteet == pytest.approx(90 + 9 * (0.5 + 0.5) / 1.5)
+    assert arviointi.arvioi(p, {"paa": lukema(10.8)}).pisteet == pytest.approx(90 + 9 * (1 + 0.25) / 1.5)
+    toimii = arviointi.arvioi(p, {"paa": lukema(10.1)}).pisteet
+    assert 60 <= toimii <= 85
+    assert arviointi.arvioi(p, {"paa": lukema(11.0)}).pisteet <= 85
+    assert arviointi.arvioi(p, {"paa": lukema(11.3)}).pisteet < 50

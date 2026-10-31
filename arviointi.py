@@ -6,9 +6,18 @@ Kohteen pisteet (0–100) ennen laatukerrointa:
 * toimivalla alueella, mutta ei parhaalla      60–100 (lineaarisesti parhaan reunaa kohti)
 * toimivan alueen ulkopuolella                 0–45 (lähestyy nollaa marginaalin matkalla)
 
-Paikan pisteet = paras kohde × laatu + 2 pistettä jokaisesta muusta
-toimivasta kohteesta (lisä enintään 6, kokonaisuus enintään 100). Ennusteesta lasketaan samat pisteet
-lähipäiville, jotta nähdään paraneeko vai heikkeneekö tilanne.
+Paikan pisteet kohteiden tiloista (kohteet, joiden arvo saatiin luettua):
+
+* kaikki kohteet parhaimmillaan                100
+* ainakin yksi kohde parhaimmillaan            90–99: 90 + 9 × (parhaimmillaan + ½ × toimivat) / kohteet,
+                                               kohteet laatukertoimella painotettuina
+* ei parhaita, ainakin yksi toimii             60–85: paras toimiva kohde 60–100 skaalattuna 60–85:een
+                                               (laatu × matka parhaaseen) + 2 pistettä jokaisesta muusta
+                                               toimivasta (lisä ≤ 6, katto 85)
+* mikään kohde ei toimi                        0–45: lähimpänä toimivaa aluetta olevan kohteen pisteet
+
+Näin pisteistä näkee suoraan tilan: 90+ = jokin kohde parhaimmillaan, 60–85 = toimii, alle 50 = ei toimi.
+Ennusteesta lasketaan samat pisteet lähipäiville, jotta nähdään paraneeko vai heikkeneekö tilanne.
 """
 
 from __future__ import annotations
@@ -21,8 +30,10 @@ from syke_kaavio import Kaaviolukema
 
 ENNUSTEPAIVAT = tuple(range(1, ENNUSTE_PAIVIA + 1))   # +1…+14 pv, kuten kaavioiden ennuste
 REUNAPISTEET = 45      # pisteet heti toimivan alueen ulkopuolella
-LISA_PER_KOHDE = 2     # lisäpisteet jokaisesta muusta toimivasta kohteesta
+LISA_PER_KOHDE = 2     # lisäpisteet jokaisesta muusta toimivasta kohteesta (vain toimii-tasolla)
 LISA_MAX = 6
+PARAS_ALIN = 90        # paikan pisteet, kun ainakin yksi kohde on parhaimmillaan
+TOIMII_YLIN = 85       # paikan pisteet enintään, kun kohteet vain toimivat
 
 
 def muotoile(x: float, yksikko: str, muuttuja: str = "arvo") -> str:
@@ -137,12 +148,29 @@ def _muuttujan_arvo(kohde: Kohde, lukema: Kaaviolukema, ennustepaiva: int = 0) -
     return arvo
 
 
+def _omat(k: KohdeTulos) -> float:
+    """Kohteen pisteet ilman laatukerrointa (0–100)."""
+    return k.pisteet / k.kohde.laatu if k.kohde.laatu else k.pisteet
+
+
 def _yhdista(kohteet: list[KohdeTulos]) -> float | None:
+    """Paikan pisteet kohteiden tiloista (ks. moduulin kuvaus). Laatu painottaa kohteita tason sisällä."""
     if not kohteet:
         return None
-    jarjestetty = sorted(kohteet, key=lambda k: k.pisteet, reverse=True)
-    lisa = min(LISA_MAX, LISA_PER_KOHDE * sum(1 for k in jarjestetty[1:] if k.tila != "ei toimi"))
-    return min(100.0, jarjestetty[0].pisteet + lisa)
+    paino = lambda ks: sum(k.kohde.laatu or 1.0 for k in ks)   # noqa: E731
+    parhaat = [k for k in kohteet if k.tila == "paras"]
+    toimivat = [k for k in kohteet if k.tila == "toimii"]
+    if len(parhaat) == len(kohteet):
+        return 100.0
+    if parhaat:
+        osuus = (paino(parhaat) + 0.5 * paino(toimivat)) / paino(kohteet)
+        return min(99.0, PARAS_ALIN + 9 * osuus)
+    if toimivat:
+        perus = max(60 + (TOIMII_YLIN - 60) * (k.kohde.laatu or 1.0) * (min(100.0, _omat(k)) - 60) / 40
+                    for k in toimivat)
+        lisa = min(LISA_MAX, LISA_PER_KOHDE * (len(toimivat) - 1))
+        return min(float(TOIMII_YLIN), perus + lisa)
+    return max(_omat(k) for k in kohteet)
 
 
 def arvioi(paikka: Paikka, lukemat: dict[str, Kaaviolukema]) -> PaikkaTulos:

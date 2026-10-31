@@ -92,14 +92,13 @@ def ruotsi(tmp_path):
 def test_ruotsin_paikat_jarjestyksessa(ruotsi, capsys):
     paikat, tulokset = ruotsi
     t = {t.paikka.nimi: t for t in tulokset}
-    # Gransel 119 m³/s: Benbrytarforsen parhaimmillaan (alle 130) 80 p. + Alapätkä toimii 2 p.
+    # Gransel 119 m³/s: Benbrytarforsen parhaimmillaan (alle 130) -> vähintään 90
     trollforsarna = t["Trollforsarna (Piteälven)"]
-    assert trollforsarna.pisteet == pytest.approx(82)
+    assert 90 <= trollforsarna.pisteet < 100
     assert trollforsarna.paras_kohde.kohde.nimi == "Benbrytarforsen"
-    # Männikkö 82.7 m³/s: koskisarja ja matalan veden hontto parhaimmillaan (0.8 × 100 + 2),
-    # Åretsvågen vaatii n. 180 m³/s
+    # Männikkö 82.7 m³/s: koskisarja ja matalan veden hontto parhaimmillaan, Åretsvågen vaatii n. 180 m³/s
     pahakurkkio = t["Pahakurkkio (Kalixälven)"]
-    assert pahakurkkio.pisteet == pytest.approx(82)
+    assert 90 <= pahakurkkio.pisteet < 100
     assert pahakurkkio.paras_kohde.kohde.nimi == "Koskisarja 1–7"
     assert {k.kohde.nimi: k.tila for k in pahakurkkio.kohteet}["Åretsvågen (ykköskönkään surffiaalto)"] == "ei toimi"
     assert set(trollforsarna.ennuste) == set(pahakurkkio.ennuste) == set(range(1, 9))   # testidatassa HydroNu-ennuste +8 pv asti
