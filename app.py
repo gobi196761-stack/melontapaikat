@@ -3442,7 +3442,7 @@ def ehdotus_api(polku: str, environ, metodi: str):
                 return "404 Not Found", html_tyyppi, b"Ehdotusta ei loydy."
             return ohjaa(f"/ehdotus/{tunniste}?y=1")
         if tunniste in ehdotukset.KORVATUT:   # korvattu uudemmalla ehdotuksella
-            return ohjaa(f"/ehdotus/{ehdotukset.KORVATUT[tunniste]}" + ("?kieli=en" if kieli == "en" else ""))
+            return ohjaa(ehdotukset.KORVATUT[tunniste] + ("?kieli=en" if kieli == "en" else ""))
         kanta = _kanta()
         ehdotus = (kanta.lue(ehdotukset.KOKOELMA, tunniste)
                    if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None)
