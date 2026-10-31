@@ -2250,7 +2250,7 @@ def _ehdotuksen_kuvaus(tunniste: str, ehdotus: dict, kieli: str):
     kaannos = (tayd.get("en") or {}) if en else {}
     muutos = ehdotukset.yllapidon_muutos(ehdotus)
     teksti = (muutos.get("teksti_en") if en else muutos.get("teksti")) or kaannos.get("teksti") \
-        or tayd.get("teksti") or ""
+        or (ehdotus.get("teksti_en") if en and not tayd else "") or tayd.get("teksti") or ""
     # ehdottajan teksti vain, jos kuvausta ei ole (täydennys yhdistää sen tiedot kuvaukseen)
     teksti = teksti or kaannos.get("ehdottajan_teksti") or ehdotus.get("teksti") or ""
     osiot = ()
@@ -2440,6 +2440,8 @@ EHDOTUS_TYYLI = """
 .lomake legend { font-weight:600; font-size:.92rem; }
 .rajat-rivi { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 .rajat-rivi input { width:7em !important; }
+.muokkaus .rajat-rivi { flex-wrap:nowrap; } .muokkaus .rajat-rivi input { width:5.5em !important; min-width:0; }
+.muokkaus .raja-nimi { width:8.5em; flex:none; }
 .lomake .ohje { color:var(--heikko); font-size:.85rem; margin:2px 0; }
 .lomake .piilo { position:absolute; left:-9999px; }
 .lomake .lisaa-kohde { font:inherit; font-size:.9rem; padding:4px 10px; border:1px solid var(--viiva);
@@ -2998,6 +3000,7 @@ def _julkaistun_yllapito(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: b
         osat.append(f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele"><b>{e(t["yllapito"])}:</b> '
                     f'<button class="nappi toissijainen" name="toiminto" value="kaanna">{e(t["kaanna_nappi"])}</button>'
                     f' <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
+    osat.append(f'<p><a class="nappi toissijainen" href="/ehdotus/{e(tunniste)}/muokkaa">{e(t["muokkaa"])}</a></p>')
     tayd = ehdotukset.valmis_taydennys(ehdotus)
     if tayd.get("huomiot"):   # täydennyksen huomiot ylläpitäjälle
         osat.append(f'<p class="huom"><b>{e(t["huomioita"])}:</b> {e(tayd["huomiot"])}</p>')
@@ -3085,6 +3088,7 @@ def ehdotussivu(tunniste: str, ehdotus: dict, kieli: str, yllapitaja: bool = Fal
                         if taydennys.get("tila") != "kaynnissa" else ""))
         if taydennys.get("tila") == "valmis" and not taydennys.get("en") and taydennys.get("kaannos") != "kaynnissa":
             napit += f'<button class="nappi toissijainen" name="toiminto" value="kaanna">{e(t["kaanna_nappi"])}</button>'
+        napit += f'<a class="nappi toissijainen" href="/ehdotus/{e(tunniste)}/muokkaa">{e(t["muokkaa"])}</a>'
         if napit:
             hallinta = (f'<form method="post" action="/ehdotus/{e(tunniste)}/kasittele" style="margin-top:16px">'
                         f'<b>{e(t["yllapito"])}:</b> {napit} <a href="/yllapito">{e(t["yllapito"])} →</a></form>')
@@ -3282,6 +3286,83 @@ def ilmoita_taydennyksesta(tunniste: str) -> bool:
     return True
 
 
+def muokkaussivu(tunniste: str, ehdotus: dict, virhe: str = "", kentat: dict[str, list[str]] | None = None) -> str:
+    """Ylläpitäjän muokkauslomake /ehdotus/<tunniste>/muokkaa: sivulla näkyvät tekstit, mittarit ja kohteet
+    rajoineen. Virheen jälkeen lähetetyt kentät täytetään uudelleen."""
+    alku = ehdotukset.muokkauskentat(ehdotus, PAIKAT)
+    def arvo(nimi: str) -> str:
+        return e((kentat.get(nimi) or [""])[0] if kentat is not None else alku.get(nimi, ""))
+    def rivi(nimi: str, otsikko: str, pituus: int = 300, ohje: str = "") -> str:
+        return (f'<label for="{nimi}">{e(otsikko)}</label><input type="text" id="{nimi}" name="{nimi}" '
+                f'maxlength="{pituus}" value="{arvo(nimi)}">' + (f'<p class="ohje">{e(ohje)}</p>' if ohje else ""))
+    def alue(nimi: str, otsikko: str, ohje: str = "") -> str:
+        return (f'<label for="{nimi}">{e(otsikko)}</label>' + (f'<p class="ohje">{e(ohje)}</p>' if ohje else "")
+                + f'<textarea id="{nimi}" name="{nimi}" maxlength="{ehdotukset.TEKSTI_ENINTAAN}" rows="8">'
+                  f'{arvo(nimi)}</textarea>')
+    uusi = ehdotus.get("laji") == "uusi"
+    tayd = ehdotukset.valmis_taydennys(ehdotus)
+    osat = []
+    if uusi:
+        tyyppi = arvo("tyyppi")
+        osat.append(rivi("nimi", "Nimi", ehdotukset.NIMI_ENINTAAN)
+                    + '<label for="tyyppi">Tyyppi</label><select id="tyyppi" name="tyyppi">'
+                    + "".join(f'<option value="{v}"{" selected" if tyyppi == v else ""}>{n}</option>'
+                              for v, n in (("retki", "Retki / laskuosuus"), ("peli", "Pelipaikka")))
+                    + "</select>")
+    osat.append(alue("teksti", "Kuvaus", "Kappaleet erotetaan tyhjällä rivillä." if tayd or uusi else ""))
+    osat.append(alue("teksti_en", "Kuvaus englanniksi", "Tyhjä = suomenkielinen kuvaus tai täydennyksen käännös."))
+    if tayd:
+        osat.append(alue("ehdottajan_teksti", "Ehdottajan teksti", "Näkyy esikatselussa, ei julkaistulla sivulla."))
+        osat.append(rivi("lahto", "Lähtö") + rivi("loppu", "Loppu")
+                    + rivi("lahto_en", "Lähtö englanniksi") + rivi("loppu_en", "Loppu englanniksi"))
+    if uusi:
+        osat.append(rivi("mittari_virtaama", "Virtaamamittari", 300, "SYKE-aseman numero tai kaavion osoite.")
+                    + rivi("mittari_vedenkorkeus", "Vedenkorkeusmittari", 300))
+    kohderivit = []
+    for i in range(1, ehdotukset.KOHTEITA_ENINTAAN + 1):
+        rajat = ""
+        for lyh, otsikko in (("q", "Virtaama m³/s"), ("w", "Vedenkorkeus m")):
+            rajat += f'<p class="ohje">{otsikko}</p>' + "".join(
+                f'<div class="rajat-rivi"><span class="raja-nimi">{nimi_}:</span>'
+                f'<input type="text" inputmode="decimal" name="k{i}_{lyh}_{x}_ala" aria-label="{nimi_} {otsikko} ala" '
+                f'placeholder="ala" value="{arvo(f"k{i}_{lyh}_{x}_ala")}">–'
+                f'<input type="text" inputmode="decimal" name="k{i}_{lyh}_{x}_yla" aria-label="{nimi_} {otsikko} ylä" '
+                f'placeholder="ylä" value="{arvo(f"k{i}_{lyh}_{x}_yla")}"></div>'
+                for x, nimi_ in (("toimii", "Toimii"), ("paras", "Parhaimmillaan")))
+        arvio = (f'<label class="valinta"><input type="checkbox" name="k{i}_arvio" value="1"'
+                 f'{" checked" if arvo(f"k{i}_arvio") else ""}> Rajat ovat arvio (täydennys tai ylläpito)</label>')
+        tyhja = not arvo(f"k{i}_nimi")
+        kohderivit.append(
+            f'<fieldset><legend>Kohde {i}{" (tyhjä = ei kohdetta)" if tyhja else ""}</legend>'
+            + rivi(f"k{i}_nimi", "Nimi", ehdotukset.NIMI_ENINTAAN) + rajat
+            + rivi(f"k{i}_huom", "Huomio") + rivi(f"k{i}_huom_en", "Huomio englanniksi") + arvio + "</fieldset>")
+    osat.append("<h2>Kohteet ja rajat</h2>"
+                '<p class="ohje">Avoin raja jätetään tyhjäksi. Tyhjennä kohteen kentät poistaaksesi sen.</p>'
+                + "".join(kohderivit))
+    runko = (f"<h1>Muokkaa: {e(ehdotukset.nimi(ehdotus))}</h1>"
+             + (f'<p class="virhe">{e(virhe)}</p>' if virhe else "")
+             + f'<form class="lomake muokkaus" method="post" action="/ehdotus/{e(tunniste)}/muokkaa">{"".join(osat)}'
+               f'<p><button class="nappi" type="submit">💾 Tallenna</button> '
+               f'<a href="/ehdotus/{e(tunniste)}?y=1">Peruuta</a></p></form>')
+    return _sivupohja("Muokkaa", runko, "fi", f"/ehdotus/{tunniste}?y=1")
+
+
+def muokkaa_ehdotusta(tunniste: str, kentat: dict[str, list[str]]) -> tuple[dict | None, str]:
+    """Tallentaa ylläpitäjän muokkauksen: (ehdotus, '') tai (None, virhe); ({}, '') = ei löytynyt."""
+    kanta = _kanta()
+    ehdotus = kanta.lue(ehdotukset.KOKOELMA, tunniste) if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None
+    if not ehdotus:
+        return {}, ""
+    muokattu, virhe = ehdotukset.muokkaa(ehdotus, kentat)
+    if muokattu is None:
+        return ehdotus, virhe
+    kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, muokattu)
+    global _tilanne
+    _tilanne = None   # julkaistun kohteen muutokset näkyvät listassa tällä palvelininstanssilla
+    kaikki_ehdotukset(pakota=True)
+    return muokattu, ""
+
+
 def kasittele_ehdotus(tunniste: str, toiminto: str) -> bool:
     """Ylläpitäjän hyväksyntä tai hylkäys; ilmoittaa ehdottajalle. False = ei löytynyt."""
     if toiminto == "taydenna":
@@ -3394,12 +3475,12 @@ def ehdotus_api(polku: str, environ, metodi: str):
     yllapitaja = ehdotukset.on_yllapitaja(environ.get("HTTP_COOKIE", ""), salasana)
     html_tyyppi = [("Content-Type", "text/html; charset=utf-8"), ("Cache-Control", "no-store")]
 
-    def runko_lomake() -> dict[str, list[str]]:
+    def runko_lomake(enintaan: int = 30000) -> dict[str, list[str]]:
         try:
             pituus = int(environ.get("CONTENT_LENGTH") or 0)
         except ValueError:
             pituus = 0
-        if not 0 < pituus <= 30000:
+        if not 0 < pituus <= enintaan:
             return {}
         return parse_qs(environ["wsgi.input"].read(pituus).decode("utf-8", errors="replace"), keep_blank_values=True)
 
@@ -3431,6 +3512,27 @@ def ehdotus_api(polku: str, environ, metodi: str):
         laji = (kysely.get("laji") or ["uusi"])[0]
         return "200 OK", html_tyyppi, ehdotuslomake(kieli, "taydenna" if laji == "taydenna" else "uusi",
                                                     (kysely.get("paikka") or [""])[0]).encode("utf-8")
+    m = re.fullmatch(r"/ehdotus/([A-Za-z0-9_-]+)/muokkaa", polku)
+    if m:   # ylläpitäjän muokkauslomake
+        tunniste = m.group(1)
+        if not yllapitaja:
+            return "403 Forbidden", html_tyyppi, b"Ei oikeutta."
+        if metodi == "POST":
+            kentat = runko_lomake(150000)   # kolme pitkää tekstiä prosenttikoodattuna
+            if not kentat:
+                return "413 Payload Too Large", html_tyyppi, b"Liian pitka lomake."
+            ehdotus, virhe = muokkaa_ehdotusta(tunniste, kentat)
+            if not ehdotus:
+                return "404 Not Found", html_tyyppi, b"Ehdotusta ei loydy."
+            if virhe:
+                return "400 Bad Request", html_tyyppi, muokkaussivu(tunniste, ehdotus, virhe, kentat).encode("utf-8")
+            return ohjaa(f"/ehdotus/{tunniste}?y=1")
+        kanta = _kanta()
+        ehdotus = (kanta.lue(ehdotukset.KOKOELMA, tunniste)
+                   if kanta and ehdotukset.kelvollinen_tunniste(tunniste) else None)
+        if not ehdotus:
+            return "404 Not Found", html_tyyppi, b"Ehdotusta ei loydy."
+        return "200 OK", html_tyyppi, muokkaussivu(tunniste, ehdotus).encode("utf-8")
     m = re.fullmatch(r"/ehdotus/([A-Za-z0-9_-]+)(/kasittele)?", polku)
     if m:
         tunniste = m.group(1)
