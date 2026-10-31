@@ -766,3 +766,83 @@ def test_vanha_ehdotus_palautetaan_kasittelyyn(ymparisto):
         sivu = pyynto(osoite, evaste=evaste)[2]
         assert 'value="hyvaksy"' in sivu and 'value="palauta"' not in sivu
         assert tunniste not in app._ehdotusluukku("fi")
+
+
+def test_yllapitaja_muokkaa_mita_tahansa_korttia(ymparisto):
+    kanta, _ = ymparisto
+    evaste = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))[1]["Set-Cookie"].split(";")[0]
+    avain = app.kortit.avain(KIPINA)
+    sivu = pyynto("/yllapito", evaste=evaste)[2]
+    assert 'id="korttihaku"' in sivu and f'href="/yllapito/kortti/{avain}">{KIPINA.nimi}</a>' in sivu
+    assert pyynto(f"/yllapito/kortti/{avain}")[0] == "403 Forbidden"
+    status, _, sivu = pyynto(f"/yllapito/kortti/{avain}", evaste=evaste)
+    assert status == "200 OK" and 'id="kortin-kuva"' in sivu and 'name="kortin_linkit"' in sivu
+    johdanto = app._oletusjohdanto(KIPINA, "fi")
+    # virheellinen linkki
+    status, _, sivu = pyynto(f"/yllapito/kortti/{avain}", metodi="POST", evaste=evaste,
+                             runko=lomake(teksti=johdanto, kortin_linkit="ftp://x"))
+    assert status == "400 Bad Request" and "Linkin pitää" in sivu
+    status, otsakkeet, _ = pyynto(f"/yllapito/kortti/{avain}", metodi="POST", evaste=evaste, runko=lomake(
+        teksti="Uusi johdanto.", teksti_en=app._oletusjohdanto(KIPINA, "en"),
+        kortin_linkit="Video | https://youtu.be/abc\nhttps://example.com/x"))
+    assert status == "303 See Other" and otsakkeet["Location"] == f"/paikka/{avain}"
+    assert kanta.lue(app.kortit.KOKOELMA, avain) == {"teksti": "Uusi johdanto.", "linkit": [
+        {"nimi": "Video", "url": "https://youtu.be/abc"}, {"nimi": "https://example.com/x", "url": "https://example.com/x"}]}
+    sivu = pyynto(f"/paikka/{avain}")[2]
+    assert "<p>Uusi johdanto.</p>" in sivu and "🔗 Linkit (2)" in sivu and 'href="https://youtu.be/abc"' in sivu
+    assert "Uusi johdanto." not in pyynto(f"/paikka/{avain}", "kieli=en")[2]
+    # korttikuva: vain ylläpitäjä, vain JPEG
+    jpeg = b"\xff\xd8\xff\xe0" + b"x" * 100
+    assert pyynto(f"/api/kortti/{avain}/kuva", metodi="POST", runko=jpeg, tyyppi="image/jpeg")[0] == "403 Forbidden"
+    assert pyynto(f"/api/kortti/{avain}/kuva", metodi="POST", runko=b"GIF89a", tyyppi="image/jpeg",
+                  evaste=evaste)[0] == "400 Bad Request"
+    status, _, vastaus = pyynto(f"/api/kortti/{avain}/kuva", metodi="POST", runko=jpeg, tyyppi="image/jpeg",
+                                evaste=evaste)
+    url = json.loads(vastaus)["url"]
+    assert status == "200 OK" and url.startswith(f"/kortti-kuva/{avain}.jpg?v=")
+    assert app._kortin_kuva_url(KIPINA) == url and kanta.lue(app.kortit.KOKOELMA, avain)["linkit"]
+    vastaus = {}
+    data = b"".join(app.app({"PATH_INFO": url.split("?")[0], "QUERY_STRING": "", "REQUEST_METHOD": "GET",
+                             "wsgi.input": io.BytesIO()}, lambda s, o: vastaus.update(s=s, o=dict(o))))
+    assert vastaus["s"] == "200 OK" and data == jpeg and vastaus["o"]["Content-Type"] == "image/jpeg"
+    # kuvan poisto
+    pyynto(f"/yllapito/kortti/{avain}", metodi="POST", evaste=evaste, runko=lomake(
+        teksti="", kortin_linkit="", poista_kuva="1"))
+    assert kanta.lue(app.kortit.KOKOELMA, avain) == {"linkit": []} and kanta.lue(app.kortit.KUVAT, avain) is None
+    assert not app._kortin_kuva_url(KIPINA).startswith("/kortti-kuva/")
+
+
+def test_ehdotuksen_muokkauksessa_kortin_linkit(ymparisto):
+    kanta, _ = ymparisto
+    osoite = pyynto("/ehdota", metodi="POST", runko=lomake(
+        laji="uusi", nimi="Kitkajoki", mittari_virtaama="7300350", k1_nimi="Käylä – Juuma", k1_q_toimii_ala="20",
+        verkkosivu=""))[1]["Location"]
+    tunniste = osoite.removeprefix("/ehdotus/")
+    evaste = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))[1]["Set-Cookie"].split(";")[0]
+    pyynto(f"{osoite}/kasittele", metodi="POST", runko=lomake(toiminto="hyvaksy"), evaste=evaste)
+    assert pyynto(f"/yllapito/kortti/{tunniste}", evaste=evaste)[1]["Location"] == f"{osoite}/muokkaa"
+    sivu = pyynto(f"{osoite}/muokkaa", evaste=evaste)[2]
+    assert 'name="kortin_linkit"' in sivu and f"/api/kortti/{tunniste}/kuva" in sivu
+    kentat = ehdotukset.muokkauskentat(kanta.lue(ehdotukset.KOKOELMA, tunniste))
+    assert pyynto(f"{osoite}/muokkaa", metodi="POST", evaste=evaste, runko=lomake(
+        **kentat, kortin_linkit="Kartta | https://example.com/k"))[0] == "303 See Other"
+    assert "🔗 Linkit (1)" in pyynto(osoite)[2]
+
+
+def test_korvattu_tulikurkku_palautetaan_kasittelyyn(ymparisto):
+    kanta, _ = ymparisto
+    tun = "Kh9e2kcPZfw8KrOZH8h06A"
+    kanta.kirjoita(ehdotukset.KOKOELMA, tun, {"laji": "uusi", "nimi": "Tulikurkku", "tyyppi": "peli",
+                                              "tila": "hyvaksytty", "kohteet": [], "linkit": [], "teksti": "x",
+                                              "mittari_virtaama": "60/q6000110y/qinlyhyt.png"})
+    assert pyynto(f"/ehdotus/{tun}")[0] == "303 See Other"
+    evaste = pyynto("/yllapito", metodi="POST", runko=lomake(salasana="salainen"))[1]["Set-Cookie"].split(";")[0]
+    assert "piilotettu (korvattu)" in pyynto("/yllapito", evaste=evaste)[2]
+    status, _, sivu = pyynto(f"/ehdotus/{tun}", "y=1", evaste=evaste)
+    assert status == "200 OK" and "Piilotettu" in sivu and 'value="palauta"' in sivu
+    pyynto(f"/ehdotus/{tun}/kasittele", metodi="POST", runko=lomake(toiminto="palauta"), evaste=evaste)
+    tallessa = kanta.lue(ehdotukset.KOKOELMA, tun)
+    assert tallessa["tila"] == "odottaa" and tallessa["palautettu"]
+    assert pyynto(f"/ehdotus/{tun}")[0] == "200 OK"   # ei enää ohjausta
+    pyynto(f"/ehdotus/{tun}/kasittele", metodi="POST", runko=lomake(toiminto="hyvaksy"), evaste=evaste)
+    assert "Tulikurkku" in [p.nimi for p in app.kaikki_paikat()]

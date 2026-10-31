@@ -17,3 +17,4 @@ def ei_verkkotilannetta(monkeypatch):
     (testi, joka tarvitsee tilanteen, korvaa _paikkasivun_tilanne-funktion itse)."""
     import app
     monkeypatch.setattr(app, "_paikkasivun_tilanne", lambda: None)
+    monkeypatch.setattr(app, "_kortit", None)   # korttilisäykset eivät vuoda testistä toiseen
