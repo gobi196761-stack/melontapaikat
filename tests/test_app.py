@@ -16,7 +16,7 @@ import muut_kohteet
 import osm_sivut as osm
 import syke_data
 import syke_kaavio
-from paikat import PAIKAT
+from paikat import PAIKAT, Paikka
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PAIVA = dt.datetime(2026, 10, 18, 16, 5)
@@ -500,12 +500,20 @@ def test_ajomatkat(monkeypatch):
     assert app.ajomatkat("abc", "ok")[0] == "400 Bad Request"
     assert app.ajomatkat("40.0,25.0", "ok")[0] == "400 Bad Request"
     assert app.ajomatkat("60.0,25.0", "rikki")[0] == "503 Service Unavailable"
+    # uusi julkaistu kohde: muistissa oleva vastaus ei kelpaa, vaan matkat haetaan uudelleen
+    uusi = Paikka("Uusi kohde", "/ehdotus/x", "peli", None, "")
+    monkeypatch.setitem(app.SIJAINNIT, "Uusi kohde", (65.1, 25.8))
+    monkeypatch.setattr(app, "kaikki_paikat", lambda: PAIKAT + (uusi,))
+    monkeypatch.setattr(app.osm, "hae_turvallisesti", lambda h, url: (json.dumps({"distances": [
+        [0] + [1000.0] * (len(paikat) + 1)]}).encode(), None))
+    assert app.ajomatkat("66.5,25.73", "ok")[1]["km"]["Uusi kohde"] == 1.0
 
 
 def test_ei_json_linkkia_ja_ajomatka_selaimessa(palvelin):
     runko = pyynto("/")[2]
     assert ">JSON</a>" not in runko
     assert 'fetch("/api/ajomatkat?v=2&lahto="' in runko and "linnuntietä" not in runko
+    assert '"&p=" + p.toString(36)' in runko   # paikkojen joukko osoitteessa: välimuisti ei piilota uutta kohdetta
 
 
 def test_saa_perilla_ja_veden_lampotila(monkeypatch, palvelin, tilanne):
