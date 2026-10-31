@@ -54,6 +54,7 @@ import paikkasivut
 import paikkasivut_en
 import kaavio_svg
 import kielet
+import kortit
 import kuvat
 import muut_kohteet
 import retket
@@ -530,6 +531,8 @@ main.etusivu { padding-top:12px; padding-bottom:96px; }
 .olot.p-huono { background:color-mix(in srgb, var(--huono) 14%, transparent); }
 .kortti-tiedot .pieni { padding-right:72px; }
 details.tiedot { margin-top:8px; }
+details.linkkiluukku { margin:18px 0; padding:8px 12px; border:1px solid var(--viiva); border-radius:8px; }
+details.linkkiluukku > summary { font-weight:600; cursor:pointer; }
 details.tiedot > summary { font-size:.88rem; }
 ul.kortit { list-style:none; padding:0; }
 ul.kortit > li { border-bottom:1px solid var(--viiva); padding:14px 0; margin:0; }
@@ -1397,12 +1400,20 @@ def _olot(tila: str | None, kieli: str) -> str:
     return f'<span class="olot {OLOT_LUOKKA[tila]}">{OLOT["en" if kieli == "en" else "fi"][tila]}</span>'
 
 
+def _kortin_kuva_url(paikka, kuva: dict | None = None) -> str:
+    """Ylläpitäjän lataama kuva, sovelluksen tekijän oma kuva, Commonsin kuva tai sovelluksen kuvake."""
+    versio = kortin_tiedot(paikka).get("kuva_versio")
+    if versio:
+        return f"/kortti-kuva/{kortit.avain(paikka)}.jpg?v={versio}"
+    oma = kuvat.OMAT.get(paikka.nimi)
+    return f"/omat-kuvat/{oma}" if oma else kuva["pieni"] if kuva else sovellus.kuvake_osoite(512)
+
+
 def _kortti(paikka, kuva: dict | None, kieli: str, km: str = "", merkki: str = "", suosikki: bool = True) -> str:
     """Kohteen kortti: iso kuva (paikan oma tai sovelluksen kuva), nimi, suosikki, tilamerkki, tyyppi ja matka."""
     k_ = lambda teksti: kielet.kaanna(teksti, kieli)   # noqa: E731
     osoite = paikan_osoite(paikka, kieli)
-    oma = kuvat.OMAT.get(paikka.nimi)
-    kuva_url = f"/omat-kuvat/{oma}" if oma else kuva["pieni"] if kuva else sovellus.kuvake_osoite(512)
+    kuva_url = _kortin_kuva_url(paikka, kuva)
     tiedot = " · ".join(x for x in (e(k_(paikka.tyyppi)).capitalize(), km) if x)
     return (f'<div class="kortti"><a class="kortti-kuva" href="{e(osoite)}" tabindex="-1" aria-hidden="true">'
             f'<img src="{e(kuva_url)}" alt="" loading="lazy" width="112" height="112"></a>'
@@ -1416,11 +1427,12 @@ def kuvasivu(kieli: str) -> str:
     """Etusivun korttien kuvat: paikka, tekijä, lisenssi ja linkki Wikimedia Commonsiin."""
     en = kieli == "en"
     tallessa = kuvat.lataa(_kanta())
+    ladatut = {p.nimi for p in kaikki_paikat() if kortin_tiedot(p).get("kuva_versio")}
     rivit = "".join(
         f'<li><b>{e(nimi)}</b>: {e(k["tekija"])} · {e(k["lisenssi"])} · '
         f'<a href="{e(k["sivu"])}" target="_blank" rel="noopener">Wikimedia Commons</a></li>'
-        for nimi, k in sorted(tallessa.items()) if k.get("kuva") and nimi not in kuvat.OMAT)
-    omat = ", ".join(sorted(kuvat.OMAT))
+        for nimi, k in sorted(tallessa.items()) if k.get("kuva") and nimi not in kuvat.OMAT and nimi not in ladatut)
+    omat = ", ".join(sorted(set(kuvat.OMAT) | ladatut))
     oma = ((f"Photos of the app's author: {omat}. " if omat else "") + "Spots without a photo of their own "
            "show the app's own photo." if en else
            (f"Sovelluksen tekijän kuvat: {omat}. " if omat else "") + "Paikoilla, joille ei löytynyt omaa "
@@ -2276,6 +2288,16 @@ def _ehdotuksen_kuvaus(tunniste: str, ehdotus: dict, kieli: str):
     return paikkasivut.Kuvaus(teksti, osiot, ()), lahto_loppu, lahteet, huomiot, loppu
 
 
+def _linkkiluukku(linkit: list[dict] | None, kieli: str) -> str:
+    """Ylläpitäjän lisäämät linkit avautuvana luukkuna paikkasivulla."""
+    if not linkit:
+        return ""
+    rivit = "".join(f'<li><a href="{e(l["url"])}" target="_blank" rel="noopener">{e(l.get("nimi") or l["url"])}</a></li>'
+                    for l in linkit)
+    return (f'<details class="linkkiluukku"><summary>🔗 {"Links" if kieli == "en" else "Linkit"} ({len(linkit)})</summary>'
+            f'<ul class="lahteet">{rivit}</ul></details>')
+
+
 def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None, ehdotus: dict | None = None,
                lisa: str = "") -> str:
     """Paikan koostesivu: lähteistä koottu kuvaus, kohteet ja niiden rajat (paikat.py) sekä lähteet.
@@ -2293,7 +2315,9 @@ def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None, ehdotu
     def kappaleet(teksti: str) -> str:
         return "".join(f"<p>{e(kpl)}</p>" for kpl in re.split(r"\n\s*\n", teksti) if kpl.strip())
 
-    osat = [kappaleet(kuvaus.johdanto if kuvaus else paikka.kuvaus)]
+    kortti = kortin_tiedot(paikka)
+    johdanto = kortti.get("teksti_en" if en else "teksti") if not ehdotus else ""   # ylläpitäjän muokkaama
+    osat = [kappaleet(johdanto or (kuvaus.johdanto if kuvaus else paikka.kuvaus))]
     for otsikko, teksti in (kuvaus.osiot if kuvaus else ()):
         osat.append(f"<h2>{e(otsikko)}</h2>{kappaleet(teksti)}")
 
@@ -2411,6 +2435,7 @@ def paikkasivu(paikka, kieli: str = "fi", tilanne: Tilanne | None = None, ehdotu
 {paikat_html}
 {retkilinkit}
 {kohteet}
+{_linkkiluukku(kortti.get("linkit"), kieli)}
 {_kayttajien_lisaykset(paikka, kieli)}
 {_muut_linkit(_muut_osumat(paikka.url.removeprefix("/ehdotus/"), ehdotus), kieli) if ehdotus else ""}
 <h2>{k_("Lähteet")}</h2>
@@ -2484,6 +2509,29 @@ def kaikki_ehdotukset(pakota: bool = False) -> dict[str, dict]:
         return _ehdotukset[1] if _ehdotukset else {}
     _ehdotukset = (time.monotonic(), kaikki)
     return kaikki
+
+
+_kortit: tuple[float, dict[str, dict]] | None = None
+
+
+def kaikki_kortit(pakota: bool = False) -> dict[str, dict]:
+    """Ylläpitäjän korttilisäykset (avain -> kuvan versio, linkit, tekstit), muistissa kuten ehdotukset."""
+    global _kortit
+    if not pakota and _kortit and time.monotonic() - _kortit[0] < EHDOTUS_VALIMUISTI_S:
+        return _kortit[1]
+    kanta = _kanta()
+    if not kanta:
+        return {}
+    try:
+        kaikki = kanta.listaa(kortit.KOKOELMA)
+    except (firestore.FirestoreVirhe, OSError):
+        return _kortit[1] if _kortit else {}
+    _kortit = (time.monotonic(), kaikki)
+    return kaikki
+
+
+def kortin_tiedot(paikka) -> dict:
+    return kaikki_kortit().get(kortit.avain(paikka)) or {}
 
 
 def hyvaksytyt_ehdotukset() -> list[tuple[str, dict]]:
@@ -3291,6 +3339,117 @@ def ilmoita_taydennyksesta(tunniste: str) -> bool:
     return True
 
 
+def _kortin_osio(avain: str, paikka=None, kentat: dict[str, list[str]] | None = None) -> str:
+    """Lomakkeen korttiosa: korttikuvan vaihto (selain pienentää kuvan ja lähettää sen heti) ja linkkiluukku."""
+    tiedot = kaikki_kortit().get(avain) or {}
+    linkit = ((kentat.get("kortin_linkit") or [""])[0] if kentat is not None
+              else kortit.linkit_tekstiksi(tiedot.get("linkit") or []))
+    kuva = (f"/kortti-kuva/{avain}.jpg?v={tiedot['kuva_versio']}" if tiedot.get("kuva_versio")
+            else _kortin_kuva_url(paikka, kuvat.kuva(paikka.nimi, _kanta())) if paikka is not None
+            else sovellus.kuvake_osoite(512))
+    return f"""<h2>Kortti</h2>
+<label for="kortin-kuva">Korttikuva</label>
+<p><img id="kortin-esikatselu" src="{e(kuva)}" alt="" width="112" height="112"
+  style="width:112px;height:112px;object-fit:cover;border-radius:10px;border:1px solid var(--viiva)"></p>
+<input type="file" id="kortin-kuva" accept="image/*"> <span id="kuva-tila" class="pieni"></span>
+<p class="ohje">Kuva pienennetään ja tallennetaan heti valinnan jälkeen. Kortilla kuva rajataan neliöksi.</p>
+{'<label class="valinta"><input type="checkbox" name="poista_kuva" value="1"> Poista ladattu kuva (palaa automaattiseen kuvaan)</label>' if tiedot.get("kuva_versio") else ""}
+<label for="kortin_linkit">Linkkiluukku</label>
+<p class="ohje">Yksi linkki riville: <code>Otsikko | https://…</code> tai pelkkä osoite. Linkit näkyvät julkaistulla
+sivulla avautuvassa 🔗 Linkit -luukussa.</p>
+<textarea id="kortin_linkit" name="kortin_linkit" rows="5">{e(linkit)}</textarea>
+<script>
+(() => {{
+  const valinta = document.getElementById("kortin-kuva"), tila = document.getElementById("kuva-tila");
+  valinta.addEventListener("change", async () => {{
+    const tiedosto = valinta.files[0];
+    if (!tiedosto) return;
+    tila.textContent = "Tallennetaan…";
+    try {{
+      const kuva = await createImageBitmap(tiedosto, {{imageOrientation: "from-image"}});
+      const suhde = Math.min(1, 1000 / Math.max(kuva.width, kuva.height));
+      const kangas = document.createElement("canvas");
+      kangas.width = Math.round(kuva.width * suhde); kangas.height = Math.round(kuva.height * suhde);
+      kangas.getContext("2d").drawImage(kuva, 0, 0, kangas.width, kangas.height);
+      const data = await new Promise(ok => kangas.toBlob(ok, "image/jpeg", 0.82));
+      const v = await fetch("/api/kortti/{avain}/kuva", {{method: "POST", headers: {{"Content-Type": "image/jpeg"}}, body: data}});
+      if (!v.ok) throw new Error("HTTP " + v.status);
+      document.getElementById("kortin-esikatselu").src = (await v.json()).url;
+      tila.textContent = "✓ Kuva tallennettu.";
+    }} catch (virhe) {{ tila.textContent = "Kuvan tallennus epäonnistui: " + virhe.message; }}
+  }});
+}})();
+</script>"""
+
+
+def tallenna_kortti(avain: str, kentat: dict[str, list[str]], paikka=None) -> str:
+    """Kortin linkit (ja sovelluksen paikalle johdanto suomeksi ja englanniksi) Firestoreen; virhe tai ''."""
+    linkit, virhe = kortit.tulkitse_linkit((kentat.get("kortin_linkit") or [""])[0])
+    if linkit is None:
+        return virhe
+    kanta = _kanta()
+    if not kanta:
+        return "Tietokanta ei ole käytössä."
+    tiedot = dict(kanta.lue(kortit.KOKOELMA, avain) or {})
+    tiedot["linkit"] = linkit
+    if paikka is not None and not paikka.url.startswith("/ehdotus/"):
+        for kentta, oletus in (("teksti", _oletusjohdanto(paikka, "fi")), ("teksti_en", _oletusjohdanto(paikka, "en"))):
+            teksti = (kentat.get(kentta) or [""])[0].replace("\r\n", "\n").strip()
+            if len(teksti) > kortit.TEKSTI_ENINTAAN:
+                return f"Kuvaus on liian pitkä (enintään {kortit.TEKSTI_ENINTAAN} merkkiä)."
+            if teksti and teksti != oletus.strip():
+                tiedot[kentta] = teksti
+            else:
+                tiedot.pop(kentta, None)
+    if (kentat.get("poista_kuva") or [""])[0]:
+        tiedot.pop("kuva_versio", None)
+        kanta.poista(kortit.KUVAT, avain)
+    kanta.kirjoita(kortit.KOKOELMA, avain, tiedot)
+    kaikki_kortit(pakota=True)
+    return ""
+
+
+def tallenna_kortin_kuva(avain: str, data: bytes) -> str | None:
+    """Ylläpitäjän lataama JPEG-kuva; palauttaa kuvan osoitteen tai None."""
+    kanta = _kanta()
+    if not kanta or not kortit.on_jpeg(data):
+        return None
+    versio = str(int(time.time()))
+    kanta.kirjoita(kortit.KUVAT, avain, {"jpeg": base64.b64encode(data).decode("ascii")})
+    tiedot = dict(kanta.lue(kortit.KOKOELMA, avain) or {})
+    tiedot["kuva_versio"] = versio
+    kanta.kirjoita(kortit.KOKOELMA, avain, tiedot)
+    kaikki_kortit(pakota=True)
+    return f"/kortti-kuva/{avain}.jpg?v={versio}"
+
+
+def _oletusjohdanto(paikka, kieli: str) -> str:
+    kuvaus = paikkasivut.KUVAUKSET.get(paikka.nimi)
+    if kieli == "en":
+        kuvaus = paikkasivut_en.KUVAUKSET.get(paikka.nimi, kuvaus)
+    return kuvaus.johdanto if kuvaus else paikka.kuvaus
+
+
+def korttisivu(paikka, virhe: str = "", kentat: dict[str, list[str]] | None = None) -> str:
+    """Sovelluksen paikan kortin muokkaus /yllapito/kortti/<avain>: johdanto, korttikuva ja linkkiluukku.
+    Kohteiden rajat ovat koodissa (paikat.py)."""
+    avain = kortit.avain(paikka)
+    tiedot = kaikki_kortit().get(avain) or {}
+    def arvo(nimi: str, oletus: str) -> str:
+        return e((kentat.get(nimi) or [""])[0] if kentat is not None else tiedot.get(nimi) or oletus)
+    runko = (f"<h1>Muokkaa: {e(paikka.nimi)}</h1>" + (f'<p class="virhe">{e(virhe)}</p>' if virhe else "")
+             + f'<p><a href="{e(paikan_osoite(paikka))}">Avaa paikkasivu →</a></p>'
+             f'<form class="lomake muokkaus" method="post" action="/yllapito/kortti/{e(avain)}">'
+             f'<label for="teksti">Kuvaus (johdanto)</label><p class="ohje">Kappaleet erotetaan tyhjällä rivillä.</p>'
+             f'<textarea id="teksti" name="teksti" rows="8">{arvo("teksti", _oletusjohdanto(paikka, "fi"))}</textarea>'
+             f'<label for="teksti_en">Kuvaus englanniksi</label>'
+             f'<textarea id="teksti_en" name="teksti_en" rows="8">{arvo("teksti_en", _oletusjohdanto(paikka, "en"))}</textarea>'
+             + _kortin_osio(avain, paikka, kentat)
+             + '<p><button class="nappi" type="submit">💾 Tallenna</button> <a href="/yllapito">Peruuta</a></p></form>'
+             '<p class="pieni">Kohteiden rajat ja mittarit ovat sovelluksen koodissa; niiden muutokset tehdään sinne.</p>')
+    return _sivupohja("Muokkaa korttia", runko, "fi", "/yllapito")
+
+
 def muokkaussivu(tunniste: str, ehdotus: dict, virhe: str = "", kentat: dict[str, list[str]] | None = None) -> str:
     """Ylläpitäjän muokkauslomake /ehdotus/<tunniste>/muokkaa: sivulla näkyvät tekstit, mittarit ja kohteet
     rajoineen. Virheen jälkeen lähetetyt kentät täytetään uudelleen."""
@@ -3344,6 +3503,8 @@ def muokkaussivu(tunniste: str, ehdotus: dict, virhe: str = "", kentat: dict[str
     osat.append("<h2>Kohteet ja rajat</h2>"
                 '<p class="ohje">Avoin raja jätetään tyhjäksi. Tyhjennä kohteen kentät poistaaksesi sen.</p>'
                 + "".join(kohderivit))
+    osat.append(_kortin_osio(tunniste, next((p for p in kaikki_paikat() if p.url == f"/ehdotus/{tunniste}"), None),
+                             kentat))
     runko = (f"<h1>Muokkaa: {e(ehdotukset.nimi(ehdotus))}</h1>"
              + (f'<p class="virhe">{e(virhe)}</p>' if virhe else "")
              + f'<form class="lomake muokkaus" method="post" action="/ehdotus/{e(tunniste)}/muokkaa">{"".join(osat)}'
@@ -3360,6 +3521,9 @@ def muokkaa_ehdotusta(tunniste: str, kentat: dict[str, list[str]]) -> tuple[dict
         return {}, ""
     muokattu, virhe = ehdotukset.muokkaa(ehdotus, kentat)
     if muokattu is None:
+        return ehdotus, virhe
+    virhe = tallenna_kortti(tunniste, kentat)
+    if virhe:
         return ehdotus, virhe
     kanta.kirjoita(ehdotukset.KOKOELMA, tunniste, muokattu)
     global _tilanne
@@ -3475,7 +3639,24 @@ tällä laitteella (vanhentunut tilaus poistuu automaattisesti) ja tarkista puhe
   }});
 }})();
 </script>"""
-    runko = ("<h1>Ylläpito: ehdotukset</h1>" + tilaus + "".join(osat)
+    kortti_rivit = "".join(
+        f'<li data-nimi="{e(p.nimi.lower())}"><a href="/yllapito/kortti/{e(kortit.avain(p))}">{e(p.nimi)}</a></li>'
+        for p in sorted(kaikki_paikat(), key=lambda p: p.nimi.lower()))
+    haku = f"""<h2>Muokkaa korttia</h2>
+<input type="search" id="korttihaku" placeholder="Hae kohdetta…" aria-label="Hae kohdetta"
+  style="width:100%;max-width:400px;padding:6px 8px">
+<ul id="korttilista" hidden>{kortti_rivit}</ul>
+<script>
+(() => {{
+  const haku = document.getElementById("korttihaku"), lista = document.getElementById("korttilista");
+  haku.addEventListener("input", () => {{
+    const sana = haku.value.trim().toLowerCase();
+    lista.hidden = !sana;
+    for (const li of lista.children) li.hidden = !li.dataset.nimi.includes(sana);
+  }});
+}})();
+</script>"""
+    runko = ("<h1>Ylläpito: ehdotukset</h1>" + tilaus + haku + "".join(osat)
              + '<form method="post" action="/yllapito"><input type="hidden" name="ulos" value="1">'
                '<button class="nappi toissijainen" type="submit">Kirjaudu ulos</button></form>')
     return _sivupohja("Ylläpito", runko, "fi")
@@ -3526,6 +3707,48 @@ def ehdotus_api(polku: str, environ, metodi: str):
         laji = (kysely.get("laji") or ["uusi"])[0]
         return "200 OK", html_tyyppi, ehdotuslomake(kieli, "taydenna" if laji == "taydenna" else "uusi",
                                                     (kysely.get("paikka") or [""])[0]).encode("utf-8")
+    m = re.fullmatch(r"/yllapito/kortti/([A-Za-z0-9_-]+)", polku)
+    if m:   # minkä tahansa kortin muokkaus; käyttäjän kohteella ehdotuksen muokkauslomake
+        if not yllapitaja:
+            return "403 Forbidden", html_tyyppi, b"Ei oikeutta."
+        paikka = next((p for p in kaikki_paikat() if kortit.avain(p) == m.group(1)), None)
+        if paikka is None:
+            return "404 Not Found", html_tyyppi, b"Korttia ei loydy."
+        if paikka.url.startswith("/ehdotus/"):
+            return ohjaa(f"{paikka.url}/muokkaa")
+        if metodi == "POST":
+            kentat = runko_lomake(150000)
+            virhe = tallenna_kortti(m.group(1), kentat, paikka) if kentat else "Lomake on liian pitkä."
+            if virhe:
+                return "400 Bad Request", html_tyyppi, korttisivu(paikka, virhe, kentat).encode("utf-8")
+            return ohjaa(paikan_osoite(paikka))
+        return "200 OK", html_tyyppi, korttisivu(paikka).encode("utf-8")
+    m = re.fullmatch(r"/api/kortti/([A-Za-z0-9_-]+)/kuva", polku)
+    if m and metodi == "POST":
+        if not yllapitaja:
+            return json_vastaus("403 Forbidden", {"virhe": "kirjaudu ensin"})
+        avain = m.group(1)
+        tunnetut = {kortit.avain(p) for p in kaikki_paikat()}
+        if avain not in tunnetut and not (ehdotukset.kelvollinen_tunniste(avain) and avain in kaikki_ehdotukset()):
+            return json_vastaus("404 Not Found", {"virhe": "korttia ei löydy"})
+        try:
+            pituus = int(environ.get("CONTENT_LENGTH") or 0)
+        except ValueError:
+            pituus = 0
+        if not 0 < pituus <= kortit.KUVA_ENINTAAN:
+            return json_vastaus("413 Payload Too Large", {"virhe": "kuva on liian suuri"})
+        url = tallenna_kortin_kuva(avain, environ["wsgi.input"].read(pituus))
+        if not url:
+            return json_vastaus("400 Bad Request", {"virhe": "ei JPEG-kuva"})
+        return json_vastaus("200 OK", {"url": url})
+    m = re.fullmatch(r"/kortti-kuva/([A-Za-z0-9_-]+)\.jpg", polku)
+    if m and metodi in ("GET", "HEAD"):
+        kanta = _kanta()
+        doc = kanta.lue(kortit.KUVAT, m.group(1)) if kanta else None
+        if not doc or not doc.get("jpeg"):
+            return "404 Not Found", [("Content-Type", "text/plain; charset=utf-8")], b"Ei kuvaa.\n"
+        return "200 OK", [("Content-Type", "image/jpeg"),
+                          ("Cache-Control", "public, max-age=31536000, immutable")], base64.b64decode(doc["jpeg"])
     m = re.fullmatch(r"/ehdotus/([A-Za-z0-9_-]+)/muokkaa", polku)
     if m:   # ylläpitäjän muokkauslomake
         tunniste = m.group(1)
