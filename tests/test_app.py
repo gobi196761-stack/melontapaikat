@@ -71,7 +71,7 @@ def test_sivu(palvelin, tilanne):
     assert status == "200 OK"
     assert otsakkeet["Content-Type"].startswith("text/html")
     assert "s-maxage=" in otsakkeet["Cache-Control"]
-    assert runko.index("Matkakoski") < runko.index("Kipinä (Iijoki)") < runko.index("Niskakoski")
+    assert runko.index("Kipinä (Iijoki)") < runko.index("Matkakoski") < runko.index("Niskakoski")
     assert "Oikean silta-aukon surffiaalto" in paikkasivut(tilanne) and "Näytä tiedot" not in runko
     # alussa merkintöjen ja kuvakkeiden selitykset (Kipinän veden lämpötila -laatikko poistettu)
     assert '<details class="selitykset" id="merkinnat"><summary>Merkinnät ja kuvakkeet</summary>' in runko   # suljettu oletuksena
@@ -92,8 +92,8 @@ def test_api_ja_suodatus(palvelin):
     assert data["paiva"] == "2026-10-18"
     assert data["paivitetty"] == "2026-10-18T16:05:00"
     assert [p["nimi"] for p in data["paikat"]] == [
-        "Matkakoski (Tornionjoki)", "Kipinä (Iijoki)", "Niskakoski (Lestijoki)"]
-    assert data["paikat"][1]["pisteet"] == pytest.approx(80)
+        "Kipinä (Iijoki)", "Matkakoski (Tornionjoki)", "Niskakoski (Lestijoki)"]
+    assert data["paikat"][0]["pisteet"] == pytest.approx(90 + 9 * 0.8 / 2.65)   # yksi kohde parhaimmillaan
 
     data = json.loads(pyynto("/api/", "max_km=150")[2])
     assert all(p["km_oulusta"] <= 150 for p in data["paikat"])
@@ -528,7 +528,7 @@ def test_saa_perilla_ja_veden_lampotila(monkeypatch, palvelin, tilanne):
     monkeypatch.setattr(app.osm, "hae_turvallisesti", lambda h, url: (None, "aikakatkaisu"))
     assert app.saaennusteet(None) == {}
     # sivulla kohteen perässä: saapumisaika, ilma, ikoni ja vesi
-    t = tilanne.tulokset[0]
+    t = next(x for x in tilanne.tulokset if x.paikka.nimi.startswith("Matkakoski"))
     next(iter(t.lukemat.values())).veden_lampotila = 4.64
     tilanne.saa, tilanne.ajo_min = {t.paikka.nimi: saa[paikat[0].nimi]}, {t.paikka.nimi: 0}
     runko = pyynto("/")[2]
