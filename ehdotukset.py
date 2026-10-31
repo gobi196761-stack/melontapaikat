@@ -30,6 +30,7 @@ KOKOELMA = "ehdotukset"
 YLLAPITO = "yllapito_tilaukset"
 TILAT = ("odottaa", "hyvaksytty", "hylatty")
 KOHTEITA_ENINTAAN = 6           # lomakkeen "+ Lisää kohde" enintään 6 kertaa
+MUOKATTAVIA_KOHTEITA = 20       # ylläpitäjän muokkauslomakkeella (ehdottajan ja täydennyksen kohteet yhdessä)
 LINKKEJA_ENINTAAN = 10
 TEKSTI_ENINTAAN = 3000
 NIMI_ENINTAAN = 100
@@ -111,7 +112,7 @@ def _kentta(kentat: dict[str, list[str]], nimi: str, enintaan: int = NIMI_ENINTA
 
 
 def tulkitse_kohteet(kentat: dict[str, list[str]], kieli: str = "fi", vanha_suure: str | None = None,
-                     oletusnimi: str = "") -> tuple[list[dict], str]:
+                     oletusnimi: str = "", enintaan: int = KOHTEITA_ENINTAAN) -> tuple[list[dict], str]:
     """Lomakkeen kohderivit k<i>_* -> (kohteet, '') tai ([], virheilmoitus). Ylläpidon muokkauslomakkeella
     lisäksi k<i>_huom_en (englanninkielinen huomio) ja k<i>_arvio (täydennyksen arvioimat rajat)."""
     t = TEKSTIT["en" if kieli == "en" else "fi"]
@@ -120,7 +121,7 @@ def tulkitse_kohteet(kentat: dict[str, list[str]], kieli: str = "fi", vanha_suur
     # paikan nimi, ja lisää pelipaikkoja tai laskuosuuksia tulee "+ Lisää kohde" -napilla
     # Kohteen rajat suureittain: k<i>_q_* = virtaama (m³/s), k<i>_w_* = vedenkorkeus (m); molemmat, toinen
     # tai ei kumpaakaan. Avoin ala- tai yläraja sallitaan; pelkkä optimi käy myös toimii-alueeksi ja päinvastoin.
-    for i in range(1, KOHTEITA_ENINTAAN + 1):
+    for i in range(1, enintaan + 1):
         nimi = _kentta(kentat, f"k{i}_nimi")
         huom = _kentta(kentat, f"k{i}_huom", 300)
         huom_en = _kentta(kentat, f"k{i}_huom_en", 300)
@@ -943,6 +944,7 @@ def muokkauskentat(ehdotus: dict, paikat: tuple[Paikka, ...] = ()) -> dict[str, 
               "teksti": muutos.get("teksti") or (tayd.get("teksti") if tayd else ehdotus.get("teksti")) or "",
               "teksti_en": muutos.get("teksti_en") or en.get("teksti") or "",
               "ehdottajan_teksti": (ehdotus.get("teksti") or "") if tayd else "",
+              "huomiot": tayd.get("huomiot") or "",
               "lahto": tayd.get("lahto") or "", "loppu": tayd.get("loppu") or "",
               "lahto_en": en.get("lahto") or "", "loppu_en": en.get("loppu") or ""}
     if ehdotus.get("laji") == "uusi":
@@ -951,7 +953,7 @@ def muokkauskentat(ehdotus: dict, paikat: tuple[Paikka, ...] = ()) -> dict[str, 
         kentat["mittari_vedenkorkeus"] = mittarit.get("vedenkorkeus", "")
     oletus = oletussuure(ehdotus, paikat)
     huom_en = en.get("huom") or {}
-    for i, k in enumerate(kaikki_kohteet(ehdotus)[:KOHTEITA_ENINTAAN], 1):
+    for i, k in enumerate(kaikki_kohteet(ehdotus)[:MUOKATTAVIA_KOHTEITA], 1):
         kentat[f"k{i}_nimi"] = k.get("nimi") or ""
         kentat[f"k{i}_huom"] = k.get("huom") or ""
         kentat[f"k{i}_huom_en"] = huom_en.get(k.get("nimi")) or k.get("huom_en") or ""
@@ -991,7 +993,8 @@ def muokkaa(ehdotus: dict, kentat: dict[str, list[str]]) -> tuple[dict | None, s
         if tayd:
             tayd["mittarit"] = mittarit
             tayd.pop("mittari", None)
-    kohteet, virhe = tulkitse_kohteet(kentat, "fi", None, ehdotus.get("nimi", "") if uusi else "")
+    kohteet, virhe = tulkitse_kohteet(kentat, "fi", None, ehdotus.get("nimi", "") if uusi else "",
+                                      MUOKATTAVIA_KOHTEITA)
     if virhe:
         return None, virhe
     teksti = (kentat.get("teksti") or [""])[0].strip()
@@ -1005,12 +1008,19 @@ def muokkaa(ehdotus: dict, kentat: dict[str, list[str]]) -> tuple[dict | None, s
         tayd["kohteet"] = []
         for avain in ("lahto", "loppu"):
             tayd[avain] = _kentta(kentat, avain, 300)
+        huomiot = (kentat.get("huomiot") or [""])[0].strip()[:TEKSTI_ENINTAAN]   # tyhjä poistaa osion
+        if huomiot:
+            tayd["huomiot"] = huomiot
+        else:
+            tayd.pop("huomiot", None)
         en = dict(tayd.get("en") or {})
         if en or teksti_en:   # käännös: muokattu teksti; kohteiden huomiot ovat nyt kohteissa
             en.update(teksti=teksti_en, huom={}, lahto=_kentta(kentat, "lahto_en", 300),
                       loppu=_kentta(kentat, "loppu_en", 300))
             tayd["en"] = en
         ehdotus["taydennys"] = {**(ehdotus.get("taydennys") or {}), **tayd}
+        if "huomiot" not in tayd:
+            ehdotus["taydennys"].pop("huomiot", None)
     else:
         ehdotus["teksti"] = teksti
         if teksti_en:

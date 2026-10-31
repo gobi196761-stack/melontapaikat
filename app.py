@@ -3481,13 +3481,15 @@ def muokkaussivu(tunniste: str, ehdotus: dict, virhe: str = "", kentat: dict[str
     osat.append(alue("teksti_en", "Kuvaus englanniksi", "Tyhjä = suomenkielinen kuvaus tai täydennyksen käännös."))
     if tayd:
         osat.append(alue("ehdottajan_teksti", "Ehdottajan teksti", "Näkyy esikatselussa, ei julkaistulla sivulla."))
+        osat.append(alue("huomiot", "Huomioita", "Täydennyksen huomiot: näkyvät esikatselussa ja ylläpitäjälle. "
+                                                 "Tyhjennä kenttä poistaaksesi osion."))
         osat.append(rivi("lahto", "Lähtö") + rivi("loppu", "Loppu")
                     + rivi("lahto_en", "Lähtö englanniksi") + rivi("loppu_en", "Loppu englanniksi"))
     if uusi:
         osat.append(rivi("mittari_virtaama", "Virtaamamittari", 300, "SYKE-aseman numero tai kaavion osoite.")
                     + rivi("mittari_vedenkorkeus", "Vedenkorkeusmittari", 300))
     kohderivit = []
-    for i in range(1, ehdotukset.KOHTEITA_ENINTAAN + 1):
+    for i in range(1, ehdotukset.MUOKATTAVIA_KOHTEITA + 1):
         rajat = ""
         for lyh, otsikko in (("q", "Virtaama m³/s"), ("w", "Vedenkorkeus m")):
             rajat += f'<p class="ohje">{otsikko}</p>' + "".join(
@@ -3499,14 +3501,19 @@ def muokkaussivu(tunniste: str, ehdotus: dict, virhe: str = "", kentat: dict[str
                 for x, nimi_ in (("toimii", "Toimii"), ("paras", "Parhaimmillaan")))
         arvio = (f'<label class="valinta"><input type="checkbox" name="k{i}_arvio" value="1"'
                  f'{" checked" if arvo(f"k{i}_arvio") else ""}> Rajat ovat arvio (täydennys tai ylläpito)</label>')
-        tyhja = not arvo(f"k{i}_nimi")
+        tyhja = not any(arvo(f"k{i}_{x}") for x in ("nimi", "huom", "q_toimii_ala", "q_toimii_yla", "q_paras_ala",
+                                                    "q_paras_yla", "w_toimii_ala", "w_toimii_yla", "w_paras_ala",
+                                                    "w_paras_yla"))
         kohderivit.append(
-            f'<fieldset><legend>Kohde {i}{" (tyhjä = ei kohdetta)" if tyhja else ""}</legend>'
+            f'<fieldset class="muokattava-kohde"{" data-tyhja" if tyhja else ""}><legend>Kohde</legend>'
             + rivi(f"k{i}_nimi", "Nimi", ehdotukset.NIMI_ENINTAAN) + rajat
-            + rivi(f"k{i}_huom", "Huomio") + rivi(f"k{i}_huom_en", "Huomio englanniksi") + arvio + "</fieldset>")
+            + rivi(f"k{i}_huom", "Huomio") + rivi(f"k{i}_huom_en", "Huomio englanniksi") + arvio
+            + '<p><button type="button" class="lisaa-kohde poista-kohde">✕ Poista kohde</button></p></fieldset>')
     osat.append("<h2>Kohteet ja rajat</h2>"
-                '<p class="ohje">Avoin raja jätetään tyhjäksi. Tyhjennä kohteen kentät poistaaksesi sen.</p>'
-                + "".join(kohderivit))
+                '<p class="ohje">Avoin raja jätetään tyhjäksi. Täytä uusi kohde ja paina "+ Lisää kohde", '
+                "niin seuraava avautuu.</p>" + "".join(kohderivit)
+                + '<p><button type="button" class="lisaa-kohde" id="lisaa-kohde">+ Lisää kohde</button> '
+                  '<span class="virhe" id="kohde-virhe"></span></p>' + _KOHDEMUOKKAUS_JS)
     osat.append(_kortin_osio(tunniste, next((p for p in kaikki_paikat() if p.url == f"/ehdotus/{tunniste}"), None),
                              kentat))
     runko = (f"<h1>Muokkaa: {e(ehdotukset.nimi(ehdotus))}</h1>"
@@ -3515,6 +3522,40 @@ def muokkaussivu(tunniste: str, ehdotus: dict, virhe: str = "", kentat: dict[str
                f'<p><button class="nappi" type="submit">💾 Tallenna</button> '
                f'<a href="/ehdotus/{e(tunniste)}?y=1">Peruuta</a></p></form>')
     return _sivupohja("Muokkaa", runko, "fi", f"/ehdotus/{tunniste}?y=1")
+
+
+# Muokkauslomakkeen kohteet: tallennetut näkyvät, tyhjistä vain yksi kerrallaan auki. "+ Lisää kohde" hyväksyy
+# avoimen kohteen (nimi pakollinen) ja avaa seuraavan; "✕ Poista kohde" tyhjentää ja piilottaa kohteen.
+_KOHDEMUOKKAUS_JS = """<script>
+(() => {
+  const kohteet = [...document.querySelectorAll("fieldset.muokattava-kohde")];
+  const virhe = document.getElementById("kohde-virhe"), lisaa = document.getElementById("lisaa-kohde");
+  const nimi = f => f.querySelector('input[name$="_nimi"]');
+  const avaa = () => {
+    const seuraava = kohteet.find(f => f.hidden);
+    if (seuraava) { seuraava.hidden = false; nimi(seuraava).focus(); }
+    lisaa.disabled = !kohteet.some(f => f.hidden);
+  };
+  let auki = false;
+  kohteet.forEach(f => {
+    if (f.hasAttribute("data-tyhja")) { f.hidden = auki; auki = true; f.dataset.uusi = "1"; }
+    f.querySelector(".poista-kohde").addEventListener("click", () => {
+      f.querySelectorAll("input").forEach(i => { if (i.type === "checkbox") i.checked = false; else i.value = ""; });
+      f.hidden = true;
+      kohteet.splice(kohteet.indexOf(f), 1);   // poistettu ei avaudu uudelleen
+      if (!kohteet.some(k => !k.hidden && k.dataset.uusi)) avaa();
+    });
+  });
+  lisaa.addEventListener("click", () => {
+    const avoin = kohteet.find(f => !f.hidden && f.dataset.uusi);
+    if (avoin && !nimi(avoin).value.trim()) { virhe.textContent = "Anna ensin kohteen nimi."; nimi(avoin).focus(); return; }
+    virhe.textContent = "";
+    if (avoin) delete avoin.dataset.uusi;
+    avaa();
+  });
+  lisaa.disabled = !kohteet.some(f => f.hidden);
+})();
+</script>"""
 
 
 def muokkaa_ehdotusta(tunniste: str, kentat: dict[str, list[str]]) -> tuple[dict | None, str]:

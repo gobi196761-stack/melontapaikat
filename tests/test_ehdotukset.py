@@ -846,3 +846,17 @@ def test_korvattu_tulikurkku_palautetaan_kasittelyyn(ymparisto):
     assert pyynto(f"/ehdotus/{tun}")[0] == "200 OK"   # ei enää ohjausta
     pyynto(f"/ehdotus/{tun}/kasittele", metodi="POST", runko=lomake(toiminto="hyvaksy"), evaste=evaste)
     assert "Tulikurkku" in [p.nimi for p in app.kaikki_paikat()]
+
+
+def test_muokkaus_huomiot_ja_monta_kohdetta():
+    ehdotus = {"laji": "uusi", "nimi": "Joki", "teksti": "", "kohteet": [],
+               "taydennys": {"tila": "valmis", "teksti": "T", "huomiot": "Tarkista mittari.", "kohteet": [
+                   {"nimi": f"K{i}", "rajat": {}, "huom": ""} for i in range(8)]}}
+    kentat = ehdotukset.muokkauskentat(ehdotus)
+    assert kentat["huomiot"] == "Tarkista mittari." and kentat["k8_nimi"] == "K7"   # yli 6 kohdetta säilyy
+    muokattu, virhe = ehdotukset.muokkaa(ehdotus, {k: [v] for k, v in {**kentat, "huomiot": "Uusi huomio"}.items()})
+    assert not virhe and muokattu["taydennys"]["huomiot"] == "Uusi huomio" and len(muokattu["kohteet"]) == 8
+    muokattu, _ = ehdotukset.muokkaa(ehdotus, {k: [v] for k, v in {**kentat, "huomiot": " "}.items()})
+    assert "huomiot" not in muokattu["taydennys"]
+    sivu = app.muokkaussivu("abcdefghijklmnopq", ehdotus)
+    assert 'id="huomiot"' in sivu and sivu.count('class="muokattava-kohde" data-tyhja') == 12
