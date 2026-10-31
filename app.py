@@ -905,7 +905,10 @@ SKRIPTI = """
     if (tila) { tila.textContent = ""; tila.hidden = true; }   // onnistuessa ei tilariviä, vain virheet
     if (!oma) { saaOulusta(); if (jarjestysV && jarjestysV.value === "etaisyys") jarjesta(); return; }
     const oma2 = oma.map(v => v.toFixed(2)), tama = ++kysely;
-    fetch("/api/ajomatkat?v=2&lahto=" + oma2.join(","))   // v: vastauksen muoto (ajoajat mukana)
+    // p: sivun paikkojen tunniste, jottei välimuistissa oleva vastaus jätä uutta kohdetta Oulun matkalle
+    let p = 5381;
+    for (const c of rivit.map(r => r.dataset.paikka).sort().join("|")) p = (p * 33 + c.charCodeAt(0)) >>> 0;
+    fetch("/api/ajomatkat?v=2&lahto=" + oma2.join(",") + "&p=" + p.toString(36))   // v: vastauksen muoto
       .then(v => v.ok ? v.json() : Promise.reject(v.status))
       .then(d => {
         if (tama !== kysely) return;   // uudempi valinta ehti ensin
@@ -1648,7 +1651,7 @@ def _halytysosio(k_) -> str:
 
 OSRM_TAULUKKO = "https://router.project-osrm.org/table/v1/driving/{pisteet}?sources=0&annotations=distance,duration"
 AJOMATKA_CACHE = "public, max-age=86400, s-maxage=604800"
-_ajomatkat: dict[tuple[float, float], dict[str, dict[str, float]]] = {}
+_ajomatkat: dict[tuple, dict[str, dict[str, float]]] = {}
 
 
 def ajomatkat(lahto: str, hakija: osm.Hakija | None = None) -> tuple[str, dict]:
@@ -1662,7 +1665,8 @@ def ajomatkat(lahto: str, hakija: osm.Hakija | None = None) -> tuple[str, dict]:
     if not (54 <= lev <= 71 and 4 <= pit <= 35):
         return "400 Bad Request", {"virhe": "lähtöpiste on liian kaukana"}
     paikat = [p for p in kaikki_paikat() if p.sijainti]
-    if (lev, pit, len(paikat)) not in _ajomatkat:
+    avain = (lev, pit, tuple(sorted((p.nimi, p.sijainti) for p in paikat)))   # uusi tai siirretty kohde -> uusi haku
+    if avain not in _ajomatkat:
         pisteet = ";".join(f"{x[1]},{x[0]}" for x in [(lev, pit)] + [p.sijainti for p in paikat])
         data, virhe = osm.hae_turvallisesti(hakija or osm.Hakija(aikaraja=15), OSRM_TAULUKKO.format(pisteet=pisteet))
         try:
@@ -1675,10 +1679,10 @@ def ajomatkat(lahto: str, hakija: osm.Hakija | None = None) -> tuple[str, dict]:
             return "503 Service Unavailable", {"virhe": f"reitityspalvelu ei vastannut: {virhe or 'virheellinen vastaus'}"}
         if len(_ajomatkat) > 2000:
             _ajomatkat.clear()
-        _ajomatkat[(lev, pit, len(paikat))] = {
+        _ajomatkat[avain] = {
             "km": {p.nimi: round(m / 1000, 1) for p, m in zip(paikat, matkat) if m is not None},
             "min": {p.nimi: round(s / 60) for p, s in zip(paikat, ajat) if s is not None}}
-    return "200 OK", {"lahto": [lev, pit], **_ajomatkat[(lev, pit, len(paikat))]}
+    return "200 OK", {"lahto": [lev, pit], **_ajomatkat[avain]}
 
 
 def _cron_kanta(environ):
